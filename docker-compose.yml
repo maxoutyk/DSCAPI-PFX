@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dscapi
+      POSTGRES_USER: dscapi
+      POSTGRES_PASSWORD: dscapi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dscapi -d dscapi']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://dscapi:dscapi@db:5432/dscapi
+      ALLOWED_HOSTS: localhost,127.0.0.1,web
+      SITE_URL: http://localhost
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - '8000'
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - '80:80'
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:

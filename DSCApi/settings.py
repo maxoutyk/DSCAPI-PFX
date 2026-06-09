@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import base64
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -27,23 +29,25 @@ else:
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8#n$8*k^r9j2**wf8^p)guc*7ph4g)0ggah*!n5l(%_@s#42y#'
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-8#n$8*k^r9j2**wf8^p)guc*7ph4g)0ggah*!n5l(%_@s#42y#',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ.get('DEBUG', 'True' if not getattr(sys, 'frozen', False) else 'False').lower() == 'true'
 
-if getattr(sys, 'frozen', False):
-    # Installed .exe: accept LAN/public hostnames (override via DSCAPI_ALLOWED_HOSTS).
-    ALLOWED_HOSTS = os.environ.get('DSCAPI_ALLOWED_HOSTS', '*').split(',')
+_allowed_hosts = os.environ.get('ALLOWED_HOSTS') or os.environ.get('DSCAPI_ALLOWED_HOSTS')
+if _allowed_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(',') if host.strip()]
+elif getattr(sys, 'frozen', False):
+    ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = [
-        's5vdyge63ixk.share.zrok.io',
-        '127.0.0.1',
-        '192.168.1.34',
-        'clientdemo.incitegravity.com',
-        'localhost',
-        'wb8lwkxj762v.share.zrok.io',
-    ]
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+_csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if _csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_origins.split(',') if origin.strip()]
 # Application definition
 
 INSTALLED_APPS = [
@@ -53,11 +57,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework'
+    'rest_framework',
+    'accounts',
+    'signPdf',
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.APIKeyAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -67,6 +74,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -99,12 +107,18 @@ WSGI_APPLICATION = 'DSCApi.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+_database_url = os.environ.get('DATABASE_URL')
+if _database_url:
+    import dj_database_url
+
+    DATABASES = {'default': dj_database_url.config(default=_database_url, conn_max_age=600)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
 
 
 # Password validation
@@ -140,7 +154,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = (BUNDLE_DIR / 'staticfiles') if getattr(sys, 'frozen', False) else (BASE_DIR / 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -163,3 +178,34 @@ SIGNATURE_BOX_PAGE_MARGIN = 5
 SIGNATURE_ICON_DISPLAY_WIDTH = 60
 SIGNATURE_ICON_OVERLAP_INSET = 20
 SIGNATURE_ICON_PADDING = 2
+
+# SaaS settings
+DEFAULT_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_MONTHLY_QUOTA', '100'))
+SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8080')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dscapi.local')
+
+if os.environ.get('EMAIL_HOST'):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ['EMAIL_HOST']
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+_encryption_key = os.environ.get('ENCRYPTION_KEY')
+if _encryption_key:
+    ENCRYPTION_KEY = _encryption_key.encode() if isinstance(_encryption_key, str) else _encryption_key
+else:
+    ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest())
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+if not DEBUG and not getattr(sys, 'frozen', False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    _secure_cookies = os.environ.get('SECURE_COOKIES', 'false').lower() == 'true'
+    SESSION_COOKIE_SECURE = _secure_cookies
+    CSRF_COOKIE_SECURE = _secure_cookies

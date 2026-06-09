@@ -1,0 +1,10 @@
+{% extends "accounts/base.html" %}
+{% block title %}Verify email — DSCAPI{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 560px; margin: 0 auto;">
+  <h1>Check your email</h1>
+  <p>We sent a verification link to your email address. Click the link to continue.</p>
+  <p class="muted">After verification, an administrator will review and approve your account before you can sign PDFs.</p>
+  <a class="btn" href="{% url 'login' %}">Back to login</a>
+</div>
+{% endblock %}

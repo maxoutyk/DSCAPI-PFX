@@ -1,0 +1,36 @@
+{% extends "accounts/base.html" %}
+{% block title %}Dashboard — DSCAPI{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<p class="muted">Organization: <strong>{{ tenant.name }}</strong></p>
+
+<div class="card">
+  <h2>Account status</h2>
+  {% if tenant.status == 'active' %}
+    <span class="badge badge-active">Active</span>
+  {% elif tenant.status == 'pending_approval' %}
+    <span class="badge badge-pending">Pending approval</span>
+    <p class="muted">An administrator will approve your account shortly.</p>
+  {% elif tenant.status == 'pending_email' %}
+    <span class="badge badge-pending">Pending email verification</span>
+  {% else %}
+    <span class="badge badge-suspended">Suspended</span>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Usage this month</h2>
+  <p style="font-size: 2rem; margin: 0;">{{ tenant.usage_this_month }} / {{ tenant.monthly_quota }}</p>
+  <p class="muted">Signatures used · resets {{ tenant.quota_reset_at|date:"M j, Y" }}</p>
+</div>
+
+<div class="card">
+  <h2>Quick start</h2>
+  <ol>
+    <li>Wait for account approval (if not yet active).</li>
+    <li><a href="{% url 'keys' %}">Create an API key</a>.</li>
+    <li><a href="{% url 'certs' %}">Upload a saved PFX</a> (optional).</li>
+    <li><a href="{% url 'docs' %}">Read the API docs</a> and integrate.</li>
+  </ol>
+</div>
+{% endblock %}

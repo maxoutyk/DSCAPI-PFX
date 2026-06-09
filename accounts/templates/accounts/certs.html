@@ -1,0 +1,52 @@
+{% extends "accounts/base.html" %}
+{% block title %}Certificates — DSCAPI{% endblock %}
+{% block content %}
+<h1>Saved certificates</h1>
+<p class="muted">Upload a PFX once and reference it by alias in API calls. The PFX password is still required on each sign request.</p>
+
+<div class="card">
+  <h2>Upload certificate</h2>
+  {% if tenant.status != 'active' %}
+    <p class="muted">Your account must be approved before uploading certificates.</p>
+  {% else %}
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+        {% if field.errors %}<div class="message error">{{ field.errors|striptags }}</div>{% endif %}
+      {% endfor %}
+      <button class="btn" type="submit">Save certificate</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Your certificates</h2>
+  {% if certificates %}
+    <table>
+      <thead>
+        <tr><th>Alias</th><th>Uploaded</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for cert in certificates %}
+        <tr>
+          <td><code>{{ cert.alias }}</code></td>
+          <td>{{ cert.created_at|date:"M j, Y" }}</td>
+          <td>
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="delete" value="{{ cert.pk }}">
+              <button class="btn btn-danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No saved certificates. You can still send <code>pfx_base64</code> per request.</p>
+  {% endif %}
+</div>
+{% endblock %}

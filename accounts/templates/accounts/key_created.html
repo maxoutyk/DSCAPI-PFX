@@ -1,0 +1,12 @@
+{% extends "accounts/base.html" %}
+{% block title %}API Key Created — DSCAPI{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>API key created</h1>
+  <p><strong>Copy this key now.</strong> You will not be able to see it again.</p>
+  <div class="key-box">{{ full_key }}</div>
+  <p class="muted">Name: {{ api_key.name }} · Prefix: {{ api_key.prefix }}...</p>
+  <a class="btn" href="{% url 'keys' %}">Back to API keys</a>
+  <a class="btn btn-secondary" href="{% url 'docs' %}">View API docs</a>
+</div>
+{% endblock %}

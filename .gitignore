@@ -10,12 +10,14 @@ dist/
 
 # Django
 db.sqlite3
+staticfiles/
 *.log
 local_settings.py
 
 # Environment / secrets
 .env
 .env.*
+!.env.example
 certs/*.pfx
 certs/*.p12
 certs/*.pem
@@ -34,7 +36,9 @@ Thumbs.db
 # Test / sample outputs
 Sales Invoice.pdf
 Sales Invoice - signed.pdf
+Sales Invoice - api-signed.pdf
 signed_output.pdf
+DSCAPI-PFX-Setup.exe
 
 # Windows / PyInstaller build artifacts
 build/DSCAPI-PFX/

@@ -1,0 +1,54 @@
+{% extends "accounts/base.html" %}
+{% block title %}API Keys — DSCAPI{% endblock %}
+{% block content %}
+<h1>API Keys</h1>
+<p class="muted">Use keys in the <code>Authorization: Bearer dsc_live_...</code> header.</p>
+
+<div class="card">
+  <h2>Create key</h2>
+  {% if tenant.status != 'active' %}
+    <p class="muted">Your account must be approved before creating API keys.</p>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <label for="id_name">Key name</label>
+      {{ form.name }}
+      <button class="btn" type="submit">Create API key</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Your keys</h2>
+  {% if api_keys %}
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for key in api_keys %}
+        <tr>
+          <td>{{ key.name }}</td>
+          <td><code>{{ key.prefix }}...</code></td>
+          <td>{{ key.created_at|date:"M j, Y" }}</td>
+          <td>{{ key.last_used_at|default:"—" }}</td>
+          <td>
+            {% if not key.revoked_at %}
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="revoke" value="{{ key.pk }}">
+              <button class="btn btn-danger" type="submit">Revoke</button>
+            </form>
+            {% else %}
+            <span class="muted">Revoked</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No API keys yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

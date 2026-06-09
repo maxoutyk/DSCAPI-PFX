@@ -21,6 +21,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
+      - name: Collect static files
+        env:
+          DJANGO_SETTINGS_MODULE: DSCApi.settings
+        run: python manage.py collectstatic --noinput
+
       - name: Build executable
         env:
           DJANGO_SETTINGS_MODULE: DSCApi.settings

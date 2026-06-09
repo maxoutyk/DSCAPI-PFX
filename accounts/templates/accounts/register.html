@@ -1,0 +1,18 @@
+{% extends "accounts/base.html" %}
+{% block title %}Register — DSCAPI{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+  <h1>Create account</h1>
+  <p class="muted">Register your organization to use the PDF signing API.</p>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<div class="message error">{{ field.errors|striptags }}</div>{% endif %}
+    {% endfor %}
+    <button class="btn" type="submit">Register</button>
+  </form>
+  <p class="muted" style="margin-top: 16px;">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+</div>
+{% endblock %}

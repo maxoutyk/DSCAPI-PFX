@@ -20,7 +20,11 @@ def normalize_binaries(items):
 
 block_cipher = None
 
-hiddenimports = collect_submodules('signPdf') + collect_submodules('DSCApi')
+hiddenimports = (
+    collect_submodules('signPdf')
+    + collect_submodules('DSCApi')
+    + collect_submodules('accounts')
+)
 hiddenimports += [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -28,6 +32,9 @@ hiddenimports += [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'whitenoise',
+    'whitenoise.middleware',
+    'whitenoise.storage',
     'rest_framework',
     'endesive.pdf.cms',
     'endesive.pdf.PyPDF2_annotate',
@@ -36,10 +43,13 @@ hiddenimports += [
     'cryptography.hazmat.backends.openssl',
 ]
 
+_staticfiles = project_root / 'staticfiles'
 datas = [
     (str(project_root / 'signPdf' / 'assets'), 'signPdf/assets'),
     (str(project_root / 'certs' / '.gitkeep'), 'certs'),
 ]
+if _staticfiles.is_dir():
+    datas.append((str(_staticfiles), 'staticfiles'))
 binaries = normalize_binaries(collect_dynamic_libs('fitz'))
 
 for package in ('django', 'rest_framework', 'endesive'):
