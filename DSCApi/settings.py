@@ -10,10 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# When frozen (PyInstaller), keep writable data beside the .exe.
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys.executable).parent
+    BUNDLE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    BUNDLE_DIR = BASE_DIR
 
 
 # Quick-start development settings - unsuitable for production
@@ -25,7 +32,18 @@ SECRET_KEY = 'django-insecure-8#n$8*k^r9j2**wf8^p)guc*7ph4g)0ggah*!n5l(%_@s#42y#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['s5vdyge63ixk.share.zrok.io', '127.0.0.1', '192.168.1.34','clientdemo.incitegravity.com' ,'localhost','wb8lwkxj762v.share.zrok.io']
+if getattr(sys, 'frozen', False):
+    # Installed .exe: accept LAN/public hostnames (override via DSCAPI_ALLOWED_HOSTS).
+    ALLOWED_HOSTS = os.environ.get('DSCAPI_ALLOWED_HOSTS', '*').split(',')
+else:
+    ALLOWED_HOSTS = [
+        's5vdyge63ixk.share.zrok.io',
+        '127.0.0.1',
+        '192.168.1.34',
+        'clientdemo.incitegravity.com',
+        'localhost',
+        'wb8lwkxj762v.share.zrok.io',
+    ]
 # Application definition
 
 INSTALLED_APPS = [
@@ -133,7 +151,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 PFX_CERTS_DIR = BASE_DIR / 'certs'
 
 # Digital signature appearance on signed PDFs
-SIGNATURE_ICON = BASE_DIR / 'signPdf' / 'assets' / 'green-tick.png'
+SIGNATURE_ICON = BUNDLE_DIR / 'signPdf' / 'assets' / 'green-tick.png'
 SIGNATURE_BOX_MIN_WIDTH = 118
 SIGNATURE_BOX_HEIGHT = 64
 SIGNATURE_FONT_SIZE = 8

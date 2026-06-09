@@ -7,7 +7,6 @@ __pycache__/
 *.egg-info/
 .eggs/
 dist/
-build/
 
 # Django
 db.sqlite3
@@ -36,3 +35,9 @@ Thumbs.db
 Sales Invoice.pdf
 Sales Invoice - signed.pdf
 signed_output.pdf
+
+# Windows / PyInstaller build artifacts
+build/DSCAPI-PFX/
+build/windows/dist/
+build/windows/build/
+build/windows/installer-output/
