@@ -1,7 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DSCApi.settings')
+
+from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_submodules
 
 project_root = Path(SPECPATH).resolve().parents[1]
 
@@ -27,13 +30,15 @@ datas = [
     (str(project_root / 'signPdf' / 'assets'), 'signPdf/assets'),
     (str(project_root / 'certs' / '.gitkeep'), 'certs'),
 ]
-binaries = []
+binaries = collect_dynamic_libs('fitz')
 
-for package in ('django', 'rest_framework', 'endesive', 'fitz'):
+for package in ('django', 'rest_framework', 'endesive'):
     pkg_datas, pkg_hidden, pkg_binaries = collect_all(package)
     datas += pkg_datas
-    hiddenimports += pkg_hidden
+    hiddenimports += [item for item in pkg_hidden if isinstance(item, str)]
     binaries += pkg_binaries
+
+hiddenimports = sorted(set(hiddenimports))
 
 a = Analysis(
     [str(project_root / 'build' / 'windows' / 'launcher.py')],
