@@ -1,12 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 from pathlib import Path
 
+project_root = Path(SPECPATH).resolve().parents[1]
+sys.path.insert(0, str(project_root))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DSCApi.settings')
 
 from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_submodules
 
-project_root = Path(SPECPATH).resolve().parents[1]
+
+def normalize_binaries(items):
+    normalized = []
+    for item in items:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            normalized.append((item[0], item[1]))
+    return normalized
+
 
 block_cipher = None
 
@@ -30,13 +40,13 @@ datas = [
     (str(project_root / 'signPdf' / 'assets'), 'signPdf/assets'),
     (str(project_root / 'certs' / '.gitkeep'), 'certs'),
 ]
-binaries = collect_dynamic_libs('fitz')
+binaries = normalize_binaries(collect_dynamic_libs('fitz'))
 
 for package in ('django', 'rest_framework', 'endesive'):
     pkg_datas, pkg_hidden, pkg_binaries = collect_all(package)
     datas += pkg_datas
     hiddenimports += [item for item in pkg_hidden if isinstance(item, str)]
-    binaries += pkg_binaries
+    binaries += normalize_binaries(pkg_binaries)
 
 hiddenimports = sorted(set(hiddenimports))
 
