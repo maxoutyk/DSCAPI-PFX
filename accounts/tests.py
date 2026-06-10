@@ -1,14 +1,23 @@
-from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from datetime import timedelta
 
-from .models import Tenant, TenantMembership, TenantStatus
+from django.contrib.auth.models import User
+from django.core import mail
+from django.test import Client, TestCase, override_settings
+from django.utils import timezone
+
+from .emailing import resend_verification_email, send_password_reset_email, send_verification_email
+from .models import EmailVerificationToken, PasswordResetToken, Tenant, TenantMembership, TenantStatus
 from .services import (
+    PasswordResetTokenExpiredError,
+    VerificationTokenExpiredError,
     authenticate_api_key,
     create_api_key,
     encrypt_pfx,
     decrypt_pfx,
     get_stored_certificate_bytes,
     register_tenant,
+    request_password_reset,
+    reset_password_with_token,
     store_certificate,
     verify_email,
 )
@@ -31,6 +40,52 @@ class RegistrationFlowTests(TestCase):
         self.assertEqual(verified.status, TenantStatus.PENDING_APPROVAL)
         user.refresh_from_db()
         self.assertTrue(user.is_active)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    SITE_URL='https://app.example.com',
+    DEFAULT_FROM_EMAIL='noreply@example.com',
+)
+class VerificationEmailTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='verify@example.com',
+            email='verify@example.com',
+            password='secure-pass-123',
+            is_active=False,
+        )
+        self.tenant = Tenant.objects.create(
+            name='Verify Org',
+            slug='verify-org',
+            status=TenantStatus.PENDING_EMAIL,
+        )
+        TenantMembership.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            role='owner',
+            is_primary=True,
+        )
+
+    def test_send_verification_email_html_and_text(self):
+        send_verification_email(self.user)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.subject, 'Verify your IG E-Sign account')
+        self.assertIn('https://app.example.com/verify-email/', message.body)
+        self.assertEqual(len(message.alternatives), 1)
+        html, content_type = message.alternatives[0]
+        self.assertEqual(content_type, 'text/html')
+        self.assertIn('Verify your IG E-Sign account', html)
+
+    def test_resend_verification_email_replaces_old_token(self):
+        send_verification_email(self.user)
+        first_token = self.user.email_tokens.first().token
+        resend_verification_email(self.user.email)
+        self.assertEqual(len(mail.outbox), 2)
+        active_tokens = EmailVerificationToken.objects.filter(user=self.user, used_at__isnull=True)
+        self.assertEqual(active_tokens.count(), 1)
+        self.assertNotEqual(active_tokens.first().token, first_token)
 
 
 class APIKeyTests(TestCase):
@@ -65,3 +120,116 @@ class CertificateEncryptionTests(TestCase):
         encrypted = encrypt_pfx(data)
         self.assertNotEqual(encrypted, data)
         self.assertEqual(decrypt_pfx(encrypted), data)
+
+    def test_decrypt_accepts_memoryview(self):
+        data = b'secret-cert-data'
+        encrypted = encrypt_pfx(data)
+        self.assertEqual(decrypt_pfx(memoryview(encrypted)), data)
+
+
+@override_settings(VERIFY_EMAIL_TOKEN_HOURS=24)
+class VerificationTokenSecurityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='expired@example.com',
+            email='expired@example.com',
+            password='secure-pass-123',
+            is_active=False,
+        )
+        self.tenant = Tenant.objects.create(
+            name='Expired Org',
+            slug='expired-org',
+            status=TenantStatus.PENDING_EMAIL,
+        )
+        TenantMembership.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            role='owner',
+            is_primary=True,
+        )
+        self.token = EmailVerificationToken.objects.create(user=self.user)
+
+    def test_expired_verification_token_rejected(self):
+        EmailVerificationToken.objects.filter(pk=self.token.pk).update(
+            created_at=timezone.now() - timedelta(hours=25),
+        )
+        self.token.refresh_from_db()
+        with self.assertRaises(VerificationTokenExpiredError):
+            verify_email(self.token.token)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    SITE_URL='https://app.example.com',
+    DEFAULT_FROM_EMAIL='noreply@example.com',
+)
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='reset@example.com',
+            email='reset@example.com',
+            password='old-password-123',
+            is_active=True,
+        )
+        self.tenant = Tenant.objects.create(
+            name='Reset Org',
+            slug='reset-org',
+            status=TenantStatus.ACTIVE,
+        )
+        TenantMembership.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            role='owner',
+            is_primary=True,
+        )
+
+    def test_request_password_reset_sends_email(self):
+        request_password_reset(self.user.email)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Reset your IG E-Sign password', mail.outbox[0].subject)
+        self.assertIn('/reset-password/', mail.outbox[0].body)
+
+    def test_request_password_reset_unknown_email_silent(self):
+        request_password_reset('nobody@example.com')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reset_password_with_token(self):
+        send_password_reset_email(self.user)
+        token = self.user.password_reset_tokens.first().token
+        reset_password_with_token(token, 'new-secure-pass-99')
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('new-secure-pass-99'))
+        self.assertIsNotNone(self.user.password_reset_tokens.first().used_at)
+
+    def test_expired_reset_token_rejected(self):
+        send_password_reset_email(self.user)
+        token = self.user.password_reset_tokens.first()
+        PasswordResetToken.objects.filter(pk=token.pk).update(
+            created_at=timezone.now() - timedelta(hours=3),
+        )
+        token.refresh_from_db()
+        with self.assertRaises(PasswordResetTokenExpiredError):
+            reset_password_with_token(token.token, 'new-secure-pass-99')
+
+    def test_password_reset_confirm_page(self):
+        send_password_reset_email(self.user)
+        token = self.user.password_reset_tokens.first().token
+        client = Client()
+        response = client.post(
+            f'/reset-password/{token}/',
+            {'password': 'brand-new-pass', 'password_confirm': 'brand-new-pass'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/login/')
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('brand-new-pass'))
+
+
+@override_settings(RATELIMIT_DEFAULT_LIMIT=2, RATELIMIT_DEFAULT_PERIOD=900)
+class PortalRateLimitTests(TestCase):
+    def test_login_rate_limit_blocks_after_failures(self):
+        client = Client()
+        for _ in range(2):
+            client.post('/login/', {'username': 'nobody@example.com', 'password': 'wrong'})
+        response = client.post('/login/', {'username': 'nobody@example.com', 'password': 'wrong'})
+        self.assertContains(response, 'Too many attempts')

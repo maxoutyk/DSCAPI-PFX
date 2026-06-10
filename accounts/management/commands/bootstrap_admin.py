@@ -24,7 +24,9 @@ class Command(BaseCommand):
         user.is_staff = True
         user.is_superuser = True
         user.is_active = True
-        user.set_password(password)
+        reset_password = os.environ.get('ADMIN_PASSWORD_RESET', '').lower() == 'true'
+        if created or reset_password:
+            user.set_password(password)
         user.save()
 
         if created:

@@ -1,144 +1,128 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}DSCAPI{% endblock %}</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --border: #2d3a4f;
-      --text: #e7ecf3;
-      --muted: #8b9cb3;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .layout { max-width: 960px; margin: 0 auto; padding: 24px; }
-    .nav {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 32px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-links { display: flex; gap: 16px; flex-wrap: wrap; }
-    .brand { font-weight: 700; font-size: 1.1rem; color: var(--text); }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
-    }
-    h1, h2 { margin-top: 0; }
-    .muted { color: var(--muted); }
-    label { display: block; margin-bottom: 6px; font-size: 0.9rem; }
-    input[type="text"], input[type="email"], input[type="password"], input[type="file"] {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      margin-bottom: 14px;
-    }
-    .btn {
-      display: inline-block;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: none;
-      background: var(--accent);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn:hover { background: var(--accent-hover); text-decoration: none; }
-    .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .btn-danger { background: var(--danger); }
-    .messages { margin-bottom: 16px; }
-    .message {
-      padding: 12px 14px;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      background: #1e3a2f;
-      border: 1px solid #166534;
-    }
-    .message.error { background: #3f1d1d; border-color: #991b1b; }
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    .badge-pending { background: #422006; color: var(--warning); }
-    .badge-active { background: #14532d; color: var(--success); }
-    .badge-suspended { background: #450a0a; color: var(--danger); }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
-    code, pre {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-      display: block;
-      overflow-x: auto;
-      font-size: 0.85rem;
-    }
-    .key-box {
-      font-family: ui-monospace, monospace;
-      word-break: break-all;
-      padding: 14px;
-      background: #111827;
-      border: 1px dashed var(--warning);
-      border-radius: 8px;
-      margin: 12px 0;
-    }
-  </style>
+  <title>{% block title %}IG E-Sign{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'accounts/css/design-tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'accounts/css/layout.css' %}">
+  <link rel="stylesheet" href="{% static 'accounts/css/components.css' %}">
+  <link rel="stylesheet" href="{% static 'accounts/css/motion.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <div class="layout">
-    <nav class="nav">
-      <a class="brand" href="{% url 'home' %}">DSCAPI</a>
-      <div class="nav-links">
-        {% if user.is_authenticated %}
-          <a href="{% url 'dashboard' %}">Dashboard</a>
-          <a href="{% url 'keys' %}">API Keys</a>
-          <a href="{% url 'certs' %}">Certificates</a>
-          <a href="{% url 'docs' %}">API Docs</a>
-          <a href="{% url 'logout' %}">Logout</a>
-        {% else %}
-          <a href="{% url 'login' %}">Login</a>
-          <a href="{% url 'register' %}">Register</a>
-        {% endif %}
+  {% if user.is_authenticated %}
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-brand">
+        <a href="{% url 'dashboard' %}" class="sidebar-brand-logo" title="IG E-Sign">
+          <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="Incite Gravity" class="brand-logo brand-logo-sm brand-logo--dark">
+          <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="Incite Gravity" class="brand-logo brand-logo-sm brand-logo--light">
+        </a>
+        <span class="sidebar-brand-text">IG E-Sign</span>
       </div>
-    </nav>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="{% url 'dashboard' %}" title="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a class="nav-item" href="{% url 'keys' %}" title="API Keys">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          <span class="nav-label">API Keys</span>
+        </a>
+        <a class="nav-item" href="{% url 'certs' %}" title="Certificates">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span class="nav-label">Certificates</span>
+        </a>
+        <a class="nav-item" href="{% url 'docs' %}" title="API Docs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span class="nav-label">API Docs</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Collapse sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+    </aside>
 
-    {% if messages %}
-      <div class="messages">
-        {% for message in messages %}
+    <div class="app-main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button type="button" class="topbar-btn mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <span>{% block breadcrumb %}IG E-Sign{% endblock %}</span>
+            {% block breadcrumb_page %}<strong> / {% block page_title %}Page{% endblock %}</strong>{% endblock %}
+          </nav>
+        </div>
+        <div class="topbar-right">
+          <button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
+          <div class="user-menu">
+            <button type="button" class="user-avatar" id="user-menu-btn" aria-label="User menu" aria-expanded="false" aria-haspopup="true">
+              {{ user.email|first|upper }}
+            </button>
+            <div class="user-dropdown" id="user-dropdown" role="menu">
+              <span style="display:block;padding:8px 12px;font-size:0.8rem;color:var(--text-secondary);">{{ user.email }}</span>
+              <a href="{% url 'dashboard' %}" role="menuitem">Dashboard</a>
+              <a href="{% url 'logout' %}" role="menuitem">Sign out</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-content page-enter" id="main-content">
+        {% if messages %}
+        <div class="messages" role="status" aria-live="polite">
+          {% for message in messages %}
           <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% block content %}{% endblock %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
   </div>
+
+  {% else %}
+  <div class="auth-shell">
+    <div class="mesh-bg" aria-hidden="true"></div>
+    <svg class="signature-deco" viewBox="0 0 200 60" aria-hidden="true">
+      <path class="signature-stroke" d="M10,45 Q40,10 70,40 T130,35 T190,20"/>
+    </svg>
+    <header class="auth-nav">
+      <a href="{% url 'home' %}" class="auth-nav-brand">
+        <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="Incite Gravity" class="brand-logo brand-logo--dark">
+        <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="Incite Gravity" class="brand-logo brand-logo--light">
+        <span style="font-weight:800;letter-spacing:-0.03em;">IG E-Sign</span>
+      </a>
+      <div class="auth-nav-links">
+        <button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
+        {% block auth_nav %}
+        <a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
+        <a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
+        {% endblock %}
+      </div>
+    </header>
+    {% if messages %}
+    <div class="messages" role="status" aria-live="polite" style="position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 24px;">
+      {% for message in messages %}
+      <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% block public_content %}{% endblock %}
+    <footer style="position:relative;z-index:1;text-align:center;padding:16px;color:var(--text-secondary);font-size:0.75rem;">
+      <a href="https://incitegravity.com/" target="_blank" rel="noopener noreferrer" style="color:var(--text-secondary);">Incite Gravity</a>
+      · ISO 27001:2022 Certified
+    </footer>
+  </div>
+  {% endif %}
+
+  <script src="{% static 'accounts/js/shell.js' %}" defer></script>
+  <script src="{% static 'accounts/js/copy-to-clipboard.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

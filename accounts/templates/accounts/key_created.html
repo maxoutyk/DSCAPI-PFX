@@ -1,12 +1,22 @@
 {% extends "accounts/base.html" %}
-{% block title %}API Key Created — DSCAPI{% endblock %}
+{% block title %}API Key Created — IG E-Sign{% endblock %}
+{% block page_title %}API Key Created{% endblock %}
 {% block content %}
-<div class="card">
+<div class="card" style="max-width:640px;margin:0 auto;text-align:center;">
+  <svg class="success-check animate" viewBox="0 0 72 72" aria-hidden="true">
+    <circle cx="36" cy="36" r="34"/>
+    <path d="M22 36 L32 46 L50 28"/>
+  </svg>
   <h1>API key created</h1>
-  <p><strong>Copy this key now.</strong> You will not be able to see it again.</p>
-  <div class="key-box">{{ full_key }}</div>
-  <p class="muted">Name: {{ api_key.name }} · Prefix: {{ api_key.prefix }}...</p>
-  <a class="btn" href="{% url 'keys' %}">Back to API keys</a>
-  <a class="btn btn-secondary" href="{% url 'docs' %}">View API docs</a>
+  <p style="color:var(--text-secondary);"><strong style="color:var(--warning);">Copy this key now.</strong> You won't see it again.</p>
+  <div class="key-box" id="api-key-value">{{ full_key }}</div>
+  <div class="key-box-actions" style="justify-content:center;">
+    <button type="button" class="btn" data-copy="api-key-value" aria-label="Copy API key to clipboard">Copy key</button>
+    <a class="btn btn-secondary" href="{% url 'keys' %}">Back to keys</a>
+    <a class="btn btn-ghost" href="{% url 'docs' %}">View API docs</a>
+  </div>
+  <p style="margin-top:16px;color:var(--text-secondary);font-size:0.8rem;">
+    <span class="mono">{{ api_key.name }}</span> · prefix <span class="mono">{{ api_key.prefix }}...</span>
+  </p>
 </div>
 {% endblock %}

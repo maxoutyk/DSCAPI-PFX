@@ -1,0 +1,27 @@
+{% extends "accounts/base.html" %}
+{% block title %}Resend verification — IG E-Sign{% endblock %}
+{% block public_content %}
+<div class="auth-body">
+  <div class="glass-card" style="max-width:420px;width:100%;">
+    <h1>Resend verification</h1>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">Enter the email you used to register.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="message error" role="alert">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      {% if form.non_field_errors %}
+      <div class="message error" role="alert">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+      <button class="btn" type="submit" style="width:100%;">Send verification email</button>
+    </form>
+    <p style="margin-top:20px;text-align:center;color:var(--text-secondary);font-size:0.875rem;">
+      <a href="{% url 'login' %}">Back to sign in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

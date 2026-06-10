@@ -1,10 +1,10 @@
 import hashlib
 import secrets
+from datetime import timedelta
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils.text import slugify
 
@@ -12,6 +12,7 @@ from .models import (
     APIKey,
     EmailVerificationToken,
     MembershipRole,
+    PasswordResetToken,
     StoredCertificate,
     Tenant,
     TenantMembership,
@@ -28,6 +29,14 @@ class TenantNotActiveError(Exception):
     pass
 
 
+class VerificationTokenExpiredError(Exception):
+    pass
+
+
+class PasswordResetTokenExpiredError(Exception):
+    pass
+
+
 def _fernet():
     key = settings.ENCRYPTION_KEY
     if isinstance(key, str):
@@ -39,9 +48,19 @@ def encrypt_pfx(pfx_bytes: bytes) -> bytes:
     return _fernet().encrypt(pfx_bytes)
 
 
-def decrypt_pfx(encrypted: bytes) -> bytes:
+def _to_bytes(value) -> bytes:
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return value.encode()
+    return bytes(value)
+
+
+def decrypt_pfx(encrypted) -> bytes:
     try:
-        return _fernet().decrypt(encrypted)
+        return _fernet().decrypt(_to_bytes(encrypted))
     except InvalidToken as exc:
         raise ValueError('Failed to decrypt stored certificate') from exc
 
@@ -90,24 +109,10 @@ def register_tenant(*, email: str, password: str, organization_name: str) -> Ten
         role=MembershipRole.OWNER,
         is_primary=True,
     )
+    from .emailing import send_verification_email
+
     send_verification_email(user)
     return tenant
-
-
-def send_verification_email(user: User):
-    token = EmailVerificationToken.objects.create(user=user)
-    verify_url = f'{settings.SITE_URL.rstrip("/")}/verify-email/{token.token}/'
-    send_mail(
-        subject='Verify your DSCAPI account',
-        message=(
-            f'Welcome to DSCAPI.\n\n'
-            f'Click the link below to verify your email:\n{verify_url}\n\n'
-            f'After verification, an administrator will review your account.'
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=False,
-    )
 
 
 @transaction.atomic
@@ -116,6 +121,10 @@ def verify_email(token_value) -> Tenant:
         token=token_value,
         used_at__isnull=True,
     )
+    expires_after = timedelta(hours=settings.VERIFY_EMAIL_TOKEN_HOURS)
+    if timezone_now() - token.created_at > expires_after:
+        raise VerificationTokenExpiredError('Verification link has expired.')
+
     user = token.user
     user.is_active = True
     user.save(update_fields=['is_active'])
@@ -137,6 +146,42 @@ def timezone_now():
     from django.utils import timezone
 
     return timezone.now()
+
+
+def request_password_reset(email: str) -> None:
+    """Send reset email for active accounts. No-op if email unknown (no enumeration)."""
+    normalized = email.strip().lower()
+    user = User.objects.filter(email__iexact=normalized, is_active=True).first()
+    if not user:
+        return
+
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).delete()
+    from .emailing import send_password_reset_email
+
+    send_password_reset_email(user)
+
+
+@transaction.atomic
+def reset_password_with_token(token_value, new_password: str) -> User:
+    token = PasswordResetToken.objects.select_related('user').get(
+        token=token_value,
+        used_at__isnull=True,
+    )
+    expires_after = timedelta(hours=settings.PASSWORD_RESET_TOKEN_HOURS)
+    if timezone_now() - token.created_at > expires_after:
+        raise PasswordResetTokenExpiredError('Password reset link has expired.')
+
+    user = token.user
+    if not user.is_active:
+        raise ValueError('This account is not active.')
+
+    user.set_password(new_password)
+    user.save(update_fields=['password'])
+
+    token.used_at = timezone_now()
+    token.save(update_fields=['used_at'])
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).exclude(pk=token.pk).delete()
+    return user
 
 
 def get_primary_tenant(user: User) -> Tenant | None:
@@ -206,7 +251,9 @@ def get_stored_certificate_bytes(tenant: Tenant, alias: str) -> bytes:
     return decrypt_pfx(cert.encrypted_pfx)
 
 
+@transaction.atomic
 def record_signing_usage(tenant: Tenant, *, success: bool = True):
+    tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
     tenant.reset_quota_if_needed()
     if success:
         if tenant.usage_this_month >= tenant.monthly_quota:

@@ -1,0 +1,37 @@
+{% extends "accounts/base.html" %}
+{% block title %}IG E-Sign — Digital PDF Signing{% endblock %}
+{% block auth_nav %}
+<a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
+<a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
+{% endblock %}
+{% block public_content %}
+<section class="landing-body">
+  <div class="landing-hero">
+    <p style="color:var(--accent);font-weight:600;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Incite Gravity</p>
+    <h1>Sign PDFs with <span class="accent-text">authority</span>,<br>integrate with ease.</h1>
+    <p>
+      IG E-Sign is Incite Gravity's developer-first digital signature platform.
+      Use your DSC/PFX certificate to sign PDFs programmatically — secure, compliant, and built for business.
+    </p>
+    <div class="landing-cta">
+      <a href="{% url 'register' %}" class="btn btn-lg">Start for free</a>
+      <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
+    </div>
+    <ul style="list-style:none;padding:0;margin-top:32px;display:flex;flex-wrap:wrap;gap:16px;color:var(--text-secondary);font-size:0.85rem;">
+      <li>✓ 100 signs/month free tier</li>
+      <li>✓ Saved PFX certificates</li>
+      <li>✓ REST API + API keys</li>
+    </ul>
+  </div>
+  <div class="glass-card" style="max-width:420px;width:100%;justify-self:center;">
+    <h2 style="margin-bottom:8px;">How it works</h2>
+    <p class="subtitle" style="color:var(--text-secondary);margin-bottom:24px;font-size:0.9rem;">Three steps to your first signed document.</p>
+    <ol style="margin:0;padding-left:20px;color:var(--text-secondary);display:flex;flex-direction:column;gap:16px;">
+      <li><strong style="color:var(--text-primary);">Register</strong> your organization and get approved</li>
+      <li><strong style="color:var(--text-primary);">Create an API key</strong> from your dashboard</li>
+      <li><strong style="color:var(--text-primary);">POST your PDF</strong> to <span class="inline-code">/api/signpdf-pfx</span></li>
+    </ol>
+    <a href="{% url 'register' %}" class="btn" style="width:100%;margin-top:24px;">Create account</a>
+  </div>
+</section>
+{% endblock %}

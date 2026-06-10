@@ -1,0 +1,78 @@
+# Production stack for servers that already run nginx + certbot (e.g. sign.incitegravity.com).
+
+# Web binds localhost:8081 only — host nginx proxies HTTPS to this port.
+
+#
+
+# Usage:
+
+#   docker load < dscapi-image.tar.gz
+
+#   docker compose -f docker-compose.host-nginx.yml up -d
+
+
+
+services:
+
+  db:
+
+    image: postgres:16-alpine
+
+    restart: unless-stopped
+
+    environment:
+
+      POSTGRES_DB: dscapi
+
+      POSTGRES_USER: dscapi
+
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+
+    volumes:
+
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+
+      test: ['CMD-SHELL', 'pg_isready -U dscapi -d dscapi']
+
+      interval: 5s
+
+      timeout: 5s
+
+      retries: 10
+
+
+
+  web:
+
+    image: dscapi:latest
+
+    restart: unless-stopped
+
+    env_file:
+
+      - .env
+
+    environment:
+
+      DATABASE_URL: postgres://dscapi:${POSTGRES_PASSWORD}@db:5432/dscapi
+
+      DEBUG: 'false'
+
+    ports:
+
+      - '127.0.0.1:8081:8000'
+
+    depends_on:
+
+      db:
+
+        condition: service_healthy
+
+
+
+volumes:
+
+  postgres_data:
+

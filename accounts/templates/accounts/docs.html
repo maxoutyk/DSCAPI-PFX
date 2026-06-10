@@ -1,53 +1,66 @@
 {% extends "accounts/base.html" %}
-{% block title %}API Docs — DSCAPI{% endblock %}
+{% block title %}API Docs — IG E-Sign{% endblock %}
+{% block page_title %}API Docs{% endblock %}
 {% block content %}
-<h1>API documentation</h1>
+<div class="page-header">
+  <h1>API documentation</h1>
+  <p class="subtitle">Integrate PDF signing into your application.</p>
+</div>
 
-<div class="card">
+<div class="card card-flat">
   <h2>Sign a PDF</h2>
-  <p><strong>POST</strong> <code>/api/signpdf-pfx</code></p>
-  <p>Authenticate with your API key:</p>
-  <pre>Authorization: Bearer dsc_live_&lt;your-secret-key&gt;</pre>
+  <p><strong>POST</strong> <span class="inline-code">/api/signpdf-pfx</span></p>
+  <p style="color:var(--text-secondary);">Authenticate with your API key:</p>
+  <pre><code>Authorization: Bearer dsc_live_&lt;your-secret-key&gt;</code></pre>
 
   <h3>Request body</h3>
-  <pre>{
+  <p style="color:var(--text-secondary);font-size:0.875rem;">Provide exactly one of <span class="inline-code">pfx_base64</span> or <span class="inline-code">cert_alias</span>.</p>
+
+  <div data-tabs>
+    <div class="tabs" role="tablist" aria-label="Code examples">
+      <button type="button" class="tab-btn is-active" data-tab="tab-inline" role="tab" aria-selected="true">Inline PFX</button>
+      <button type="button" class="tab-btn" data-tab="tab-alias" role="tab" aria-selected="false">Saved cert</button>
+      <button type="button" class="tab-btn" data-tab="tab-curl" role="tab" aria-selected="false">curl</button>
+    </div>
+    <div id="tab-inline" class="tab-panel is-active" role="tabpanel">
+      <pre><code>{
   "pdf_base64": "&lt;base64-encoded PDF&gt;",
   "password": "your-pfx-password",
   "pfx_base64": "&lt;base64-encoded PFX&gt;"
-}</pre>
-
-  <p>Or use a saved certificate (uploaded in the portal):</p>
-  <pre>{
+}</code></pre>
+    </div>
+    <div id="tab-alias" class="tab-panel" role="tabpanel">
+      <pre><code>{
   "pdf_base64": "&lt;base64-encoded PDF&gt;",
   "password": "your-pfx-password",
   "cert_alias": "company-dsc"
-}</pre>
-
-  <p class="muted">Provide exactly one of <code>pfx_base64</code> or <code>cert_alias</code>.</p>
-
-  <h3>Success response (200)</h3>
-  <pre>{
-  "message": "PDF signed successfully using PFX.",
-  "signed_pdf_base64": "..."
-}</pre>
-
-  <h3>Requirements</h3>
-  <ul>
-    <li>Account status must be <strong>active</strong>.</li>
-    <li>Monthly quota: {{ tenant.monthly_quota }} signatures ({{ tenant.usage_this_month }} used).</li>
-    <li>PDF must contain the anchor text <code>Authorised Signatory</code>.</li>
-  </ul>
-</div>
-
-<div class="card">
-  <h2>Example (curl)</h2>
-  <pre>curl -X POST "{{ request.scheme }}://{{ request.get_host }}/api/signpdf-pfx" \
+}</code></pre>
+    </div>
+    <div id="tab-curl" class="tab-panel" role="tabpanel">
+      <pre><code>curl -X POST "{{ request.scheme }}://{{ request.get_host }}/api/signpdf-pfx" \
   -H "Authorization: Bearer dsc_live_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "pdf_base64": "...",
     "cert_alias": "company-dsc",
     "password": "pfx-password"
-  }'</pre>
+  }'</code></pre>
+    </div>
+  </div>
+
+  <h3>Success response (200)</h3>
+  <pre><code>{
+  "message": "PDF signed successfully using PFX.",
+  "signed_pdf_base64": "..."
+}</code></pre>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <h2>Requirements</h2>
+  <ul style="color:var(--text-secondary);display:flex;flex-direction:column;gap:8px;">
+    <li>Account status must be <span class="badge badge-active">Active</span></li>
+    <li>Monthly quota: <strong style="color:var(--text-primary);">{{ tenant.monthly_quota }}</strong> signatures ({{ tenant.usage_this_month }} used)</li>
+    <li>PDF must contain anchor text <span class="inline-code">Authorised Signatory</span></li>
+  </ul>
 </div>
 {% endblock %}

@@ -1,0 +1,23 @@
+[Unit]
+Description=DSCAPI PDF Signing API (Gunicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=dscapi
+Group=dscapi
+WorkingDirectory=/opt/dscapi
+EnvironmentFile=/opt/dscapi/.env
+Environment=DJANGO_SETTINGS_MODULE=DSCApi.settings
+ExecStart=/opt/dscapi/venv/bin/gunicorn DSCApi.wsgi:application \
+    --bind 127.0.0.1:8081 \
+    --workers 2 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile -
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

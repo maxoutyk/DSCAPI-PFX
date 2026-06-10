@@ -1,54 +1,93 @@
 {% extends "accounts/base.html" %}
-{% block title %}API Keys — DSCAPI{% endblock %}
+{% block title %}API Keys — IG E-Sign{% endblock %}
+{% block page_title %}API Keys{% endblock %}
 {% block content %}
-<h1>API Keys</h1>
-<p class="muted">Use keys in the <code>Authorization: Bearer dsc_live_...</code> header.</p>
-
-<div class="card">
-  <h2>Create key</h2>
-  {% if tenant.status != 'active' %}
-    <p class="muted">Your account must be approved before creating API keys.</p>
-  {% else %}
-    <form method="post">
-      {% csrf_token %}
-      <label for="id_name">Key name</label>
-      {{ form.name }}
-      <button class="btn" type="submit">Create API key</button>
-    </form>
-  {% endif %}
+<div class="page-header">
+  <h1>API Keys</h1>
+  <p class="subtitle">Authenticate with <span class="inline-code">Authorization: Bearer dsc_live_...</span></p>
 </div>
 
-<div class="card">
-  <h2>Your keys</h2>
+<div class="grid-2">
+  <div class="card card-flat">
+    <h2>Create key</h2>
+    {% if tenant.status != 'active' %}
+    <p style="color:var(--text-secondary);">Your account must be approved before creating API keys.</p>
+    {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_name">Key name</label>
+        {{ form.name }}
+      </div>
+      <button class="btn" type="submit">Create API key</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="card card-flat">
+    <h2>Usage</h2>
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0;">
+      Keys are shown once at creation. Store them securely — we only keep a hash and prefix.
+    </p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <div class="card-header">
+    <h2>Your keys</h2>
+    <span class="badge badge-neutral">{{ api_keys|length }} total</span>
+  </div>
   {% if api_keys %}
-    <table>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="API keys">
       <thead>
-        <tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr>
+        <tr>
+          <th>Name</th>
+          <th>Prefix</th>
+          <th>Created</th>
+          <th>Last used</th>
+          <th></th>
+        </tr>
       </thead>
       <tbody>
         {% for key in api_keys %}
         <tr>
-          <td>{{ key.name }}</td>
-          <td><code>{{ key.prefix }}...</code></td>
+          <td><strong>{{ key.name }}</strong></td>
+          <td><span class="mono">{{ key.prefix }}...</span></td>
           <td>{{ key.created_at|date:"M j, Y" }}</td>
-          <td>{{ key.last_used_at|default:"—" }}</td>
           <td>
-            {% if not key.revoked_at %}
-            <form method="post" style="display:inline;">
-              {% csrf_token %}
-              <input type="hidden" name="revoke" value="{{ key.pk }}">
-              <button class="btn btn-danger" type="submit">Revoke</button>
-            </form>
+            {% if key.last_used_at %}
+            <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ key.last_used_at|date:"M j, H:i" }}</span>
             {% else %}
-            <span class="muted">Revoked</span>
+            <span style="color:var(--text-secondary);">—</span>
             {% endif %}
+          </td>
+          <td>
+            <div class="table-actions">
+              {% if not key.revoked_at %}
+              <form method="post" onsubmit="return confirm('Revoke this API key?');">
+                {% csrf_token %}
+                <input type="hidden" name="revoke" value="{{ key.pk }}">
+                <button class="btn btn-danger btn-sm" type="submit">Revoke</button>
+              </form>
+              {% else %}
+              <span class="badge badge-neutral">Revoked</span>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
   {% else %}
-    <p class="muted">No API keys yet.</p>
+  <div class="empty-state">
+    <div class="empty-state-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+    </div>
+    <h3>No API keys yet</h3>
+    <p>Create your first key to start signing PDFs via the API.</p>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

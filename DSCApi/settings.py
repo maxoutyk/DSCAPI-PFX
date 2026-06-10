@@ -62,15 +62,43 @@ INSTALLED_APPS = [
     'signPdf',
 ]
 
+_allow_basic = os.environ.get('ALLOW_BASIC_AUTH', '').strip().lower()
+if _allow_basic == 'true':
+    ALLOW_BASIC_AUTH = True
+elif _allow_basic == 'false':
+    ALLOW_BASIC_AUTH = False
+else:
+    # Windows .exe on-prem keeps Basic Auth; public SaaS disables it when DEBUG is off.
+    ALLOW_BASIC_AUTH = getattr(sys, 'frozen', False) or DEBUG
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'accounts.authentication.APIKeyAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'sign_pdf': os.environ.get('THROTTLE_SIGN_PDF', '60/hour'),
+        'sign_pdf_burst': os.environ.get('THROTTLE_SIGN_PDF_BURST', '10/min'),
+    },
 }
+if ALLOW_BASIC_AUTH:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
+        'rest_framework.authentication.BasicAuthentication',
+    )
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'dscapi-cache',
+    }
+}
+
+RATELIMIT_DEFAULT_LIMIT = int(os.environ.get('RATELIMIT_DEFAULT_LIMIT', '10'))
+RATELIMIT_DEFAULT_PERIOD = int(os.environ.get('RATELIMIT_DEFAULT_PERIOD', '900'))
+VERIFY_EMAIL_TOKEN_HOURS = int(os.environ.get('VERIFY_EMAIL_TOKEN_HOURS', '24'))
+PASSWORD_RESET_TOKEN_HOURS = int(os.environ.get('PASSWORD_RESET_TOKEN_HOURS', '2'))
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -184,19 +212,31 @@ DEFAULT_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_MONTHLY_QUOTA', '100'))
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8080')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dscapi.local')
 
-if os.environ.get('EMAIL_HOST'):
+_email_backend = os.environ.get('EMAIL_BACKEND', '').strip()
+if _email_backend:
+    EMAIL_BACKEND = _email_backend
+elif os.environ.get('EMAIL_HOST'):
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+if os.environ.get('EMAIL_HOST'):
     EMAIL_HOST = os.environ['EMAIL_HOST']
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
     EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
-else:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'false').lower() == 'true'
+    EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '30'))
+    SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-_encryption_key = os.environ.get('ENCRYPTION_KEY')
+_encryption_key = os.environ.get('ENCRYPTION_KEY', '').strip()
 if _encryption_key:
     ENCRYPTION_KEY = _encryption_key.encode() if isinstance(_encryption_key, str) else _encryption_key
+elif not DEBUG and not getattr(sys, 'frozen', False):
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured('ENCRYPTION_KEY must be set when DEBUG is false.')
 else:
     ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest())
 
@@ -209,3 +249,10 @@ if not DEBUG and not getattr(sys, 'frozen', False):
     _secure_cookies = os.environ.get('SECURE_COOKIES', 'false').lower() == 'true'
     SESSION_COOKIE_SECURE = _secure_cookies
     CSRF_COOKIE_SECURE = _secure_cookies
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', str(60 * 60 * 24 * 7)))
+    SESSION_EXPIRE_AT_BROWSER_CLOSE = False

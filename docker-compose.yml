@@ -19,8 +19,6 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://dscapi:dscapi@db:5432/dscapi
-      ALLOWED_HOSTS: localhost,127.0.0.1,web
-      SITE_URL: http://localhost
     depends_on:
       db:
         condition: service_healthy

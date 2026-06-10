@@ -1,5 +1,6 @@
 import base64
 
+from django.conf import settings
 from endesive import pdf
 from rest_framework import serializers, status
 from rest_framework.authentication import BasicAuthentication
@@ -17,6 +18,7 @@ from accounts.services import (
     record_signing_usage,
 )
 
+from .throttling import SignPdfBurstThrottle, SignPdfUserThrottle
 from .pdf_signing import (
     SIGNATURE_ANCHOR_TEXT,
     build_signing_dict,
@@ -72,8 +74,14 @@ class PDFPfxSignSerializer(serializers.Serializer):
 
 
 class PDFPfxSignAPIView(APIView):
-    authentication_classes = [APIKeyAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
+    throttle_classes = [SignPdfBurstThrottle, SignPdfUserThrottle]
+
+    def get_authenticators(self):
+        classes = [APIKeyAuthentication]
+        if settings.ALLOW_BASIC_AUTH:
+            classes.append(BasicAuthentication)
+        return [auth() for auth in classes]
 
     def _is_saas_request(self, request):
         return bool(getattr(request.user, 'tenant', None))
@@ -117,6 +125,11 @@ class PDFPfxSignAPIView(APIView):
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
+            if cert_alias:
+                return Response(
+                    {'error': f'Failed to load saved certificate: {exc}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(
                 {'error': f'Failed to decode base64 PFX data: {exc}'},
                 status=status.HTTP_400_BAD_REQUEST,

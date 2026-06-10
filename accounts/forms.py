@@ -23,6 +23,27 @@ class LoginForm(AuthenticationForm):
     password = forms.CharField(widget=forms.PasswordInput)
 
 
+class ResendVerificationForm(forms.Form):
+    email = forms.EmailField(label='Email address')
+
+
+class PasswordResetRequestForm(forms.Form):
+    email = forms.EmailField(label='Email address')
+
+
+class PasswordResetConfirmForm(forms.Form):
+    password = forms.CharField(widget=forms.PasswordInput, min_length=8, label='New password')
+    password_confirm = forms.CharField(widget=forms.PasswordInput, min_length=8, label='Confirm new password')
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get('password')
+        password_confirm = cleaned.get('password_confirm')
+        if password and password_confirm and password != password_confirm:
+            raise forms.ValidationError('Passwords do not match.')
+        return cleaned
+
+
 class APIKeyForm(forms.Form):
     name = forms.CharField(max_length=100, initial='Production')
 

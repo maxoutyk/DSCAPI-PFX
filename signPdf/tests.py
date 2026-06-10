@@ -1,7 +1,8 @@
 import base64
 
 import fitz
-from django.test import TestCase
+from django.contrib.auth.models import User
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import Tenant, TenantStatus
@@ -80,3 +81,21 @@ class SignPdfAPIAuthTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('pfx_path', response.json())
+
+    @override_settings(ALLOW_BASIC_AUTH=False)
+    def test_basic_auth_rejected_when_disabled(self):
+        User.objects.create_user(
+            username='portal@example.com',
+            email='portal@example.com',
+            password='secure-pass-123',
+            is_active=True,
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION='Basic ' + base64.b64encode(b'portal@example.com:secure-pass-123').decode(),
+        )
+        response = self.client.post(
+            '/api/signpdf-pfx',
+            {'pdf_base64': self.pdf_b64, 'pfx_base64': 'YWJj', 'password': 'x'},
+            format='json',
+        )
+        self.assertIn(response.status_code, [401, 403])

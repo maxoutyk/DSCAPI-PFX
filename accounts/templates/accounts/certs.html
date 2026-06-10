@@ -1,52 +1,93 @@
 {% extends "accounts/base.html" %}
-{% block title %}Certificates — DSCAPI{% endblock %}
+{% block title %}Certificates — IG E-Sign{% endblock %}
+{% block page_title %}Certificates{% endblock %}
 {% block content %}
-<h1>Saved certificates</h1>
-<p class="muted">Upload a PFX once and reference it by alias in API calls. The PFX password is still required on each sign request.</p>
+<div class="page-header">
+  <h1>Saved certificates</h1>
+  <p class="subtitle">Upload a PFX once, reference by <span class="inline-code">cert_alias</span> in API calls.</p>
+</div>
 
-<div class="card">
+<div class="card card-flat">
   <h2>Upload certificate</h2>
   {% if tenant.status != 'active' %}
-    <p class="muted">Your account must be approved before uploading certificates.</p>
+  <p style="color:var(--text-secondary);">Your account must be approved before uploading certificates.</p>
   {% else %}
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      {% for field in form %}
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
-        {% if field.errors %}<div class="message error">{{ field.errors|striptags }}</div>{% endif %}
-      {% endfor %}
-      <button class="btn" type="submit">Save certificate</button>
-    </form>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="id_alias">Alias</label>
+      {{ form.alias }}
+      {% if form.alias.help_text %}<p class="form-help">{{ form.alias.help_text }}</p>{% endif %}
+      {% if form.alias.errors %}<div class="message error" role="alert">{{ form.alias.errors|striptags }}</div>{% endif %}
+    </div>
+    <div class="form-group">
+      <label>PFX file</label>
+      <div class="upload-zone">
+        {{ form.pfx_file }}
+        <div class="upload-zone-icon" aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <p style="margin:0;font-weight:500;">Drop your .pfx file here</p>
+        <p class="upload-filename" style="margin:8px 0 0;color:var(--text-secondary);font-size:0.8rem;">or click to browse</p>
+      </div>
+      {% if form.pfx_file.errors %}<div class="message error" role="alert">{{ form.pfx_file.errors|striptags }}</div>{% endif %}
+    </div>
+    <div class="form-group">
+      <label for="id_password">PFX password</label>
+      {{ form.password }}
+      {% if form.password.help_text %}<p class="form-help">{{ form.password.help_text }}</p>{% endif %}
+      {% if form.password.errors %}<div class="message error" role="alert">{{ form.password.errors|striptags }}</div>{% endif %}
+    </div>
+    {% if form.non_field_errors %}
+    <div class="message error" role="alert">{{ form.non_field_errors|striptags }}</div>
+    {% endif %}
+    <button class="btn" type="submit">Save certificate</button>
+  </form>
   {% endif %}
 </div>
 
-<div class="card">
-  <h2>Your certificates</h2>
+<div class="card" style="margin-top:24px;">
+  <div class="card-header">
+    <h2>Your certificates</h2>
+    <span class="badge badge-neutral">{{ certificates|length }} saved</span>
+  </div>
   {% if certificates %}
-    <table>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="Saved certificates">
       <thead>
-        <tr><th>Alias</th><th>Uploaded</th><th></th></tr>
+        <tr>
+          <th>Alias</th>
+          <th>Uploaded</th>
+          <th></th>
+        </tr>
       </thead>
       <tbody>
         {% for cert in certificates %}
         <tr>
-          <td><code>{{ cert.alias }}</code></td>
-          <td>{{ cert.created_at|date:"M j, Y" }}</td>
+          <td><span class="mono">{{ cert.alias }}</span></td>
+          <td><span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ cert.created_at|date:"M j, Y" }}</span></td>
           <td>
-            <form method="post" style="display:inline;">
-              {% csrf_token %}
-              <input type="hidden" name="delete" value="{{ cert.pk }}">
-              <button class="btn btn-danger" type="submit">Delete</button>
-            </form>
+            <div class="table-actions">
+              <form method="post" onsubmit="return confirm('Delete certificate {{ cert.alias }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="delete" value="{{ cert.pk }}">
+                <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
   {% else %}
-    <p class="muted">No saved certificates. You can still send <code>pfx_base64</code> per request.</p>
+  <div class="empty-state">
+    <div class="empty-state-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <h3>No saved certificates</h3>
+    <p>You can still send <span class="inline-code">pfx_base64</span> with each API request.</p>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

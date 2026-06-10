@@ -1,7 +1,15 @@
 from django.contrib import admin, messages
 from django.utils import timezone
 
-from .models import APIKey, EmailVerificationToken, StoredCertificate, Tenant, TenantMembership, UsageLog
+from .models import (
+    APIKey,
+    EmailVerificationToken,
+    PasswordResetToken,
+    StoredCertificate,
+    Tenant,
+    TenantMembership,
+    UsageLog,
+)
 from .models import TenantStatus
 
 
@@ -55,5 +63,11 @@ class UsageLogAdmin(admin.ModelAdmin):
 
 @admin.register(EmailVerificationToken)
 class EmailVerificationTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'token', 'created_at', 'used_at')
+    readonly_fields = ('token',)
+
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
     list_display = ('user', 'token', 'created_at', 'used_at')
     readonly_fields = ('token',)
