@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
 from django.core import mail
@@ -223,6 +224,19 @@ class PasswordResetTests(TestCase):
         self.assertEqual(response.url, '/login/')
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('brand-new-pass'))
+
+
+class DisplayTimezoneFilterTests(TestCase):
+    def test_ist_filter_converts_utc_to_india_time(self):
+        from accounts.templatetags.display_tz import ist
+
+        utc = datetime(2026, 6, 9, 12, 30, tzinfo=ZoneInfo('UTC'))
+        self.assertEqual(ist(utc, 'M j, H:i'), 'Jun 9, 18:00')
+
+    def test_ist_filter_returns_empty_for_none(self):
+        from accounts.templatetags.display_tz import ist
+
+        self.assertEqual(ist(None), '')
 
 
 @override_settings(RATELIMIT_DEFAULT_LIMIT=2, RATELIMIT_DEFAULT_PERIOD=900)

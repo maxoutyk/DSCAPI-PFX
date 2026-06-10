@@ -1,4 +1,5 @@
 {% extends "accounts/base.html" %}
+{% load display_tz %}
 {% block title %}API Keys — IG E-Sign{% endblock %}
 {% block page_title %}API Keys{% endblock %}
 {% block content %}
@@ -44,8 +45,8 @@
         <tr>
           <th>Name</th>
           <th>Prefix</th>
-          <th>Created</th>
-          <th>Last used</th>
+          <th>Created (IST)</th>
+          <th>Last used (IST)</th>
           <th></th>
         </tr>
       </thead>
@@ -54,10 +55,10 @@
         <tr>
           <td><strong>{{ key.name }}</strong></td>
           <td><span class="mono">{{ key.prefix }}...</span></td>
-          <td>{{ key.created_at|date:"M j, Y" }}</td>
+          <td>{{ key.created_at|ist:"M j, Y" }}</td>
           <td>
             {% if key.last_used_at %}
-            <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ key.last_used_at|date:"M j, H:i" }}</span>
+            <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ key.last_used_at|ist:"M j, H:i" }}</span>
             {% else %}
             <span style="color:var(--text-secondary);">—</span>
             {% endif %}

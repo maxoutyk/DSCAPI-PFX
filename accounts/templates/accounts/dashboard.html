@@ -1,4 +1,5 @@
 {% extends "accounts/base.html" %}
+{% load display_tz %}
 {% block title %}Dashboard — IG E-Sign{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block content %}
@@ -54,7 +55,7 @@
     </div>
     <div class="kpi-value">{{ tenant.quota_remaining }}</div>
     <div class="kpi-label">Remaining quota</div>
-    <div class="kpi-meta">resets {{ tenant.quota_reset_at|date:"M j, Y" }}</div>
+    <div class="kpi-meta">resets {{ tenant.quota_reset_at|ist:"M j, Y" }}</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-icon" aria-hidden="true">
@@ -86,7 +87,7 @@
           <tr>
             <th>Endpoint</th>
             <th>Status</th>
-            <th>Time</th>
+            <th>Time (IST)</th>
           </tr>
         </thead>
         <tbody>
@@ -100,7 +101,7 @@
               <span class="badge badge-error">Failed</span>
               {% endif %}
             </td>
-            <td><span class="mono" style="color:var(--text-secondary);font-size:0.8rem;">{{ log.created_at|date:"M j, H:i" }}</span></td>
+            <td><span class="mono" style="color:var(--text-secondary);font-size:0.8rem;">{{ log.created_at|ist:"M j, H:i" }}</span></td>
           </tr>
           {% endfor %}
         </tbody>

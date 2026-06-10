@@ -1,4 +1,5 @@
 {% extends "accounts/base.html" %}
+{% load display_tz %}
 {% block title %}Certificates — IG E-Sign{% endblock %}
 {% block page_title %}Certificates{% endblock %}
 {% block content %}
@@ -57,7 +58,7 @@
       <thead>
         <tr>
           <th>Alias</th>
-          <th>Uploaded</th>
+          <th>Uploaded (IST)</th>
           <th></th>
         </tr>
       </thead>
@@ -65,7 +66,7 @@
         {% for cert in certificates %}
         <tr>
           <td><span class="mono">{{ cert.alias }}</span></td>
-          <td><span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ cert.created_at|date:"M j, Y" }}</span></td>
+          <td><span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ cert.created_at|ist:"M j, Y" }}</span></td>
           <td>
             <div class="table-actions">
               <form method="post" onsubmit="return confirm('Delete certificate {{ cert.alias }}?');">
