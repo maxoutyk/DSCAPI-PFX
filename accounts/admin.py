@@ -8,6 +8,7 @@ from .models import (
     StoredCertificate,
     Tenant,
     TenantMembership,
+    TenantSignatureStyle,
     UsageLog,
 )
 from .models import TenantStatus
@@ -53,6 +54,13 @@ class APIKeyAdmin(admin.ModelAdmin):
 class StoredCertificateAdmin(admin.ModelAdmin):
     list_display = ('alias', 'tenant', 'created_at')
     search_fields = ('alias', 'tenant__name')
+
+
+@admin.register(TenantSignatureStyle)
+class TenantSignatureStyleAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'is_enabled', 'anchor_text', 'updated_at')
+    list_filter = ('is_enabled',)
+    search_fields = ('tenant__name', 'anchor_text')
 
 
 @admin.register(UsageLog)

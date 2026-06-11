@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm
 
+from .models import TenantSignatureStyle
 from .services import register_tenant, store_certificate
 
 
@@ -76,3 +77,35 @@ class CertificateUploadForm(forms.Form):
             self.cleaned_data['alias'],
             self.cleaned_data['pfx_file'].read(),
         )
+
+
+class SignatureStyleForm(forms.ModelForm):
+    class Meta:
+        model = TenantSignatureStyle
+        fields = [
+            'is_enabled',
+            'anchor_text',
+            'font_size',
+            'box_min_width',
+            'box_height',
+            'box_right_padding',
+            'box_shift_right',
+            'box_gap_above_label',
+            'box_shift_down_fitz',
+            'box_page_margin',
+            'icon_display_width',
+            'icon_overlap_inset',
+            'icon_padding',
+            'custom_icon',
+        ]
+        widgets = {
+            'is_enabled': forms.CheckboxInput,
+            'anchor_text': forms.TextInput(attrs={'placeholder': 'Authorised Signatory'}),
+        }
+        help_texts = {
+            'is_enabled': 'Enable only when you are ready to use custom placement. Until then, platform defaults apply.',
+            'anchor_text': 'Exact text searched in the PDF to locate the signature box.',
+            'box_shift_right': 'Positive moves the box right relative to the anchor label.',
+            'box_gap_above_label': 'Gap between the anchor text and the bottom of the signature box.',
+            'box_shift_down_fitz': 'Positive moves the signature box down (away from text above).',
+        }

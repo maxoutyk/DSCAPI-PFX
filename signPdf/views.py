@@ -21,7 +21,6 @@ from accounts.services import (
 from .audit import SigningAuditMeta, get_client_ip, sha256_hex
 from .throttling import SignPdfBurstThrottle, SignPdfUserThrottle
 from .pdf_signing import (
-    SIGNATURE_ANCHOR_TEXT,
     build_signing_dict,
     find_text_in_pdf,
     get_cn_from_certificate,
@@ -30,6 +29,7 @@ from .pdf_signing import (
     read_pfx_file,
     sign_pdf_at_positions,
 )
+from .signature_style import resolve_signature_style
 
 
 class PDFPfxSignSerializer(serializers.Serializer):
@@ -126,6 +126,8 @@ class PDFPfxSignAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        signature_style = resolve_signature_style(tenant) if saas_mode else resolve_signature_style()
+
         if saas_mode:
             audit.populate_from_pdf(pdf_data)
 
@@ -164,15 +166,22 @@ class PDFPfxSignAPIView(APIView):
                 self._record_failure(tenant, audit)
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        text_positions = find_text_in_pdf(pdf_data, SIGNATURE_ANCHOR_TEXT)
+        text_positions = find_text_in_pdf(pdf_data, style=signature_style)
         if not text_positions:
             if saas_mode:
                 self._record_failure(tenant, audit)
-            return Response({'error': 'No position found for signature'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    'error': (
+                        f'No position found for anchor text: {signature_style.anchor_text!r}'
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         indian_time_str, indian_time = get_indian_time_str()
         cn = get_cn_from_certificate(certificate)
-        dct = build_signing_dict(cn, indian_time_str, indian_time)
+        dct = build_signing_dict(cn, indian_time_str, indian_time, style=signature_style)
 
         try:
             signed_pdf_data = sign_pdf_at_positions(
@@ -187,6 +196,7 @@ class PDFPfxSignAPIView(APIView):
                     additional_certs,
                     'sha256',
                 ),
+                style=signature_style,
             )
         except Exception as exc:
             if saas_mode:

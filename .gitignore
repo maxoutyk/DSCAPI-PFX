@@ -38,6 +38,7 @@ Sales Invoice.pdf
 Sales Invoice - signed.pdf
 Sales Invoice - api-signed.pdf
 signed_output.pdf
+media/
 DSCAPI-PFX-Setup.exe
 
 # Windows / PyInstaller build artifacts

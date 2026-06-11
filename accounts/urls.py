@@ -15,4 +15,5 @@ urlpatterns = [
     path('dashboard/keys/', views.keys_view, name='keys'),
     path('dashboard/certs/', views.certs_view, name='certs'),
     path('dashboard/docs/', views.docs_view, name='docs'),
+    path('dashboard/signature/', views.signature_style_view, name='signature_style'),
 ]

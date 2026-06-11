@@ -142,6 +142,39 @@ class DetectionConfidence(models.TextChoices):
     NONE = 'none', 'None'
 
 
+class TenantSignatureStyle(models.Model):
+    tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name='signature_style')
+    is_enabled = models.BooleanField(
+        default=False,
+        help_text='When off, global platform defaults are used (existing API behaviour).',
+    )
+    anchor_text = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text='Text to search for in the PDF (e.g. Authorised Signatory). Leave blank to use platform default.',
+    )
+    font_size = models.PositiveSmallIntegerField(null=True, blank=True)
+    box_min_width = models.PositiveSmallIntegerField(null=True, blank=True)
+    box_height = models.PositiveSmallIntegerField(null=True, blank=True)
+    box_right_padding = models.SmallIntegerField(null=True, blank=True)
+    box_shift_right = models.SmallIntegerField(null=True, blank=True)
+    box_gap_above_label = models.SmallIntegerField(null=True, blank=True)
+    box_shift_down_fitz = models.SmallIntegerField(null=True, blank=True)
+    box_page_margin = models.PositiveSmallIntegerField(null=True, blank=True)
+    icon_display_width = models.PositiveSmallIntegerField(null=True, blank=True)
+    icon_overlap_inset = models.PositiveSmallIntegerField(null=True, blank=True)
+    icon_padding = models.PositiveSmallIntegerField(null=True, blank=True)
+    custom_icon = models.ImageField(upload_to='signature_icons/%Y/%m/', blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Tenant signature style'
+
+    def __str__(self):
+        state = 'custom' if self.is_enabled else 'default'
+        return f'{self.tenant.name} ({state})'
+
+
 class UsageLog(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='usage_logs')
     endpoint = models.CharField(max_length=100, default='signpdf-pfx')

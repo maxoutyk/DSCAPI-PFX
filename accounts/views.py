@@ -14,8 +14,9 @@ from .forms import (
     PasswordResetRequestForm,
     RegistrationForm,
     ResendVerificationForm,
+    SignatureStyleForm,
 )
-from .models import TenantStatus
+from .models import TenantSignatureStyle, TenantStatus
 from .ratelimit import RATE_LIMIT_MESSAGE, is_rate_limited, record_rate_limit_hit
 from .services import (
     PasswordResetTokenExpiredError,
@@ -306,6 +307,42 @@ def certs_view(request):
             'tenant': tenant,
             'form': form,
             'certificates': tenant.certificates.all(),
+        },
+    )
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def signature_style_view(request):
+    from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
+
+    tenant = get_primary_tenant(request.user)
+    style_obj, _ = TenantSignatureStyle.objects.get_or_create(tenant=tenant)
+    platform_defaults = SignatureStyleConfig.from_settings()
+
+    if request.method == 'POST':
+        if tenant.status != TenantStatus.ACTIVE:
+            messages.error(request, 'Your account must be approved before changing signature style.')
+        else:
+            form = SignatureStyleForm(request.POST, request.FILES, instance=style_obj)
+            if form.is_valid():
+                form.save()
+                if style_obj.is_enabled:
+                    messages.success(request, 'Custom signature style saved and enabled.')
+                else:
+                    messages.success(request, 'Signature style saved. Platform defaults remain active.')
+                return redirect('signature_style')
+    else:
+        form = SignatureStyleForm(instance=style_obj)
+
+    return render(
+        request,
+        'accounts/signature.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'platform_defaults': platform_defaults,
+            'resolved_style': resolve_signature_style(tenant),
         },
     )
 

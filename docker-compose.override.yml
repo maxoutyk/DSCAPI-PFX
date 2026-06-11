@@ -1,0 +1,7 @@
+# Local dev: mount source so code changes apply without rebuilding the image.
+services:
+  web:
+    volumes:
+      - .:/app
+      - ./certs:/app/certs:ro
+      - media_data:/app/media

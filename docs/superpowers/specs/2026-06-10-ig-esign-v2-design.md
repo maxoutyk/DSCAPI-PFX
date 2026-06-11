@@ -1,7 +1,7 @@
 # IG E-Sign v2 Design Spec
 
 **Date:** 2026-06-10  
-**Status:** In progress — Phase A complete  
+**Status:** In progress — Phases A & B complete  
 **Replaces / extends:** [2026-06-09-dscapi-saas-design.md](./2026-06-09-dscapi-saas-design.md) (v1 complete)
 
 ## Goal
@@ -178,11 +178,17 @@ API keys remain **tenant-scoped**, not user-scoped. Audit log records `api_key` 
 
 ---
 
-## B — Per-tenant signature styling
+## B — Per-tenant signature styling ✅
 
 ### Purpose
 
 Each tenant can customize how signatures appear on PDFs without code deploys.
+
+### Backward compatibility
+
+- No `TenantSignatureStyle` row, or `is_enabled=False` → **identical** to platform `settings.py` defaults.
+- API clients require **no changes** until the tenant opts in via portal (**Signature** page).
+- On-prem Basic Auth (no tenant) always uses platform defaults.
 
 ### Configurable fields (tenant-level defaults)
 

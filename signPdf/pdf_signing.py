@@ -9,10 +9,16 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import pkcs12
 from django.conf import settings
 
-SIGNATURE_ANCHOR_TEXT = 'Authorised Signatory'
+from .signature_style import DEFAULT_ANCHOR_TEXT, SignatureStyleConfig, resolve_signature_style
+
+SIGNATURE_ANCHOR_TEXT = DEFAULT_ANCHOR_TEXT
 
 
-def find_text_in_pdf(pdf_data, text=SIGNATURE_ANCHOR_TEXT):
+def find_text_in_pdf(pdf_data, text=None, *, style: SignatureStyleConfig | None = None):
+    anchor = text
+    if anchor is None:
+        anchor = style.anchor_text if style else getattr(settings, 'SIGNATURE_ANCHOR_TEXT', SIGNATURE_ANCHOR_TEXT)
+
     text_positions = []
     try:
         doc = fitz.open(stream=pdf_data, filetype="pdf")
@@ -21,7 +27,7 @@ def find_text_in_pdf(pdf_data, text=SIGNATURE_ANCHOR_TEXT):
 
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
-        text_instances = page.search_for(text)
+        text_instances = page.search_for(anchor)
         page_size = page.rect
 
         for text_instance in text_instances:
@@ -98,7 +104,8 @@ def format_contact_text(cn, indian_time_str):
     return f'Digitally signed by \n{cn}\nDate: {indian_time_str}'
 
 
-def build_signing_dict(cn, indian_time_str, indian_time):
+def build_signing_dict(cn, indian_time_str, indian_time, *, style: SignatureStyleConfig | None = None):
+    style = style or resolve_signature_style()
     date = indian_time - datetime.timedelta(hours=11)
     date = date.strftime('%Y%m%d%H%M%S+00\'00\'')
 
@@ -111,7 +118,7 @@ def build_signing_dict(cn, indian_time_str, indian_time):
         "reason": 'Approved',
         "text": {
             'wraptext': True,
-            'fontsize': getattr(settings, 'SIGNATURE_FONT_SIZE', 8),
+            'fontsize': style.font_size,
             'textalign': 'left',
             'linespacing': 1,
         },
@@ -120,8 +127,9 @@ def build_signing_dict(cn, indian_time_str, indian_time):
     return dct
 
 
-def apply_overlapping_signature_layout(position_dct, signaturebox):
+def apply_overlapping_signature_layout(position_dct, signaturebox, *, style: SignatureStyleConfig | None = None):
     """Draw tick behind signature text (overlapping), not side-by-side."""
+    style = style or resolve_signature_style()
     x_left, y_bottom, x_right, y_top = signaturebox
     width = x_right - x_left
     height = y_top - y_bottom
@@ -131,13 +139,12 @@ def apply_overlapping_signature_layout(position_dct, signaturebox):
 
     position_dct.pop('signature_appearance', None)
 
-    icon = getattr(settings, 'SIGNATURE_ICON', None)
-    if not icon or not os.path.isfile(icon):
+    icon_path = style.icon_path
+    if not icon_path or not os.path.isfile(icon_path):
         position_dct['signature'] = contact
         return
 
-    icon_path = str(icon)
-    icon_w = getattr(settings, 'SIGNATURE_ICON_DISPLAY_WIDTH', 36)
+    icon_w = style.icon_display_width
 
     with Image.open(icon_path) as tick_image:
         tick_w, tick_h = tick_image.size
@@ -147,18 +154,16 @@ def apply_overlapping_signature_layout(position_dct, signaturebox):
             tick_h = bbox[3] - bbox[1]
 
     icon_h = min(height - 4, int(icon_w * tick_h / tick_w))
-    icon_pad = getattr(settings, 'SIGNATURE_ICON_PADDING', 2)
-    overlap_inset = getattr(settings, 'SIGNATURE_ICON_OVERLAP_INSET', 20)
+    icon_pad = style.icon_padding
+    overlap_inset = style.icon_overlap_inset
 
     box_x1, box_y1 = 0, 2
     box_x2, box_y2 = width, height - 2
     icon_y1 = box_y1 + ((box_y2 - box_y1) - icon_h) / 2
-    # Pull the tick left from the right edge so it sits over the text, not past it.
     icon_x2 = box_x2 - icon_pad - overlap_inset
     icon_x1 = max(box_x1 + icon_pad, icon_x2 - icon_w)
 
     position_dct['manual_images'] = {'Tick': icon_path}
-    # Tick behind text on the right; text drawn on top across the full box.
     position_dct['signature_manual'] = [
         ['image', 'Tick', icon_x1, icon_y1, icon_x1 + icon_w, icon_y1 + icon_h, False, True],
         ['fill_colour', 0, 0, 0],
@@ -170,27 +175,22 @@ def apply_overlapping_signature_layout(position_dct, signaturebox):
     ]
 
 
-def signature_box_for_position(position):
-    min_width = getattr(settings, 'SIGNATURE_BOX_MIN_WIDTH', 200)
-    height = getattr(settings, 'SIGNATURE_BOX_HEIGHT', 58)
-    right_padding = getattr(settings, 'SIGNATURE_BOX_RIGHT_PADDING', 8)
-    gap_above_label = getattr(settings, 'SIGNATURE_BOX_GAP_ABOVE_LABEL', 5)
-    page_margin = getattr(settings, 'SIGNATURE_BOX_PAGE_MARGIN', 5)
-
-    shift_right = getattr(settings, 'SIGNATURE_BOX_SHIFT_RIGHT', 0)
+def signature_box_for_position(position, *, style: SignatureStyleConfig | None = None):
+    style = style or resolve_signature_style()
 
     page_width = position['page_width']
     text_width = position['x1'] - position['x0']
-    box_width = max(text_width + 20, min_width)
+    box_width = max(text_width + 20, style.box_min_width)
 
-    x_right = min(page_width - page_margin, position['x1'] + right_padding + shift_right)
-    x_left = max(page_margin, x_right - box_width)
+    x_right = min(
+        page_width - style.box_page_margin,
+        position['x1'] + style.box_right_padding + style.box_shift_right,
+    )
+    x_left = max(style.box_page_margin, x_right - box_width)
 
-    shift_down_fitz = getattr(settings, 'SIGNATURE_BOX_SHIFT_DOWN_FITZ', 0)
-
-    # Anchor just above the "Authorised Signatory" label (fitz y grows downward).
-    fitz_box_bottom = position['y0'] - gap_above_label + shift_down_fitz
-    fitz_box_top = fitz_box_bottom - height
+    # Anchor relative to the matched label (fitz y grows downward).
+    fitz_box_bottom = position['y0'] - style.box_gap_above_label + style.box_shift_down_fitz
+    fitz_box_top = fitz_box_bottom - style.box_height
     y_bottom = position['page_height'] - fitz_box_bottom
     y_top = position['page_height'] - fitz_box_top
 
@@ -202,20 +202,21 @@ def signature_box_for_position(position):
     )
 
 
-def sign_pdf_at_positions(pdf_data, text_positions, dct, sign_fn):
+def sign_pdf_at_positions(pdf_data, text_positions, dct, sign_fn, *, style: SignatureStyleConfig | None = None):
     """
     Apply one or more signatures. endesive returns incremental PDF bytes per call;
     those must be appended to the document built so far before the next sign.
     """
+    style = style or resolve_signature_style()
     signed_pdf_data = pdf_data
     for index, position in enumerate(text_positions):
         position_dct = dct.copy()
         position_dct["sigpage"] = position['page_number']
         position_dct['sigfield'] = f"Signature{index + 1}"
         position_dct['auto_sigfield'] = True
-        signaturebox = signature_box_for_position(position)
+        signaturebox = signature_box_for_position(position, style=style)
         position_dct["signaturebox"] = signaturebox
-        apply_overlapping_signature_layout(position_dct, signaturebox)
+        apply_overlapping_signature_layout(position_dct, signaturebox, style=style)
         increment = sign_fn(signed_pdf_data, position_dct)
         signed_pdf_data = signed_pdf_data + increment
     return signed_pdf_data

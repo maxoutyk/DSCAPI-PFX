@@ -19,6 +19,9 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://dscapi:dscapi@db:5432/dscapi
+    volumes:
+      - ./certs:/app/certs:ro
+      - media_data:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -36,3 +39,4 @@ services:
 
 volumes:
   postgres_data:
+  media_data:

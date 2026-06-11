@@ -185,6 +185,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = (BUNDLE_DIR / 'staticfiles') if getattr(sys, 'frozen', False) else (BASE_DIR / 'staticfiles')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = (BUNDLE_DIR / 'media') if getattr(sys, 'frozen', False) else (BASE_DIR / 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -194,7 +196,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Directory for PFX/P12 files referenced by pfx_path on /api/signpdf-pfx
 PFX_CERTS_DIR = BASE_DIR / 'certs'
 
-# Digital signature appearance on signed PDFs
+# Digital signature appearance on signed PDFs (platform defaults for all tenants)
+SIGNATURE_ANCHOR_TEXT = os.environ.get('SIGNATURE_ANCHOR_TEXT', 'Authorised Signatory')
 SIGNATURE_ICON = BUNDLE_DIR / 'signPdf' / 'assets' / 'green-tick.png'
 SIGNATURE_BOX_MIN_WIDTH = 118
 SIGNATURE_BOX_HEIGHT = 64

@@ -14,7 +14,7 @@
   <pre><code>Authorization: Bearer dsc_live_&lt;your-secret-key&gt;</code></pre>
 
   <h3>Request body</h3>
-  <p style="color:var(--text-secondary);font-size:0.875rem;">Provide exactly one of <span class="inline-code">pfx_base64</span> or <span class="inline-code">cert_alias</span>.</p>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">Provide exactly one of <span class="inline-code">pfx_base64</span> or <span class="inline-code">cert_alias</span>. No new fields are required — existing integrations keep working.</p>
 
   <div data-tabs>
     <div class="tabs" role="tablist" aria-label="Code examples">
@@ -59,8 +59,90 @@
   "hash_after_prefix": "e5f6g7h8"
 }</code></pre>
   <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
-    Document type is detected automatically from PDF text (Tax Invoice, Purchase Order, etc.).
-    SHA-256 hashes and client IP are stored on every sign attempt for audit.
+    <strong>Audit fields</strong> (added automatically — optional for clients to read):
+    <span class="inline-code">signing_id</span> correlates with your dashboard activity log;
+  document type is inferred from PDF text; hash prefixes are the first 8 characters of SHA-256 fingerprints
+    (full hashes are stored server-side). Client IP is recorded from the request.
+  </p>
+</div>
+
+<div class="card card-flat" style="margin-top:24px;">
+  <h2>Document type detection</h2>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    The server scans PDF text and classifies each sign attempt. You do <strong>not</strong> send a document type in the request.
+  </p>
+  <ul style="color:var(--text-secondary);font-size:0.875rem;display:flex;flex-direction:column;gap:6px;margin:12px 0 0;padding-left:20px;">
+    <li><span class="inline-code">tax_invoice</span> — Tax Invoice</li>
+    <li><span class="inline-code">purchase_order</span> — Purchase Order</li>
+    <li><span class="inline-code">delivery_challan</span> — Delivery Challan</li>
+    <li><span class="inline-code">credit_note</span> — Credit Note</li>
+    <li><span class="inline-code">debit_note</span> — Debit Note</li>
+    <li><span class="inline-code">proforma_invoice</span> — Proforma Invoice</li>
+    <li><span class="inline-code">quotation</span> — Quotation</li>
+    <li><span class="inline-code">unknown</span> — no keyword matched</li>
+  </ul>
+</div>
+
+<div class="card card-flat" style="margin-top:24px;">
+  <h2>Signature placement</h2>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    The API searches the PDF for an <strong>anchor text</strong> (default: <span class="inline-code">Authorised Signatory</span>)
+    and places the signature box just above it. Platform defaults apply to all tenants unless you opt in to a custom style.
+  </p>
+  <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
+    To customize anchor text or box offsets (shift, size, font), use
+    <a href="{% url 'signature_style' %}">Signature</a> in the portal and enable <strong>custom signature style</strong>.
+    Until enabled, signing behaviour is unchanged for existing API clients.
+  </p>
+</div>
+
+<div class="card card-flat" style="margin-top:24px;">
+  <h2>Errors</h2>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="API error codes">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>When</th>
+          <th>Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-error">401</span></td>
+          <td>Missing or invalid API key</td>
+          <td class="mono" style="font-size:0.8rem;">Invalid or revoked API key.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">403</span></td>
+          <td>Account not active (pending approval, suspended, etc.)</td>
+          <td class="mono" style="font-size:0.8rem;">Your account is awaiting admin approval.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">400</span></td>
+          <td>Validation error, bad PFX password, cert not found</td>
+          <td class="mono" style="font-size:0.8rem;">Failed to load PFX: invalid password…</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">400</span></td>
+          <td>Anchor text not found in PDF</td>
+          <td class="mono" style="font-size:0.8rem;">No position found for anchor text: 'Authorised Signatory'</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">429</span></td>
+          <td>Monthly quota exceeded or rate limit</td>
+          <td class="mono" style="font-size:0.8rem;">Monthly quota exceeded (100 signs/month).</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">500</span></td>
+          <td>Unexpected signing failure</td>
+          <td class="mono" style="font-size:0.8rem;">Failed to sign PDF: …</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
+    Failed attempts are logged in your dashboard (with hash and IP when the PDF was decoded). Successful signs count toward your monthly quota.
   </p>
 </div>
 
@@ -69,7 +151,9 @@
   <ul style="color:var(--text-secondary);display:flex;flex-direction:column;gap:8px;">
     <li>Account status must be <span class="badge badge-active">Active</span></li>
     <li>Monthly quota: <strong style="color:var(--text-primary);">{{ tenant.monthly_quota }}</strong> signatures ({{ tenant.usage_this_month }} used)</li>
-    <li>PDF must contain anchor text <span class="inline-code">Authorised Signatory</span></li>
+    <li>PDF must contain the anchor text (default <span class="inline-code">Authorised Signatory</span>)</li>
+    <li>Rate limits apply per API key (burst and hourly limits)</li>
+    <li><span class="inline-code">pfx_path</span> is not supported with API key auth — use <span class="inline-code">pfx_base64</span> or <span class="inline-code">cert_alias</span></li>
   </ul>
 </div>
 {% endblock %}
