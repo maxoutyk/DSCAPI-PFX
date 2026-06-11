@@ -125,14 +125,70 @@ class StoredCertificate(models.Model):
         return f'{self.tenant.name}/{self.alias}'
 
 
+class DocumentType(models.TextChoices):
+    TAX_INVOICE = 'tax_invoice', 'Tax Invoice'
+    PURCHASE_ORDER = 'purchase_order', 'Purchase Order'
+    DELIVERY_CHALLAN = 'delivery_challan', 'Delivery Challan'
+    CREDIT_NOTE = 'credit_note', 'Credit Note'
+    DEBIT_NOTE = 'debit_note', 'Debit Note'
+    PROFORMA_INVOICE = 'proforma_invoice', 'Proforma Invoice'
+    QUOTATION = 'quotation', 'Quotation'
+    UNKNOWN = 'unknown', 'Unknown'
+
+
+class DetectionConfidence(models.TextChoices):
+    HIGH = 'high', 'High'
+    LOW = 'low', 'Low'
+    NONE = 'none', 'None'
+
+
 class UsageLog(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='usage_logs')
     endpoint = models.CharField(max_length=100, default='signpdf-pfx')
     success = models.BooleanField(default=True)
+    document_type = models.CharField(
+        max_length=32,
+        choices=DocumentType.choices,
+        null=True,
+        blank=True,
+    )
+    detected_keyword = models.CharField(max_length=100, null=True, blank=True)
+    detection_confidence = models.CharField(
+        max_length=8,
+        choices=DetectionConfidence.choices,
+        default=DetectionConfidence.NONE,
+    )
+    hash_before = models.CharField(max_length=64, null=True, blank=True)
+    hash_after = models.CharField(max_length=64, null=True, blank=True)
+    client_ip = models.GenericIPAddressField(null=True, blank=True)
+    api_key = models.ForeignKey(
+        'APIKey',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='usage_logs',
+    )
+    user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='signing_events',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Signing event'
+        verbose_name_plural = 'Signing events'
+
+    @property
+    def hash_before_prefix(self) -> str:
+        return (self.hash_before or '')[:8]
+
+    @property
+    def hash_after_prefix(self) -> str:
+        return (self.hash_after or '')[:8]
 
 
 class EmailVerificationToken(models.Model):

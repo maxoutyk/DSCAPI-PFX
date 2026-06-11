@@ -202,13 +202,37 @@ def password_reset_confirm_view(request, token):
 
 @login_required
 def dashboard_view(request):
+    from django.db.models import Count
+    from django.utils import timezone
+
+    from .models import DocumentType
+
     tenant = get_primary_tenant(request.user)
+    month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    type_labels = dict(DocumentType.choices)
+    document_type_stats = [
+        {
+            'label': type_labels.get(row['document_type'], row['document_type']),
+            'count': row['count'],
+        }
+        for row in (
+            tenant.usage_logs.filter(
+                success=True,
+                document_type__isnull=False,
+                created_at__gte=month_start,
+            )
+            .values('document_type')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+    ]
     return render(
         request,
         'accounts/dashboard.html',
         {
             'tenant': tenant,
             'usage_logs': tenant.usage_logs.all()[:20],
+            'document_type_stats': document_type_stats,
             'active_keys': tenant.api_keys.filter(revoked_at__isnull=True).count(),
             'cert_count': tenant.certificates.count(),
         },

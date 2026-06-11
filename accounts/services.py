@@ -252,7 +252,9 @@ def get_stored_certificate_bytes(tenant: Tenant, alias: str) -> bytes:
 
 
 @transaction.atomic
-def record_signing_usage(tenant: Tenant, *, success: bool = True):
+def record_signing_event(tenant: Tenant, *, success: bool = True, audit=None) -> UsageLog:
+    from signPdf.audit import SigningAuditMeta
+
     tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
     tenant.reset_quota_if_needed()
     if success:
@@ -262,7 +264,26 @@ def record_signing_usage(tenant: Tenant, *, success: bool = True):
             )
         tenant.usage_this_month += 1
         tenant.save(update_fields=['usage_this_month', 'updated_at'])
-    UsageLog.objects.create(tenant=tenant, success=success)
+
+    audit = audit or SigningAuditMeta()
+    return UsageLog.objects.create(
+        tenant=tenant,
+        success=success,
+        endpoint=audit.endpoint,
+        document_type=audit.document_type,
+        detected_keyword=audit.detected_keyword,
+        detection_confidence=audit.detection_confidence,
+        hash_before=audit.hash_before,
+        hash_after=audit.hash_after,
+        client_ip=audit.client_ip,
+        api_key=audit.api_key,
+        user=audit.user,
+    )
+
+
+def record_signing_usage(tenant: Tenant, *, success: bool = True, audit=None) -> UsageLog:
+    """Backward-compatible alias for record_signing_event."""
+    return record_signing_event(tenant, success=success, audit=audit)
 
 
 def ensure_tenant_can_sign(tenant: Tenant):

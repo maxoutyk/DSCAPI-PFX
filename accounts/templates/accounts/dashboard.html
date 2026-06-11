@@ -75,6 +75,19 @@
   </div>
 </div>
 
+{% if document_type_stats %}
+<div class="card card-flat" style="margin-bottom:24px;">
+  <div class="card-header">
+    <h2>Documents signed this month</h2>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    {% for row in document_type_stats %}
+    <span class="badge badge-neutral">{{ row.label }}: {{ row.count }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="grid-2">
   <div class="card card-flat">
     <div class="card-header">
@@ -85,20 +98,42 @@
       <table class="data-table" aria-label="Recent API activity">
         <thead>
           <tr>
-            <th>Endpoint</th>
+            <th>Document</th>
             <th>Status</th>
+            <th>IP</th>
+            <th>Hash</th>
             <th>Time (IST)</th>
           </tr>
         </thead>
         <tbody>
           {% for log in usage_logs %}
           <tr>
-            <td><span class="mono">{{ log.endpoint }}</span></td>
+            <td>
+              {% if log.document_type %}
+              <span class="badge badge-neutral">{{ log.get_document_type_display }}</span>
+              {% else %}
+              <span style="color:var(--text-secondary);">—</span>
+              {% endif %}
+            </td>
             <td>
               {% if log.success %}
               <span class="badge badge-success">Success</span>
               {% else %}
               <span class="badge badge-error">Failed</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if log.client_ip %}
+              <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ log.client_ip }}</span>
+              {% else %}
+              <span style="color:var(--text-secondary);">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if log.hash_before_prefix %}
+              <span class="mono" style="font-size:0.75rem;color:var(--text-secondary);" title="{{ log.hash_before }}">{{ log.hash_before_prefix }}…</span>
+              {% else %}
+              <span style="color:var(--text-secondary);">—</span>
               {% endif %}
             </td>
             <td><span class="mono" style="color:var(--text-secondary);font-size:0.8rem;">{{ log.created_at|ist:"M j, H:i" }}</span></td>

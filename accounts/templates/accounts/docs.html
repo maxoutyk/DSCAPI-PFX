@@ -51,8 +51,17 @@
   <h3>Success response (200)</h3>
   <pre><code>{
   "message": "PDF signed successfully using PFX.",
-  "signed_pdf_base64": "..."
+  "signed_pdf_base64": "...",
+  "signing_id": 42,
+  "document_type": "tax_invoice",
+  "document_type_label": "Tax Invoice",
+  "hash_before_prefix": "a1b2c3d4",
+  "hash_after_prefix": "e5f6g7h8"
 }</code></pre>
+  <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
+    Document type is detected automatically from PDF text (Tax Invoice, Purchase Order, etc.).
+    SHA-256 hashes and client IP are stored on every sign attempt for audit.
+  </p>
 </div>
 
 <div class="card" style="margin-top:24px;">

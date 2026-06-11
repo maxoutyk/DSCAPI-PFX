@@ -15,9 +15,10 @@ from accounts.services import (
     TenantNotActiveError,
     ensure_tenant_can_sign,
     get_stored_certificate_bytes,
-    record_signing_usage,
+    record_signing_event,
 )
 
+from .audit import SigningAuditMeta, get_client_ip, sha256_hex
 from .throttling import SignPdfBurstThrottle, SignPdfUserThrottle
 from .pdf_signing import (
     SIGNATURE_ANCHOR_TEXT,
@@ -86,6 +87,16 @@ class PDFPfxSignAPIView(APIView):
     def _is_saas_request(self, request):
         return bool(getattr(request.user, 'tenant', None))
 
+    def _build_audit(self, request) -> SigningAuditMeta:
+        audit = SigningAuditMeta(client_ip=get_client_ip(request))
+        api_key = getattr(request.user, 'api_key', None)
+        if api_key is not None:
+            audit.api_key = api_key
+        return audit
+
+    def _record_failure(self, tenant, audit: SigningAuditMeta):
+        record_signing_event(tenant, success=False, audit=audit)
+
     def post(self, request):
         saas_mode = self._is_saas_request(request)
         serializer = PDFPfxSignSerializer(data=request.data, saas_mode=saas_mode)
@@ -93,6 +104,8 @@ class PDFPfxSignAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         tenant = getattr(request.user, 'tenant', None)
+        audit = self._build_audit(request) if saas_mode else None
+
         if saas_mode:
             try:
                 ensure_tenant_can_sign(tenant)
@@ -113,6 +126,9 @@ class PDFPfxSignAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if saas_mode:
+            audit.populate_from_pdf(pdf_data)
+
         try:
             if cert_alias:
                 pfx_data = get_stored_certificate_bytes(tenant, cert_alias)
@@ -121,10 +137,16 @@ class PDFPfxSignAPIView(APIView):
             else:
                 pfx_data = base64.b64decode(pfx_b64)
         except StoredCertificate.DoesNotExist:  # noqa: TRY003
+            if saas_mode:
+                self._record_failure(tenant, audit)
             return Response({'error': f'Certificate not found: {cert_alias}'}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as exc:
+            if saas_mode:
+                self._record_failure(tenant, audit)
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
+            if saas_mode:
+                self._record_failure(tenant, audit)
             if cert_alias:
                 return Response(
                     {'error': f'Failed to load saved certificate: {exc}'},
@@ -139,13 +161,13 @@ class PDFPfxSignAPIView(APIView):
             private_key, certificate, additional_certs = load_pfx_credentials(pfx_data, password)
         except ValueError as exc:
             if saas_mode:
-                record_signing_usage(tenant, success=False)
+                self._record_failure(tenant, audit)
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         text_positions = find_text_in_pdf(pdf_data, SIGNATURE_ANCHOR_TEXT)
         if not text_positions:
             if saas_mode:
-                record_signing_usage(tenant, success=False)
+                self._record_failure(tenant, audit)
             return Response({'error': 'No position found for signature'}, status=status.HTTP_400_BAD_REQUEST)
 
         indian_time_str, indian_time = get_indian_time_str()
@@ -168,22 +190,31 @@ class PDFPfxSignAPIView(APIView):
             )
         except Exception as exc:
             if saas_mode:
-                record_signing_usage(tenant, success=False)
+                self._record_failure(tenant, audit)
             return Response(
                 {'error': f'Failed to sign PDF: {exc}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        signing_event = None
         if saas_mode:
+            audit.hash_after = sha256_hex(signed_pdf_data)
             try:
-                record_signing_usage(tenant, success=True)
+                signing_event = record_signing_event(tenant, success=True, audit=audit)
             except QuotaExceededError as exc:
                 return Response({'error': str(exc)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-        return Response(
-            {
-                'message': 'PDF signed successfully using PFX.',
-                'signed_pdf_base64': base64.b64encode(signed_pdf_data).decode(),
-            },
-            status=status.HTTP_200_OK,
-        )
+        response_body = {
+            'message': 'PDF signed successfully using PFX.',
+            'signed_pdf_base64': base64.b64encode(signed_pdf_data).decode(),
+        }
+        if signing_event is not None:
+            response_body.update({
+                'signing_id': signing_event.pk,
+                'document_type': signing_event.document_type,
+                'document_type_label': signing_event.get_document_type_display(),
+                'hash_before_prefix': signing_event.hash_before_prefix,
+                'hash_after_prefix': signing_event.hash_after_prefix,
+            })
+
+        return Response(response_body, status=status.HTTP_200_OK)

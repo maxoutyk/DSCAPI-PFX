@@ -57,8 +57,31 @@ class StoredCertificateAdmin(admin.ModelAdmin):
 
 @admin.register(UsageLog)
 class UsageLogAdmin(admin.ModelAdmin):
-    list_display = ('tenant', 'endpoint', 'success', 'created_at')
-    list_filter = ('success',)
+    list_display = (
+        'tenant',
+        'document_type',
+        'success',
+        'client_ip',
+        'hash_before',
+        'hash_after',
+        'created_at',
+    )
+    list_filter = ('success', 'document_type', 'detection_confidence')
+    search_fields = ('hash_before', 'hash_after', 'client_ip', 'tenant__name')
+    readonly_fields = (
+        'tenant',
+        'endpoint',
+        'success',
+        'document_type',
+        'detected_keyword',
+        'detection_confidence',
+        'hash_before',
+        'hash_after',
+        'client_ip',
+        'api_key',
+        'user',
+        'created_at',
+    )
 
 
 @admin.register(EmailVerificationToken)
