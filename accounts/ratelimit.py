@@ -1,10 +1,11 @@
 from django.conf import settings
 from django.core.cache import cache
 
+from signPdf.audit import get_client_ip
+
 
 def client_ip(request) -> str:
-    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-    return forwarded or request.META.get('REMOTE_ADDR', 'unknown')
+    return get_client_ip(request) or 'unknown'
 
 
 def is_rate_limited(request, scope: str, *, limit: int | None = None, period: int | None = None) -> bool:

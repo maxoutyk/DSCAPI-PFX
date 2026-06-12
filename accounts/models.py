@@ -223,6 +223,15 @@ class UsageLog(models.Model):
     def hash_after_prefix(self) -> str:
         return (self.hash_after or '')[:8]
 
+    @property
+    def signing_source(self) -> str:
+        if self.endpoint == 'sign-portal':
+            return 'browser'
+        return 'api'
+
+    def get_signing_source_display(self) -> str:
+        return 'Browser' if self.signing_source == 'browser' else 'API'
+
 
 class EmailVerificationToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_tokens')

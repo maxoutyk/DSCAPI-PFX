@@ -33,9 +33,33 @@ class ClientIpTests(TestCase):
         request = RequestFactory().post('/api/signpdf-pfx', HTTP_X_FORWARDED_FOR='203.0.113.1, 10.0.0.1')
         self.assertEqual(get_client_ip(request), '203.0.113.1')
 
+    def test_skips_loopback_forwarded_ip(self):
+        request = RequestFactory().post(
+            '/api/signpdf-pfx',
+            HTTP_X_FORWARDED_FOR='127.0.0.1, 203.0.113.1',
+            HTTP_X_REAL_IP='203.0.113.1',
+        )
+        self.assertEqual(get_client_ip(request), '203.0.113.1')
+
+    def test_uses_x_real_ip_when_forwarded_is_loopback_only(self):
+        request = RequestFactory().post(
+            '/api/signpdf-pfx',
+            HTTP_X_FORWARDED_FOR='127.0.0.1',
+            HTTP_X_REAL_IP='203.0.113.44',
+        )
+        self.assertEqual(get_client_ip(request), '203.0.113.44')
+
     def test_falls_back_to_remote_addr(self):
         request = RequestFactory().post('/api/signpdf-pfx', REMOTE_ADDR='198.51.100.9')
         self.assertEqual(get_client_ip(request), '198.51.100.9')
+
+    def test_keeps_loopback_when_no_external_ip_available(self):
+        request = RequestFactory().post(
+            '/dashboard/sign/',
+            HTTP_X_FORWARDED_FOR='127.0.0.1',
+            REMOTE_ADDR='127.0.0.1',
+        )
+        self.assertEqual(get_client_ip(request), '127.0.0.1')
 
 
 class DocumentDetectionTests(TestCase):
@@ -95,9 +119,12 @@ class SigningAuditIntegrationTests(TestCase):
 
         log = UsageLog.objects.get(tenant=self.tenant)
         self.assertFalse(log.success)
+        self.assertEqual(log.endpoint, 'signpdf-pfx')
+        self.assertEqual(log.signing_source, 'api')
         self.assertEqual(log.document_type, DocumentType.DELIVERY_CHALLAN)
         self.assertEqual(log.client_ip, '203.0.113.50')
         self.assertIsNotNone(log.hash_before)
         self.assertEqual(len(log.hash_before), 64)
         self.assertIsNone(log.hash_after)
         self.assertIsNotNone(log.api_key)
+        self.assertIsNone(log.user)

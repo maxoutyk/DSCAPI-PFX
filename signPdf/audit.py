@@ -10,11 +10,37 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+_LOOPBACK_IPS = frozenset({'127.0.0.1', '::1'})
+
+
+def _first_usable_ip(*candidates: str | None) -> str | None:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        ip = candidate.strip()
+        if ip and ip not in _LOOPBACK_IPS:
+            return ip
+    return None
+
+
 def get_client_ip(request) -> str | None:
+    """Resolve the external client IP from proxy headers, skipping loopback hops."""
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if forwarded_for:
-        return forwarded_for.split(',')[0].strip() or None
-    return request.META.get('REMOTE_ADDR')
+        forwarded_ips = [part.strip() for part in forwarded_for.split(',') if part.strip()]
+        usable = _first_usable_ip(*forwarded_ips)
+        if usable:
+            return usable
+
+    x_real_ip = request.META.get('HTTP_X_REAL_IP')
+    usable = _first_usable_ip(x_real_ip)
+    if usable:
+        return usable
+
+    remote_addr = request.META.get('REMOTE_ADDR')
+    if remote_addr:
+        return remote_addr.strip() or None
+    return None
 
 
 @dataclass

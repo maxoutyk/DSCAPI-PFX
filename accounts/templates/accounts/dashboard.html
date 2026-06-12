@@ -95,10 +95,11 @@
     </div>
     {% if usage_logs %}
     <div class="table-wrap">
-      <table class="data-table" aria-label="Recent API activity">
+      <table class="data-table" aria-label="Recent signing activity">
         <thead>
           <tr>
             <th>Document</th>
+            <th>Source</th>
             <th>Status</th>
             <th>IP</th>
             <th>Hash</th>
@@ -113,6 +114,13 @@
               <span class="badge badge-neutral">{{ log.get_document_type_display }}</span>
               {% else %}
               <span style="color:var(--text-secondary);">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if log.signing_source == 'browser' %}
+              <span class="badge badge-neutral">Browser</span>
+              {% else %}
+              <span class="badge badge-neutral">API</span>
               {% endif %}
             </td>
             <td>

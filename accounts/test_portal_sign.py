@@ -97,6 +97,9 @@ class PortalSignTests(TestCase):
         self.assertTrue(log.success)
         self.assertEqual(log.document_type, DocumentType.TAX_INVOICE)
         self.assertEqual(log.user, self.user)
+        self.assertEqual(log.signing_source, 'browser')
+        self.assertEqual(log.get_signing_source_display(), 'Browser')
+        self.assertIsNone(log.api_key)
         self.assertIsNotNone(log.hash_after)
 
         done = self.client.get('/dashboard/sign/done/')
