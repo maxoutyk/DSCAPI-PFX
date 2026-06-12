@@ -12,6 +12,7 @@ from .forms import (
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
+    PortalSignForm,
     RegistrationForm,
     ResendVerificationForm,
     SignatureStyleForm,
@@ -75,19 +76,25 @@ def resend_verification_view(request):
         form = ResendVerificationForm(request.POST)
         if form.is_valid():
             try:
-                resend_verification_email(form.cleaned_data['email'])
+                sent = resend_verification_email(form.cleaned_data['email'])
             except ValueError as exc:
                 form.add_error('email', str(exc))
             except EmailDeliveryError as exc:
                 form.add_error(None, str(exc))
             else:
-                messages.success(request, 'Verification email sent. Please check your inbox.')
+                record_rate_limit_hit(request, 'resend_verification')
+                if sent:
+                    messages.success(request, 'Verification email sent. Please check your inbox.')
+                else:
+                    messages.success(
+                        request,
+                        'If an account with that email is awaiting verification, we sent a new link.',
+                    )
                 return render(
                     request,
                     'accounts/verify_email_sent.html',
                     {'email': form.cleaned_data['email']},
                 )
-        record_rate_limit_hit(request, 'resend_verification')
     else:
         form = ResendVerificationForm(initial={'email': email})
 
@@ -351,3 +358,158 @@ def signature_style_view(request):
 def docs_view(request):
     tenant = get_primary_tenant(request.user)
     return render(request, 'accounts/docs.html', {'tenant': tenant})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def sign_view(request):
+    import base64
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from signPdf.signing_service import (
+        SigningFailure,
+        analyze_pdf_for_signing,
+        build_audit_for_http_request,
+        record_signing_failure,
+        sign_pdf_for_tenant,
+    )
+
+    tenant = get_primary_tenant(request.user)
+    form = PortalSignForm(tenant=tenant)
+    sign_result = None
+
+    if request.method == 'POST':
+        if is_rate_limited(request, 'portal_sign'):
+            messages.error(request, RATE_LIMIT_MESSAGE)
+        elif tenant.status != TenantStatus.ACTIVE:
+            messages.error(request, 'Your account must be approved before signing documents.')
+        else:
+            form = PortalSignForm(request.POST, request.FILES, tenant=tenant)
+            if form.is_valid():
+                pdf_data = form.cleaned_data['pdf_file'].read()
+                audit = build_audit_for_http_request(
+                    request,
+                    endpoint='sign-portal',
+                    user=request.user,
+                )
+                try:
+                    result = sign_pdf_for_tenant(
+                        tenant=tenant,
+                        pdf_data=pdf_data,
+                        password=form.cleaned_data['password'],
+                        cert_alias=form.cleaned_data['cert_alias'],
+                        audit=audit,
+                    )
+                except SigningFailure as exc:
+                    if exc.record_failure:
+                        if not audit.hash_before:
+                            audit.populate_from_pdf(pdf_data)
+                        record_signing_failure(tenant, audit)
+                    messages.error(request, exc.message)
+                else:
+                    record_rate_limit_hit(request, 'portal_sign')
+                    original_name = form.cleaned_data['pdf_file'].name
+                    stem = original_name.rsplit('.', 1)[0] if '.' in original_name else original_name
+                    request.session['portal_sign_download'] = {
+                        'data': base64.b64encode(result.signed_pdf_data).decode(),
+                        'filename': f'{stem}-signed.pdf',
+                        'signing_id': result.signing_event.pk,
+                        'hash_before_prefix': result.signing_event.hash_before_prefix,
+                        'hash_after_prefix': result.signing_event.hash_after_prefix,
+                        'document_type_label': result.signing_event.get_document_type_display(),
+                        'expires_at': (timezone.now() + timedelta(minutes=15)).isoformat(),
+                    }
+                    request.session.modified = True
+                    return redirect('sign_done')
+
+    return render(
+        request,
+        'accounts/sign.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'sign_result': sign_result,
+            'has_certs': tenant.certificates.exists(),
+        },
+    )
+
+
+@login_required
+@require_http_methods(['POST'])
+def sign_preview_view(request):
+    from django.http import JsonResponse
+
+    from signPdf.signing_service import analyze_pdf_for_signing
+
+    tenant = get_primary_tenant(request.user)
+    if tenant.status != TenantStatus.ACTIVE:
+        return JsonResponse({'error': 'Account not active.'}, status=403)
+    if is_rate_limited(request, 'portal_sign_preview'):
+        return JsonResponse({'error': RATE_LIMIT_MESSAGE}, status=429)
+
+    pdf_file = request.FILES.get('pdf_file')
+    if not pdf_file:
+        return JsonResponse({'error': 'PDF file is required.'}, status=400)
+    if pdf_file.size > settings.PORTAL_SIGN_MAX_UPLOAD_BYTES:
+        return JsonResponse({'error': 'PDF file is too large.'}, status=400)
+
+    pdf_data = pdf_file.read()
+    analysis = analyze_pdf_for_signing(pdf_data, tenant)
+    record_rate_limit_hit(request, 'portal_sign_preview')
+
+    return JsonResponse({
+        'page_count': analysis.page_count,
+        'signature_slots': analysis.signature_slots,
+        'anchor_text': analysis.anchor_text,
+        'document_type_label': analysis.document_type_label,
+        'ready': analysis.ready,
+    })
+
+
+def _get_portal_sign_download(request):
+    from datetime import datetime
+
+    from django.utils import timezone
+
+    payload = request.session.get('portal_sign_download')
+    if not payload:
+        return None
+    expires_at = datetime.fromisoformat(payload['expires_at'])
+    if timezone.is_naive(expires_at):
+        expires_at = timezone.make_aware(expires_at)
+    if timezone.now() > expires_at:
+        request.session.pop('portal_sign_download', None)
+        request.session.modified = True
+        return None
+    return payload
+
+
+@login_required
+def sign_done_view(request):
+    payload = _get_portal_sign_download(request)
+    if not payload:
+        messages.error(request, 'Download link expired. Please sign the document again.')
+        return redirect('sign')
+    display = {key: value for key, value in payload.items() if key != 'data'}
+    return render(request, 'accounts/sign_done.html', {'result': display})
+
+
+@login_required
+def sign_download_view(request):
+    import base64
+
+    from django.http import HttpResponse
+
+    payload = _get_portal_sign_download(request)
+    if not payload:
+        messages.error(request, 'Download link expired. Please sign the document again.')
+        return redirect('sign')
+
+    response = HttpResponse(
+        base64.b64decode(payload['data']),
+        content_type='application/pdf',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{payload["filename"]}"'
+    return response

@@ -1,9 +1,10 @@
 from django import forms
-from django.contrib.auth import authenticate
+from django.conf import settings
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.models import User
 
-from .models import TenantSignatureStyle
-from .services import register_tenant, store_certificate
+from .models import Tenant, TenantSignatureStyle, TenantStatus
+from .services import get_primary_tenant, register_tenant, store_certificate
 
 
 class RegistrationForm(forms.Form):
@@ -22,6 +23,21 @@ class RegistrationForm(forms.Form):
 class LoginForm(AuthenticationForm):
     username = forms.EmailField(label='Email')
     password = forms.CharField(widget=forms.PasswordInput)
+
+    def clean(self):
+        username = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+        if username and password:
+            user = User.objects.filter(email__iexact=username.strip().lower()).first()
+            if user and not user.is_active and user.check_password(password):
+                tenant = get_primary_tenant(user)
+                if tenant and tenant.status == TenantStatus.PENDING_EMAIL:
+                    raise forms.ValidationError(
+                        'Verify your email before signing in. '
+                        'Check your inbox or use Resend verification below.',
+                        code='pending_email',
+                    )
+        return super().clean()
 
 
 class ResendVerificationForm(forms.Form):
@@ -109,3 +125,38 @@ class SignatureStyleForm(forms.ModelForm):
             'box_gap_above_label': 'Gap between the anchor text and the bottom of the signature box.',
             'box_shift_down_fitz': 'Positive moves the signature box down (away from text above).',
         }
+
+
+class PortalSignForm(forms.Form):
+    pdf_file = forms.FileField(label='PDF document')
+    cert_alias = forms.ChoiceField(label='Saved certificate')
+    password = forms.CharField(
+        widget=forms.PasswordInput,
+        label='PFX password',
+        help_text='Not stored — required to unlock your certificate for signing.',
+    )
+
+    def __init__(self, *args, tenant: Tenant | None = None, **kwargs):
+        self.tenant = tenant
+        super().__init__(*args, **kwargs)
+        aliases = []
+        if tenant is not None:
+            aliases = list(tenant.certificates.values_list('alias', flat=True))
+        self.fields['cert_alias'].choices = [(a, a) for a in aliases]
+
+    def clean_pdf_file(self):
+        uploaded = self.cleaned_data.get('pdf_file')
+        if not uploaded:
+            return uploaded
+        if uploaded.size > settings.PORTAL_SIGN_MAX_UPLOAD_BYTES:
+            max_mb = settings.PORTAL_SIGN_MAX_UPLOAD_BYTES // (1024 * 1024)
+            raise forms.ValidationError(f'PDF must be {max_mb} MB or smaller.')
+        if not uploaded.name.lower().endswith('.pdf'):
+            raise forms.ValidationError('Upload a PDF file.')
+        return uploaded
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.tenant and not self.tenant.certificates.exists():
+            raise forms.ValidationError('Upload a saved certificate before signing in the portal.')
+        return cleaned

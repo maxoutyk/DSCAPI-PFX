@@ -1,37 +1,235 @@
 {% extends "accounts/base.html" %}
-{% block title %}IG E-Sign — Digital PDF Signing{% endblock %}
+{% load static %}
+{% block title %}IG E-Sign — Digital PDF Signing Platform{% endblock %}
+{% block public_shell_class %}auth-shell--landing{% endblock %}
+
 {% block auth_nav %}
+<nav class="landing-header-nav" aria-label="Page sections">
+  <a href="#features">Features</a>
+  <a href="#how-it-works">How it works</a>
+</nav>
+<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
 <a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
 <a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
 {% endblock %}
+
 {% block public_content %}
-<section class="landing-body">
-  <div class="landing-hero">
-    <p style="color:var(--accent);font-weight:600;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Incite Gravity</p>
-    <h1>Sign PDFs with <span class="accent-text">authority</span>,<br>integrate with ease.</h1>
-    <p>
-      IG E-Sign is Incite Gravity's developer-first digital signature platform.
-      Use your DSC/PFX certificate to sign PDFs programmatically — secure, compliant, and built for business.
-    </p>
+<div class="landing-page">
+  <section class="landing-hero-section" aria-labelledby="landing-hero-title">
+    <div class="landing-hero-copy">
+      <p class="landing-eyebrow">Incite Gravity · Digital signatures</p>
+      <h1 id="landing-hero-title">Sign PDFs with <span class="accent-text">authority</span>,<br>from API or browser.</h1>
+      <p class="landing-lead">
+        IG E-Sign is a developer-first DSC/PFX signing platform with a full tenant portal.
+        Integrate via REST API, or sign documents in the browser — with audit trails, saved certificates, and custom signature placement.
+      </p>
+      <div class="landing-cta">
+        <a href="{% url 'register' %}" class="btn btn-lg">Start for free</a>
+        <a href="#how-it-works" class="btn btn-secondary btn-lg">See how it works</a>
+      </div>
+      <ul class="landing-hero-bullets">
+        <li>100 signs/month on the free tier</li>
+        <li>REST API &amp; in-browser signing</li>
+        <li>SHA-256 audit on every signature</li>
+      </ul>
+    </div>
+    <div class="landing-hero-visual glass-card" aria-hidden="true">
+      <div class="landing-mock-topbar">
+        <span class="landing-mock-dot"></span>
+        <span class="landing-mock-dot"></span>
+        <span class="landing-mock-dot"></span>
+        <span class="landing-mock-title">IG E-Sign · Dashboard</span>
+      </div>
+      <div class="landing-mock-body">
+        <div class="landing-mock-row">
+          <span class="badge badge-success">Signed</span>
+          <span class="mono landing-mock-hash">a3f8c912…</span>
+        </div>
+        <div class="landing-mock-row">
+          <span class="badge badge-neutral">Purchase Order</span>
+          <span class="landing-mock-meta">via API · 103.99.x.x</span>
+        </div>
+        <div class="landing-mock-row">
+          <span class="badge badge-success">Signed</span>
+          <span class="mono landing-mock-hash">7b2e41d0…</span>
+        </div>
+        <div class="landing-mock-row">
+          <span class="badge badge-neutral">Invoice</span>
+          <span class="landing-mock-meta">via Browser · portal</span>
+        </div>
+        <div class="landing-mock-signature">
+          <svg viewBox="0 0 200 48" aria-hidden="true"><path d="M8,36 Q32,8 56,32 T104,28 T168,18" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Authorised Signatory</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-stats" aria-label="Platform highlights">
+    <div class="landing-stat">
+      <strong>API + Portal</strong>
+      <span>Sign programmatically or in the browser</span>
+    </div>
+    <div class="landing-stat">
+      <strong>Audit trail</strong>
+      <span>Hashes, document type &amp; client IP logged</span>
+    </div>
+    <div class="landing-stat">
+      <strong>Saved PFX</strong>
+      <span>Encrypted certificates per organization</span>
+    </div>
+    <div class="landing-stat">
+      <strong>ISO 27001:2022</strong>
+      <span>Built by a certified security partner</span>
+    </div>
+  </section>
+
+  <section id="features" class="landing-section">
+    <div class="landing-section-header">
+      <p class="landing-eyebrow">Capabilities</p>
+      <h2>Everything you need to sign at scale</h2>
+      <p>From a single REST call to a DocuSign-style portal — one platform, one audit log, your DSC certificate.</p>
+    </div>
+    <div class="landing-features-grid">
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+        </div>
+        <h3>REST API signing</h3>
+        <p>POST a PDF with your API key. Use inline PFX or a saved certificate alias. Automatic anchor detection and signature placement.</p>
+      </article>
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
+        </div>
+        <h3>In-browser signing</h3>
+        <p>Upload a PDF in the portal, preview placement with PDF.js, sign with a saved certificate, and download — no integration required.</p>
+      </article>
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Saved certificates</h3>
+        <p>Store PFX files encrypted per tenant. Reference certificates by alias in API calls or the portal — passwords are never persisted.</p>
+      </article>
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h3>Signing audit trail</h3>
+        <p>Every signature records SHA-256 hashes before and after, detected document type, client IP, and whether it came from the API or browser.</p>
+      </article>
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </div>
+        <h3>Signature styling</h3>
+        <p>Opt in to custom anchor text, box size, and placement offsets per tenant. Existing API clients keep platform defaults until you enable it.</p>
+      </article>
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </div>
+        <h3>Tenant dashboard</h3>
+        <p>Organization accounts with API keys, monthly quotas, activity history, and certificate management — ready for production workloads.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="landing-section landing-section--alt">
+    <div class="landing-section-header">
+      <p class="landing-eyebrow">Two ways to sign</p>
+      <h2>Integrate in minutes, or sign from the portal</h2>
+      <p>Choose the path that fits your team. Both flows share the same certificates, quotas, and audit log.</p>
+    </div>
+    <div class="landing-paths">
+      <article class="landing-path-card glass-card">
+        <span class="landing-path-label">For developers</span>
+        <h3>API workflow</h3>
+        <ol>
+          <li>Register your organization and get approved</li>
+          <li>Upload a PFX and create an API key</li>
+          <li><span class="mono">POST /api/signpdf-pfx</span> with your PDF and certificate</li>
+          <li>Receive the signed PDF plus signing ID and hash prefixes</li>
+        </ol>
+        <a href="{% url 'register' %}" class="btn btn-sm">Create account</a>
+      </article>
+      <article class="landing-path-card glass-card">
+        <span class="landing-path-label">For business users</span>
+        <h3>Browser workflow</h3>
+        <ol>
+          <li>Sign in to your IG E-Sign dashboard</li>
+          <li>Upload a saved certificate and open <strong>Sign PDF</strong></li>
+          <li>Drop your document, preview signature placement</li>
+          <li>Sign and download — event logged in activity</li>
+        </ol>
+        <a href="{% url 'register' %}" class="btn btn-sm">Get portal access</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="landing-section landing-compliance">
+    <div class="landing-compliance-inner glass-card">
+      <div>
+        <p class="landing-eyebrow">Trust &amp; compliance</p>
+        <h2>Built for business-critical documents</h2>
+        <p>
+          IG E-Sign uses your organization's DSC/PFX certificate for legally valid digital signatures.
+          Platform defaults locate the <span class="mono">Authorised Signatory</span> anchor in your PDFs.
+          Every signing event is traceable in your dashboard.
+        </p>
+      </div>
+      <ul class="landing-compliance-list">
+        <li>Multi-tenant isolation with per-org API keys</li>
+        <li>Rate limiting and monthly signing quotas</li>
+        <li>Document type auto-detection from PDF content</li>
+        <li>Incite Gravity — ISO 27001:2022 certified</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="landing-cta-band" aria-labelledby="landing-cta-title">
+    <h2 id="landing-cta-title">Ready to sign your first PDF?</h2>
+    <p>Create a free account, upload your certificate, and start signing via API or browser today.</p>
     <div class="landing-cta">
-      <a href="{% url 'register' %}" class="btn btn-lg">Start for free</a>
+      <a href="{% url 'register' %}" class="btn btn-lg">Create free account</a>
       <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
     </div>
-    <ul style="list-style:none;padding:0;margin-top:32px;display:flex;flex-wrap:wrap;gap:16px;color:var(--text-secondary);font-size:0.85rem;">
-      <li>✓ 100 signs/month free tier</li>
-      <li>✓ Saved PFX certificates</li>
-      <li>✓ REST API + API keys</li>
-    </ul>
+  </section>
+</div>
+{% endblock %}
+
+{% block public_footer %}
+<footer class="landing-footer">
+  <div class="landing-footer-grid">
+    <div class="landing-footer-brand">
+      <a href="{% url 'home' %}" class="auth-nav-brand">
+        <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="" class="brand-logo brand-logo--dark">
+        <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="" class="brand-logo brand-logo--light">
+        <span>IG E-Sign</span>
+      </a>
+      <p>Digital PDF signing for developers and teams. A product of Incite Gravity.</p>
+    </div>
+    <div>
+      <h3>Product</h3>
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="{% url 'register' %}">Get started</a></li>
+        <li><a href="{% url 'login' %}">Sign in</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Company</h3>
+      <ul>
+        <li><a href="https://incitegravity.com/" target="_blank" rel="noopener noreferrer">Incite Gravity</a></li>
+        <li><a href="https://incitegravity.com/contact" target="_blank" rel="noopener noreferrer">Contact</a></li>
+      </ul>
+    </div>
   </div>
-  <div class="glass-card" style="max-width:420px;width:100%;justify-self:center;">
-    <h2 style="margin-bottom:8px;">How it works</h2>
-    <p class="subtitle" style="color:var(--text-secondary);margin-bottom:24px;font-size:0.9rem;">Three steps to your first signed document.</p>
-    <ol style="margin:0;padding-left:20px;color:var(--text-secondary);display:flex;flex-direction:column;gap:16px;">
-      <li><strong style="color:var(--text-primary);">Register</strong> your organization and get approved</li>
-      <li><strong style="color:var(--text-primary);">Create an API key</strong> from your dashboard</li>
-      <li><strong style="color:var(--text-primary);">POST your PDF</strong> to <span class="inline-code">/api/signpdf-pfx</span></li>
-    </ol>
-    <a href="{% url 'register' %}" class="btn" style="width:100%;margin-top:24px;">Create account</a>
+  <div class="landing-footer-bottom">
+    <span>&copy; {% now "Y" %} Incite Gravity. All rights reserved.</span>
+    <span>ISO 27001:2022 Certified</span>
   </div>
-</section>
+</footer>
 {% endblock %}

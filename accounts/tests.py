@@ -82,11 +82,58 @@ class VerificationEmailTests(TestCase):
     def test_resend_verification_email_replaces_old_token(self):
         send_verification_email(self.user)
         first_token = self.user.email_tokens.first().token
-        resend_verification_email(self.user.email)
+        self.assertTrue(resend_verification_email(self.user.email))
         self.assertEqual(len(mail.outbox), 2)
         active_tokens = EmailVerificationToken.objects.filter(user=self.user, used_at__isnull=True)
         self.assertEqual(active_tokens.count(), 1)
         self.assertNotEqual(active_tokens.first().token, first_token)
+
+    def test_resend_verification_unknown_email_returns_false(self):
+        self.assertFalse(resend_verification_email('nobody@example.com'))
+        self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    SITE_URL='https://app.example.com',
+)
+class ResendVerificationViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='pending@example.com',
+            email='pending@example.com',
+            password='secure-pass-123',
+            is_active=False,
+        )
+        self.tenant = Tenant.objects.create(
+            name='Pending Org',
+            slug='pending-org',
+            status=TenantStatus.PENDING_EMAIL,
+        )
+        TenantMembership.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            role='owner',
+            is_primary=True,
+        )
+        self.client = Client()
+
+    def test_resend_verification_view_sends_email(self):
+        response = self.client.post(
+            '/resend-verification/',
+            {'email': 'pending@example.com'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Check your email')
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_login_shows_helpful_message_for_unverified_user(self):
+        response = self.client.post(
+            '/login/',
+            {'username': 'pending@example.com', 'password': 'secure-pass-123'},
+        )
+        self.assertContains(response, 'Verify your email before signing in')
+        self.assertContains(response, 'Resend verification')
 
 
 class APIKeyTests(TestCase):

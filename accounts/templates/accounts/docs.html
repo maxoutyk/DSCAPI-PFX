@@ -53,34 +53,12 @@
   "message": "PDF signed successfully using PFX.",
   "signed_pdf_base64": "...",
   "signing_id": 42,
-  "document_type": "tax_invoice",
-  "document_type_label": "Tax Invoice",
   "hash_before_prefix": "a1b2c3d4",
   "hash_after_prefix": "e5f6g7h8"
 }</code></pre>
   <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
-    <strong>Audit fields</strong> (added automatically — optional for clients to read):
-    <span class="inline-code">signing_id</span> correlates with your dashboard activity log;
-  document type is inferred from PDF text; hash prefixes are the first 8 characters of SHA-256 fingerprints
-    (full hashes are stored server-side). Client IP is recorded from the request.
+  <span class="inline-code">signing_id</span> correlates with your dashboard activity log. Hash prefixes are the first 8 characters of SHA-256 fingerprints stored server-side for audit.
   </p>
-</div>
-
-<div class="card card-flat" style="margin-top:24px;">
-  <h2>Document type detection</h2>
-  <p style="color:var(--text-secondary);font-size:0.875rem;">
-    The server scans PDF text and classifies each sign attempt. You do <strong>not</strong> send a document type in the request.
-  </p>
-  <ul style="color:var(--text-secondary);font-size:0.875rem;display:flex;flex-direction:column;gap:6px;margin:12px 0 0;padding-left:20px;">
-    <li><span class="inline-code">tax_invoice</span> — Tax Invoice</li>
-    <li><span class="inline-code">purchase_order</span> — Purchase Order</li>
-    <li><span class="inline-code">delivery_challan</span> — Delivery Challan</li>
-    <li><span class="inline-code">credit_note</span> — Credit Note</li>
-    <li><span class="inline-code">debit_note</span> — Debit Note</li>
-    <li><span class="inline-code">proforma_invoice</span> — Proforma Invoice</li>
-    <li><span class="inline-code">quotation</span> — Quotation</li>
-    <li><span class="inline-code">unknown</span> — no keyword matched</li>
-  </ul>
 </div>
 
 <div class="card card-flat" style="margin-top:24px;">

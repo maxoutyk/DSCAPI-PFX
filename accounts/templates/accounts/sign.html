@@ -1,0 +1,69 @@
+{% extends "accounts/base.html" %}
+{% block title %}Sign PDF — IG E-Sign{% endblock %}
+{% block page_title %}Sign PDF{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Sign a PDF</h1>
+  <p class="subtitle">Upload a document and sign with a saved certificate — no API call required.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card card-flat">
+    <h2>Sign document</h2>
+    {% if tenant.status != 'active' %}
+    <p style="color:var(--text-secondary);">Your account must be approved before signing.</p>
+    {% elif not has_certs %}
+    <p style="color:var(--text-secondary);">Upload a saved certificate first.</p>
+    <a href="{% url 'certs' %}" class="btn btn-sm" style="margin-top:12px;">Go to Certificates</a>
+    {% else %}
+    <form method="post" enctype="multipart/form-data" id="portal-sign-form">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>PDF file</label>
+        <div class="upload-zone">
+          {{ form.pdf_file }}
+          <div class="upload-zone-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <p style="margin:0;font-weight:500;">Drop your PDF here</p>
+          <p class="upload-filename" style="margin:8px 0 0;color:var(--text-secondary);font-size:0.8rem;">or click to browse (max 10 MB)</p>
+        </div>
+        {% if form.pdf_file.errors %}<div class="message error" role="alert">{{ form.pdf_file.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_cert_alias">Certificate</label>
+        {{ form.cert_alias }}
+      </div>
+      <div class="form-group">
+        <label for="id_password">PFX password</label>
+        {{ form.password }}
+        {% if form.password.help_text %}<p class="form-help">{{ form.password.help_text }}</p>{% endif %}
+        {% if form.password.errors %}<div class="message error" role="alert">{{ form.password.errors|striptags }}</div>{% endif %}
+      </div>
+      {% if form.non_field_errors %}
+      <div class="message error" role="alert">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+      <button class="btn" type="submit" id="sign-submit-btn">Sign PDF</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="card card-flat">
+    <h2>Preview</h2>
+    <div id="pdf-preview-wrap" style="display:none;">
+      <canvas id="pdf-preview-canvas" style="width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;"></canvas>
+      <p id="pdf-preview-meta" style="color:var(--text-secondary);font-size:0.85rem;margin-top:12px;"></p>
+    </div>
+    <div id="pdf-preview-empty" style="color:var(--text-secondary);font-size:0.875rem;">
+      Select a PDF to preview the first page and validate signature placement.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script>window.PORTAL_SIGN_PREVIEW_URL = "{% url 'sign_preview' %}";</script>
+<script src="{% static 'accounts/js/portal-sign.js' %}" defer></script>
+{% endblock %}

@@ -46,11 +46,15 @@ def send_verification_email(user: User) -> None:
         raise EmailDeliveryError('Failed to send verification email. Please try again later.') from exc
 
 
-def resend_verification_email(email: str) -> None:
+def resend_verification_email(email: str) -> bool:
+    """
+    Resend verification email for pending accounts.
+    Returns True if an email was sent, False if the address is unknown (no enumeration).
+    """
     normalized = email.strip().lower()
     user = User.objects.filter(email__iexact=normalized).first()
     if not user:
-        return
+        return False
 
     if user.is_active:
         raise ValueError('This email address is already verified.')
@@ -61,6 +65,7 @@ def resend_verification_email(email: str) -> None:
 
     EmailVerificationToken.objects.filter(user=user, used_at__isnull=True).delete()
     send_verification_email(user)
+    return True
 
 
 def _build_password_reset_url(token: PasswordResetToken) -> str:

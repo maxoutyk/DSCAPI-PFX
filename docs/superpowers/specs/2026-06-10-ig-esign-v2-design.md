@@ -1,7 +1,7 @@
 # IG E-Sign v2 Design Spec
 
 **Date:** 2026-06-10  
-**Status:** In progress — Phases A & B complete  
+**Status:** v2 complete — Phases A, B & C shipped (teams/billing → v3)  
 **Replaces / extends:** [2026-06-09-dscapi-saas-design.md](./2026-06-09-dscapi-saas-design.md) (v1 complete)
 
 ## Goal
@@ -223,7 +223,7 @@ TenantSignatureStyle
 
 ---
 
-## C — In-browser signing UI (DocuSign-style)
+## C — In-browser signing UI (DocuSign-style) ✅
 
 ### Purpose
 
