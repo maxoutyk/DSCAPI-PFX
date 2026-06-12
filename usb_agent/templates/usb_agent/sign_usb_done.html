@@ -1,0 +1,29 @@
+{% extends "accounts/base.html" %}
+{% block title %}Signed — IG E-Sign{% endblock %}
+{% block page_title %}Sign with USB{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Document signed</h1>
+  <p class="subtitle">Your PDF was signed with a USB DSC token.</p>
+</div>
+
+<div class="card card-flat" style="max-width:560px;">
+  <div class="status-banner is-active" role="status" style="margin-bottom:20px;">
+    <span class="badge badge-success">Success</span>
+  </div>
+  <dl style="display:grid;grid-template-columns:auto 1fr;gap:10px 16px;font-size:0.9rem;margin:0 0 24px;">
+    <dt style="color:var(--text-secondary);">Signing ID</dt>
+    <dd class="mono">{{ result.signing_id }}</dd>
+    <dt style="color:var(--text-secondary);">Document</dt>
+    <dd>{{ result.document_type_label }}</dd>
+    <dt style="color:var(--text-secondary);">Hash (before)</dt>
+    <dd class="mono">{{ result.hash_before_prefix }}…</dd>
+    <dt style="color:var(--text-secondary);">Hash (after)</dt>
+    <dd class="mono">{{ result.hash_after_prefix }}…</dd>
+    <dt style="color:var(--text-secondary);">Source</dt>
+    <dd>USB token</dd>
+  </dl>
+  <a href="{% url 'usb_sign_download' %}" class="btn">Download signed PDF</a>
+  <a href="{% url 'usb_sign' %}" class="btn btn-secondary btn-sm" style="margin-left:8px;">Sign another</a>
+</div>
+{% endblock %}

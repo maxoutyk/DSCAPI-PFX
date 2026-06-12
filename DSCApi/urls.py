@@ -22,7 +22,9 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('accounts.urls')),
+    path('', include('usb_agent.portal_urls')),
     path('api/', include('signPdf.urls')),
+    path('api/', include('usb_agent.urls')),
 ]
 
 if settings.DEBUG:

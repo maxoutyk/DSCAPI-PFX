@@ -1,0 +1,59 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+{% block title %}Signing with USB — IG E-Sign{% endblock %}
+{% block page_title %}Sign with USB{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Signing in progress</h1>
+  <p class="subtitle">{{ filename }} — complete signing in the IG E-Sign Agent (USB token PIN).</p>
+</div>
+
+<div class="card card-flat" style="max-width:560px;">
+  <p id="usb-sign-status" style="color:var(--text-secondary);">Waiting for local agent…</p>
+  <div class="status-banner" style="margin-top:16px;" role="status">
+    <span class="badge badge-neutral">Job {{ job.id }}</span>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'usb_agent/js/agent-bridge.js' %}" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var jobId = '{{ job.id }}';
+  var statusUrl = '{% url "usb_sign_status" job.id %}';
+  var doneUrl = '{% url "usb_sign_done" job.id %}';
+  var port = {{ agent_local_port }};
+  var statusEl = document.getElementById('usb-sign-status');
+
+  function pollStatus() {
+    return fetch(statusUrl, {credentials: 'same-origin'}).then(function (r) { return r.json(); });
+  }
+
+  function run() {
+  window.IGAgentBridge.signJob(port, jobId, '{{ site_url }}').then(function () {
+    statusEl.textContent = 'Agent reported success. Finalizing…';
+    return pollStatus();
+  }).then(function (data) {
+    if (data.status === 'completed') {
+      window.location.href = doneUrl;
+      return;
+    }
+    if (data.status === 'failed') {
+      statusEl.textContent = data.error || 'Signing failed.';
+      return;
+    }
+    statusEl.textContent = 'Waiting for agent to complete…';
+    setTimeout(function () {
+      pollStatus().then(function (d) {
+        if (d.status === 'completed') window.location.href = doneUrl;
+        else setTimeout(run, 2000);
+      });
+    }, 1500);
+  }).catch(function (err) {
+    statusEl.textContent = err.message || 'Could not reach local agent. Start IG E-Sign Agent and refresh.';
+  });
+  }
+  run();
+});
+</script>
+{% endblock %}

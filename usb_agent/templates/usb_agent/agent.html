@@ -1,0 +1,116 @@
+{% extends "accounts/base.html" %}
+{% load static display_tz %}
+{% block title %}USB Agent — IG E-Sign{% endblock %}
+{% block page_title %}USB Agent{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>USB DSC agent</h1>
+  <p class="subtitle">Pair the IG E-Sign desktop agent to sign with a USB token. Uses your existing tenant account — no separate login.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card card-flat">
+    <h2>This computer</h2>
+    <p id="agent-local-status" style="color:var(--text-secondary);margin-bottom:16px;">Checking local agent…</p>
+    <p style="font-size:0.85rem;color:var(--text-secondary);">
+      Local agent listens on <span class="mono">127.0.0.1:{{ agent_local_port }}</span>
+    </p>
+    {% if tenant.status == 'active' %}
+    <form method="post" action="{% url 'usb_agent_pair' %}" id="agent-pair-form" style="margin-top:20px;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm">Generate pairing code</button>
+    </form>
+    <div id="pairing-code-box" class="message" style="display:none;margin-top:16px;" role="status"></div>
+    {% else %}
+    <p style="color:var(--text-secondary);margin-top:16px;">Your account must be approved before pairing an agent.</p>
+    {% endif %}
+    <p style="margin-top:20px;font-size:0.85rem;color:var(--text-secondary);">
+      Install the separate <strong>IG E-Sign Agent</strong> app, then enter the pairing code when prompted.
+    </p>
+  </div>
+
+  <div class="card card-flat">
+    <div class="card-header">
+      <h2>Paired devices</h2>
+      <a href="{% url 'usb_sign' %}" class="btn btn-secondary btn-sm">Sign with USB</a>
+    </div>
+    {% if devices %}
+    <div class="table-wrap">
+      <table class="data-table" aria-label="Paired USB agents">
+        <thead>
+          <tr>
+            <th>Device</th>
+            <th>Status</th>
+            <th>Version</th>
+            <th>Last seen</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for device in devices %}
+          <tr>
+            <td>
+              <strong>{{ device.label|default:device.prefix }}</strong>
+              {% if device.cert_cn %}<br><span style="font-size:0.8rem;color:var(--text-secondary);">{{ device.cert_cn }}</span>{% endif %}
+            </td>
+            <td>
+              {% if device.is_revoked %}
+              <span class="badge badge-error">Revoked</span>
+              {% elif device.is_online %}
+              <span class="badge badge-success">Online</span>
+              {% else %}
+              <span class="badge badge-neutral">Offline</span>
+              {% endif %}
+            </td>
+            <td class="mono" style="font-size:0.8rem;">{{ device.agent_version|default:"—" }}</td>
+            <td>
+              {% if device.last_seen_at %}
+              <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ device.last_seen_at|ist:"M j, H:i" }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if not device.is_revoked %}
+              <form method="post" action="{% url 'usb_agent_revoke' device.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm">Revoke</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-secondary);">No agents paired yet. Generate a code and complete setup in the desktop agent.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'usb_agent/js/agent-bridge.js' %}" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  window.IGAgentBridge.checkLocal({{ agent_local_port }}).then(function (ok) {
+    var el = document.getElementById('agent-local-status');
+    if (!el) return;
+    el.textContent = ok ? 'Local agent is running on this computer.' : 'Local agent not detected. Install and start IG E-Sign Agent.';
+    el.style.color = ok ? 'var(--success)' : 'var(--text-secondary)';
+  });
+  var form = document.getElementById('agent-pair-form');
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      fetch(form.action, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value},
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        var box = document.getElementById('pairing-code-box');
+        box.style.display = 'block';
+        box.textContent = 'Pairing code: ' + data.code + ' (expires soon)';
+      });
+    });
+  }
+});
+</script>
+{% endblock %}

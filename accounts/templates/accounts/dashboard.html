@@ -117,11 +117,7 @@
               {% endif %}
             </td>
             <td>
-              {% if log.signing_source == 'browser' %}
-              <span class="badge badge-neutral">Browser</span>
-              {% else %}
-              <span class="badge badge-neutral">API</span>
-              {% endif %}
+              <span class="badge badge-neutral">{{ log.get_signing_source_display }}</span>
             </td>
             <td>
               {% if log.success %}

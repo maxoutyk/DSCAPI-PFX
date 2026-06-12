@@ -35,6 +35,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
           <span class="nav-label">Sign PDF</span>
         </a>
+        <a class="nav-item" href="{% url 'usb_sign' %}" title="Sign with USB">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg>
+          <span class="nav-label">USB Sign</span>
+        </a>
+        <a class="nav-item" href="{% url 'usb_agent' %}" title="USB Agent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2"/></svg>
+          <span class="nav-label">USB Agent</span>
+        </a>
         <a class="nav-item" href="{% url 'certs' %}" title="Certificates">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span class="nav-label">Certificates</span>

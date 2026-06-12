@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'accounts',
     'signPdf',
+    'usb_agent',
 ]
 
 _allow_basic = os.environ.get('ALLOW_BASIC_AUTH', '').strip().lower()
@@ -215,6 +216,12 @@ PORTAL_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('PORTAL_SIGN_MAX_UPLOAD_MB', '
 
 # SaaS settings
 DEFAULT_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_MONTHLY_QUOTA', '100'))
+
+# USB DSC desktop agent
+USB_AGENT_PAIRING_TTL_MINUTES = int(os.environ.get('USB_AGENT_PAIRING_TTL_MINUTES', '5'))
+USB_AGENT_SIGN_JOB_TTL_MINUTES = int(os.environ.get('USB_AGENT_SIGN_JOB_TTL_MINUTES', '15'))
+USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS = int(os.environ.get('USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS', '90'))
+USB_AGENT_LOCAL_PORT = int(os.environ.get('USB_AGENT_LOCAL_PORT', '9765'))
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8080')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dscapi.local')
 

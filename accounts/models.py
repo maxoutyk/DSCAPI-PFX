@@ -227,10 +227,13 @@ class UsageLog(models.Model):
     def signing_source(self) -> str:
         if self.endpoint == 'sign-portal':
             return 'browser'
+        if self.endpoint == 'sign-usb':
+            return 'usb'
         return 'api'
 
     def get_signing_source_display(self) -> str:
-        return 'Browser' if self.signing_source == 'browser' else 'API'
+        labels = {'browser': 'Browser', 'usb': 'USB', 'api': 'API'}
+        return labels.get(self.signing_source, 'API')
 
 
 class EmailVerificationToken(models.Model):

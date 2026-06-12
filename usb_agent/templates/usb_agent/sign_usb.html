@@ -1,0 +1,56 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+{% block title %}Sign with USB — IG E-Sign{% endblock %}
+{% block page_title %}Sign with USB{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Sign with USB token</h1>
+  <p class="subtitle">Upload a PDF and sign using your paired desktop agent and DSC USB token.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card card-flat">
+    <p id="usb-agent-status" style="color:var(--text-secondary);margin-bottom:16px;">Checking local agent…</p>
+    {% if not has_paired_agent %}
+    <p class="message" style="margin-bottom:16px;">Pair an agent first from <a href="{% url 'usb_agent' %}">USB Agent</a>.</p>
+    {% endif %}
+    {% if tenant.status != 'active' %}
+    <p style="color:var(--text-secondary);">Your account must be approved before signing.</p>
+    {% elif has_paired_agent %}
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_pdf_file">PDF file</label>
+        {{ form.pdf_file }}
+        {% if form.pdf_file.errors %}<div class="message error">{{ form.pdf_file.errors|striptags }}</div>{% endif %}
+      </div>
+      <button type="submit" class="btn">Prepare signing</button>
+    </form>
+    {% endif %}
+    <p style="margin-top:16px;font-size:0.85rem;color:var(--text-secondary);">
+      Prefer saved PFX? Use <a href="{% url 'sign' %}">Sign PDF</a> instead.
+    </p>
+  </div>
+  <div class="card card-flat">
+    <h2>How it works</h2>
+    <ol style="color:var(--text-secondary);font-size:0.9rem;line-height:1.7;padding-left:1.25rem;">
+      <li>Upload your PDF here (placement is prepared in the cloud).</li>
+      <li>Your local agent signs with the USB token and PIN.</li>
+      <li>Download the signed PDF when complete.</li>
+    </ol>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'usb_agent/js/agent-bridge.js' %}" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  window.IGAgentBridge.checkLocal({{ agent_local_port }}).then(function (ok) {
+    var el = document.getElementById('usb-agent-status');
+    if (!el) return;
+    el.textContent = ok ? 'Local agent ready.' : 'Start IG E-Sign Agent on this computer before signing.';
+    el.style.color = ok ? 'var(--success)' : 'var(--warning)';
+  });
+});
+</script>
+{% endblock %}
