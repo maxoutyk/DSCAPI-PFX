@@ -88,11 +88,20 @@ def pair_agent(api_base: str, code: str):
     print(f"Paired with tenant {data.get('tenant')} (device {data.get('device_id')})")
 
 
+def token_present() -> bool:
+    try:
+        from pkcs11_signing import token_slot_present
+
+        return token_slot_present()
+    except Exception:
+        return False
+
+
 def heartbeat(api_base: str, token: str):
     api_request(
         'POST',
         f'{api_base}/api/agent/heartbeat/',
-        {'agent_version': AGENT_VERSION, 'token_present': False},
+        {'agent_version': AGENT_VERSION, 'token_present': token_present()},
         token=token,
     )
 
@@ -103,23 +112,44 @@ def sign_job(api_base: str, token: str, job_id: str) -> dict:
 
     dev_pfx = os.environ.get('IG_AGENT_DEV_PFX_PATH', '').strip()
     dev_password = os.environ.get('IG_AGENT_DEV_PFX_PASSWORD', '').strip()
-    if dev_pfx and dev_password:
-        from signing import sign_pdf_with_pfx
+    signed_pdf_data = None
+    sign_errors: list[str] = []
 
-        signed_pdf_data = sign_pdf_with_pfx(pdf_data, job['placement'], dev_pfx, dev_password)
-    else:
-        raise RuntimeError(
-            'PKCS#11 signing is not implemented yet. '
-            'Set IG_AGENT_DEV_PFX_PATH and IG_AGENT_DEV_PFX_PASSWORD for local development.',
+    if not (dev_pfx and dev_password):
+        try:
+            from signing import Pkcs11NotAvailable, sign_pdf_with_pkcs11
+
+            signed_pdf_data = sign_pdf_with_pkcs11(pdf_data, job['placement'])
+        except Pkcs11NotAvailable as exc:
+            sign_errors.append(str(exc))
+        except Exception as exc:
+            sign_errors.append(f'USB token signing failed: {exc}')
+    if signed_pdf_data is None:
+        if dev_pfx and dev_password:
+            from signing import sign_pdf_with_pfx
+
+            signed_pdf_data = sign_pdf_with_pfx(pdf_data, job['placement'], dev_pfx, dev_password)
+        else:
+            detail = sign_errors[0] if sign_errors else 'USB token signing is unavailable.'
+            raise RuntimeError(
+                f'{detail} Insert your DSC token and enter its PIN when prompted.',
+            )
+
+    try:
+        signed_b64 = base64.b64encode(signed_pdf_data).decode('ascii')
+        return api_request(
+            'POST',
+            f'{api_base}/api/agent/jobs/{job_id}/complete/',
+            {'signed_pdf_base64': signed_b64},
+            token=token,
         )
+    finally:
+        try:
+            from pkcs11_signing import clear_session_pin
 
-    signed_b64 = base64.b64encode(signed_pdf_data).decode('ascii')
-    return api_request(
-        'POST',
-        f'{api_base}/api/agent/jobs/{job_id}/complete/',
-        {'signed_pdf_base64': signed_b64},
-        token=token,
-    )
+            clear_session_pin()
+        except Exception:
+            pass
 
 
 class AgentHandler(BaseHTTPRequestHandler):
@@ -143,7 +173,9 @@ class AgentHandler(BaseHTTPRequestHandler):
         if self.path != '/health':
             self.send_error(404)
             return
-        payload = json.dumps({'ok': True, 'version': AGENT_VERSION}).encode('utf-8')
+        payload = json.dumps(
+            {'ok': True, 'version': AGENT_VERSION, 'token_present': token_present()},
+        ).encode('utf-8')
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self._cors()
