@@ -1,0 +1,41 @@
+name: Build IG E-Sign Agent (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to build
+        required: true
+        default: feature/usb-dsc-agent
+  push:
+    branches:
+      - feature/usb-dsc-agent
+    paths:
+      - desktop-agent/**
+      - build/windows/**
+      - .github/workflows/build-agent-windows.yml
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build agent installer
+        shell: pwsh
+        run: ./build/windows/build-agent.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IG-E-Sign-Agent-Setup
+          path: desktop-agent/releases/IG-E-Sign-Agent-Setup.exe
