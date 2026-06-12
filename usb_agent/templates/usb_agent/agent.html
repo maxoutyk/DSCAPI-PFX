@@ -20,9 +20,11 @@
   {% if tenant.status == 'active' %}
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
     <a href="{% url 'usb_agent_download' %}" class="btn">
-      {% if has_windows_installer %}Download for Windows (.exe){% else %}Download agent package (ZIP){% endif %}
+      {% if has_windows_installer %}Download for Windows (ZIP){% else %}Download agent package (ZIP){% endif %}
     </a>
-    {% if not has_windows_installer %}
+    {% if has_windows_installer %}
+    <span style="font-size:0.8rem;color:var(--text-secondary);">Includes installer + portal.url — copy portal.url into the install folder after setup.</span>
+    {% else %}
     <span style="font-size:0.8rem;color:var(--text-secondary);">Windows installer builds on CI — ZIP works everywhere with Python 3.</span>
     {% endif %}
   </div>

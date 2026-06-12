@@ -110,6 +110,8 @@ class UsbAgentFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_agent_download_returns_zip_for_active_tenant(self):
+        from .distribution import resolve_agent_installer_path
+
         response = self.client.get('/dashboard/agent/download/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/zip')
@@ -120,6 +122,10 @@ class UsbAgentFlowTests(TestCase):
 
         with zipfile.ZipFile(BytesIO(response.content)) as archive:
             names = archive.namelist()
-        self.assertIn('ig-esign-agent/agent.py', names)
-        self.assertIn('ig-esign-agent/portal.url', names)
-        self.assertIn('ig-esign-agent/start-agent.bat', names)
+        if resolve_agent_installer_path() is not None:
+            self.assertIn('IG-E-Sign-Agent-Setup.exe', names)
+            self.assertIn('portal.url', names)
+        else:
+            self.assertIn('ig-esign-agent/agent.py', names)
+            self.assertIn('ig-esign-agent/portal.url', names)
+            self.assertIn('ig-esign-agent/start-agent.bat', names)

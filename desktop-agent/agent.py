@@ -19,6 +19,7 @@ import base64
 import json
 import os
 import platform
+import sys
 import threading
 import urllib.error
 import urllib.request
@@ -26,9 +27,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 def _read_version() -> str:
-    version_path = Path(__file__).resolve().parent / 'VERSION'
-    if version_path.is_file():
-        return version_path.read_text().strip() or '0.1.0'
+    if getattr(sys, 'frozen', False):
+        candidates = (
+            Path(getattr(sys, '_MEIPASS', '')) / 'VERSION',
+            Path(sys.executable).parent / 'VERSION',
+        )
+    else:
+        candidates = (Path(__file__).resolve().parent / 'VERSION',)
+    for version_path in candidates:
+        if version_path.is_file():
+            return version_path.read_text().strip() or '0.1.0'
     return '0.1.0'
 
 
@@ -174,8 +182,14 @@ def run_server(port: int):
     config = load_config()
     api_base = config.get('api_base', '')
     token = config.get('device_token', '')
-    if api_base and token:
-        heartbeat(api_base, token)
+    if not token:
+        print('Agent is not paired yet. Run "Pair Agent.bat" and enter a code from the portal.')
+    elif api_base and token:
+        try:
+            heartbeat(api_base, token)
+            print(f'Connected to portal at {api_base}')
+        except Exception as exc:
+            print(f'Warning: could not reach portal ({exc}). Agent will still run locally.')
 
         def loop():
             while True:
@@ -189,12 +203,11 @@ def run_server(port: int):
 
     server = ThreadingHTTPServer(('127.0.0.1', port), AgentHandler)
     print(f'IG E-Sign Agent listening on http://127.0.0.1:{port}')
+    print('Keep this window open while signing from the portal.')
     server.serve_forever()
 
 
 def main():
-    import sys
-
     if getattr(sys, 'frozen', False) and len(sys.argv) == 1:
         sys.argv.append('run')
 

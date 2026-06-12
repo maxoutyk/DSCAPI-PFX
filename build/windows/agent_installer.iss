@@ -49,4 +49,4 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Start Agent.bat"; Tasks: desk
 Filename: "{app}\Pair Agent.bat"; Description: "Pair with your IG E-Sign account now"; Flags: postinstall skipifsilent nowait unchecked
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IGEsignAgent"; ValueData: """{app}\{#AppExeName}"" run"; Tasks: startup; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IGEsignAgent"; ValueData: """{app}\Start Agent.bat"""; Tasks: startup; Flags: uninsdeletevalue

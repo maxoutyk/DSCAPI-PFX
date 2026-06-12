@@ -23,6 +23,7 @@ def normalize_binaries(items):
 block_cipher = None
 
 hiddenimports = collect_submodules('signPdf') + [
+    'agent',
     'agent_settings',
     'signing',
     'endesive.pdf.cms',
