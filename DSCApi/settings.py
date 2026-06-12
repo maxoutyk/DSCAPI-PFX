@@ -222,6 +222,8 @@ USB_AGENT_PAIRING_TTL_MINUTES = int(os.environ.get('USB_AGENT_PAIRING_TTL_MINUTE
 USB_AGENT_SIGN_JOB_TTL_MINUTES = int(os.environ.get('USB_AGENT_SIGN_JOB_TTL_MINUTES', '15'))
 USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS = int(os.environ.get('USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS', '90'))
 USB_AGENT_LOCAL_PORT = int(os.environ.get('USB_AGENT_LOCAL_PORT', '9765'))
+# Optional: serve a built installer (.exe/.msi) instead of the dev ZIP bundle.
+USB_AGENT_INSTALLER_PATH = os.environ.get('USB_AGENT_INSTALLER_PATH', '').strip()
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8080')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dscapi.local')
 

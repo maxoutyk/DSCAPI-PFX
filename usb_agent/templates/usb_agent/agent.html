@@ -8,6 +8,33 @@
   <p class="subtitle">Pair the IG E-Sign desktop agent to sign with a USB token. Uses your existing tenant account — no separate login.</p>
 </div>
 
+<div class="card card-flat" style="margin-bottom:var(--space-4);">
+  <div class="card-header">
+    <h2>Download agent</h2>
+    <span class="badge badge-neutral">v{{ agent_version }}</span>
+  </div>
+  <p style="color:var(--text-secondary);font-size:0.9rem;margin:0 0 16px;max-width:640px;">
+    Install the IG E-Sign desktop agent on the computer where your USB DSC token is connected.
+    The download is preconfigured for this portal (<span class="mono">{{ site_url }}</span>).
+  </p>
+  {% if tenant.status == 'active' %}
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+    <a href="{% url 'usb_agent_download' %}" class="btn">
+      {% if has_windows_installer %}Download for Windows (.exe){% else %}Download agent package (ZIP){% endif %}
+    </a>
+    {% if not has_windows_installer %}
+    <span style="font-size:0.8rem;color:var(--text-secondary);">Windows installer builds on CI — ZIP works everywhere with Python 3.</span>
+    {% endif %}
+  </div>
+  <p style="margin:12px 0 0;font-size:0.8rem;color:var(--text-secondary);">
+    Windows installer: run <span class="mono">Pair Agent.bat</span>, then <span class="mono">Start Agent.bat</span>.
+    ZIP: <span class="mono">start-agent.bat</span> / <span class="mono">start-agent.sh</span>.
+  </p>
+  {% else %}
+  <p style="color:var(--text-secondary);">Your account must be approved before downloading the agent.</p>
+  {% endif %}
+</div>
+
 <div class="grid-2">
   <div class="card card-flat">
     <h2>This computer</h2>

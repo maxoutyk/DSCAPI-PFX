@@ -25,7 +25,14 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-AGENT_VERSION = '0.1.0-dev'
+def _read_version() -> str:
+    version_path = Path(__file__).resolve().parent / 'VERSION'
+    if version_path.is_file():
+        return version_path.read_text().strip() or '0.1.0'
+    return '0.1.0'
+
+
+AGENT_VERSION = _read_version()
 CONFIG_PATH = Path.home() / '.ig-esign-agent' / 'config.json'
 
 
@@ -89,7 +96,9 @@ def sign_job(api_base: str, token: str, job_id: str) -> dict:
     dev_pfx = os.environ.get('IG_AGENT_DEV_PFX_PATH', '').strip()
     dev_password = os.environ.get('IG_AGENT_DEV_PFX_PASSWORD', '').strip()
     if dev_pfx and dev_password:
-        signed_pdf_data = _sign_with_pfx(pdf_data, job['placement'], dev_pfx, dev_password)
+        from signing import sign_pdf_with_pfx
+
+        signed_pdf_data = sign_pdf_with_pfx(pdf_data, job['placement'], dev_pfx, dev_password)
     else:
         raise RuntimeError(
             'PKCS#11 signing is not implemented yet. '
@@ -102,64 +111,6 @@ def sign_job(api_base: str, token: str, job_id: str) -> dict:
         f'{api_base}/api/agent/jobs/{job_id}/complete/',
         {'signed_pdf_base64': signed_b64},
         token=token,
-    )
-
-
-def _sign_with_pfx(pdf_data: bytes, placement: dict, pfx_path: str, password: str) -> bytes:
-    import sys
-
-    repo_root = Path(__file__).resolve().parents[1]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DSCApi.settings')
-    import django
-
-    django.setup()
-
-    from endesive import pdf as endesive_pdf
-    from signPdf.pdf_signing import (
-        build_signing_dict,
-        get_cn_from_certificate,
-        get_indian_time_str,
-        load_pfx_credentials,
-        sign_pdf_at_positions,
-    )
-    from dataclasses import replace
-
-    from signPdf.signature_style import SignatureStyleConfig
-
-    pfx_bytes = Path(pfx_path).read_bytes()
-    private_key, certificate, additional_certs = load_pfx_credentials(pfx_bytes, password)
-    style_data = placement.get('style', {})
-    base_style = SignatureStyleConfig.from_settings()
-    style = replace(
-        base_style,
-        anchor_text=style_data.get('anchor_text', base_style.anchor_text),
-        font_size=style_data.get('font_size', base_style.font_size),
-        box_min_width=style_data.get('box_min_width', base_style.box_min_width),
-        box_height=style_data.get('box_height', base_style.box_height),
-        box_right_padding=style_data.get('box_right_padding', base_style.box_right_padding),
-        box_shift_right=style_data.get('box_shift_right', base_style.box_shift_right),
-        box_gap_above_label=style_data.get('box_gap_above_label', base_style.box_gap_above_label),
-        box_shift_down_fitz=style_data.get('box_shift_down_fitz', base_style.box_shift_down_fitz),
-        box_page_margin=style_data.get('box_page_margin', base_style.box_page_margin),
-        icon_display_width=style_data.get('icon_display_width', base_style.icon_display_width),
-        icon_overlap_inset=style_data.get('icon_overlap_inset', base_style.icon_overlap_inset),
-        icon_padding=style_data.get('icon_padding', base_style.icon_padding),
-        is_custom=style_data.get('is_custom', False),
-    )
-    positions = placement['positions']
-    indian_time_str, indian_time = get_indian_time_str()
-    cn = get_cn_from_certificate(certificate)
-    dct = build_signing_dict(cn, indian_time_str, indian_time, style=style)
-    return sign_pdf_at_positions(
-        pdf_data,
-        positions,
-        dct,
-        lambda data, position_dct: endesive_pdf.cms.sign(
-            data, position_dct, private_key, certificate, additional_certs, 'sha256',
-        ),
-        style=style,
     )
 
 
@@ -242,7 +193,12 @@ def run_server(port: int):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='IG E-Sign USB agent (dev stub)')
+    import sys
+
+    if getattr(sys, 'frozen', False) and len(sys.argv) == 1:
+        sys.argv.append('run')
+
+    parser = argparse.ArgumentParser(description='IG E-Sign USB agent')
     sub = parser.add_subparsers(dest='command', required=True)
 
     pair_parser = sub.add_parser('pair')

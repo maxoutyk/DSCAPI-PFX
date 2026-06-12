@@ -1,0 +1,27 @@
+name: Build IG E-Sign Agent (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build agent installer
+        shell: pwsh
+        run: ./build/windows/build-agent.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IG-E-Sign-Agent-Setup
+          path: desktop-agent/releases/IG-E-Sign-Agent-Setup.exe

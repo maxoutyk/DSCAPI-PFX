@@ -11,6 +11,12 @@ from django.views.decorators.http import require_http_methods
 from accounts.models import TenantStatus
 from accounts.services import get_primary_tenant
 
+from .distribution import (
+    agent_zip_filename,
+    build_agent_zip,
+    read_agent_version,
+    resolve_agent_installer_path,
+)
 from .models import AgentDevice, UsbSignJob, UsbSignJobStatus
 from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, revoke_device
 
@@ -27,9 +33,38 @@ def agent_view(request):
             'tenant': tenant,
             'devices': devices,
             'agent_local_port': settings.USB_AGENT_LOCAL_PORT,
-            'site_url': settings.SITE_URL,
+            'site_url': request.build_absolute_uri('/').rstrip('/'),
+            'agent_version': read_agent_version(),
+            'has_windows_installer': resolve_agent_installer_path() is not None,
         },
     )
+
+
+@login_required
+@require_http_methods(['GET'])
+def agent_download_view(request):
+    tenant = get_primary_tenant(request.user)
+    if not tenant or tenant.status != TenantStatus.ACTIVE:
+        messages.error(request, 'Your account must be active to download the agent.')
+        return redirect('usb_agent')
+
+    installer_path = resolve_agent_installer_path()
+    if installer_path is not None:
+        from django.http import FileResponse
+
+        return FileResponse(
+            installer_path.open('rb'),
+            as_attachment=True,
+            filename=installer_path.name,
+        )
+
+    api_base = request.build_absolute_uri('/').rstrip('/')
+    payload = build_agent_zip(api_base=api_base)
+    version = read_agent_version()
+    response = HttpResponse(payload, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{agent_zip_filename(version)}"'
+    response['Content-Length'] = len(payload)
+    return response
 
 
 @login_required
@@ -121,7 +156,7 @@ def sign_usb_pending_view(request, job_id):
             'job': job,
             'filename': request.session.get('usb_sign_filename', 'document.pdf'),
             'agent_local_port': settings.USB_AGENT_LOCAL_PORT,
-            'site_url': settings.SITE_URL,
+            'site_url': request.build_absolute_uri('/').rstrip('/'),
         },
     )
 

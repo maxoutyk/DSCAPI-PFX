@@ -103,3 +103,23 @@ class UsbAgentFlowTests(TestCase):
         anon = Client()
         response = anon.get('/dashboard/agent/')
         self.assertEqual(response.status_code, 302)
+
+    def test_agent_download_requires_login(self):
+        anon = Client()
+        response = anon.get('/dashboard/agent/download/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_agent_download_returns_zip_for_active_tenant(self):
+        response = self.client.get('/dashboard/agent/download/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/zip')
+        self.assertIn('attachment', response['Content-Disposition'])
+        self.assertGreater(len(response.content), 500)
+        import zipfile
+        from io import BytesIO
+
+        with zipfile.ZipFile(BytesIO(response.content)) as archive:
+            names = archive.namelist()
+        self.assertIn('ig-esign-agent/agent.py', names)
+        self.assertIn('ig-esign-agent/portal.url', names)
+        self.assertIn('ig-esign-agent/start-agent.bat', names)
