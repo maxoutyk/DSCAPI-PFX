@@ -130,10 +130,7 @@ def sign_job(api_base: str, token: str, job_id: str) -> dict:
 
             signed_pdf_data = sign_pdf_with_pfx(pdf_data, job['placement'], dev_pfx, dev_password)
         else:
-            detail = sign_errors[0] if sign_errors else 'USB token signing is unavailable.'
-            raise RuntimeError(
-                f'{detail} Insert your DSC token and enter its PIN when prompted.',
-            )
+            raise RuntimeError(sign_errors[0] if sign_errors else 'USB token signing is unavailable.')
 
     try:
         signed_b64 = base64.b64encode(signed_pdf_data).decode('ascii')

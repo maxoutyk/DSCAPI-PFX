@@ -7,7 +7,18 @@ from unittest.mock import patch
 AGENT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(AGENT_DIR))
 
-from pkcs11_signing import resolve_pkcs11_dll  # noqa: E402
+from pkcs11_signing import _pkcs11_bytes, _pkcs11_text, resolve_pkcs11_dll  # noqa: E402
+
+
+class Pkcs11AttributeTests(unittest.TestCase):
+    def test_pkcs11_bytes_accepts_string(self):
+        self.assertEqual(_pkcs11_bytes('abc'), b'abc')
+
+    def test_pkcs11_bytes_accepts_int_list(self):
+        self.assertEqual(_pkcs11_bytes([65, 66]), b'AB')
+
+    def test_pkcs11_text_strips_null_padding(self):
+        self.assertEqual(_pkcs11_text('signer\x00pad'), 'signer')
 
 
 class Pkcs11DiscoveryTests(unittest.TestCase):

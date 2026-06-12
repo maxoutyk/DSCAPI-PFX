@@ -24,6 +24,25 @@ WINDOWS_PKCS11_DLL_CANDIDATES = (
 _session_pin: str | None = None
 
 
+def _pkcs11_bytes(value) -> bytes:
+    """Normalize PKCS#11 attribute values to bytes."""
+    if value is None:
+        return b''
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    if isinstance(value, str):
+        return value.encode('latin1')
+    if isinstance(value, (list, tuple)):
+        return bytes(bytearray(value))
+    return bytes(value)
+
+
+def _pkcs11_text(value) -> str:
+    return _pkcs11_bytes(value).decode('utf-8', errors='replace').split('\0')[0].strip()
+
+
 def load_agent_config() -> dict:
     if not CONFIG_PATH.is_file():
         return {}
@@ -115,7 +134,7 @@ class TokenSigner:
         self.token_label = token_label
         self._pin = pin
         self._cert_key_id = cert_key_id
-        self._keyid: bytes | None = None
+        self._keyid = None
         self._cert_der: bytes | None = None
 
     def logout(self):
@@ -148,11 +167,11 @@ class TokenSigner:
         self._base.login(label, pin)
         self.session = self._base.session
 
-    def _find_signing_pairs(self) -> list[tuple[bytes, bytes, str]]:
+    def _find_signing_pairs(self) -> list[tuple[object, bytes, str]]:
         import PyKCS11 as PK11
 
         assert self.session is not None
-        pairs: list[tuple[bytes, bytes, str]] = []
+        pairs: list[tuple[object, bytes, str]] = []
         cert_objects = self.session.findObjects([(PK11.CKA_CLASS, PK11.CKO_CERTIFICATE)])
         for cert_obj in cert_objects:
             try:
@@ -162,20 +181,18 @@ class TokenSigner:
                 )
             except PK11.PyKCS11Error:
                 continue
-            key_id_bytes = bytes(key_id)
             private_keys = self.session.findObjects(
                 [
                     (PK11.CKA_CLASS, PK11.CKO_PRIVATE_KEY),
-                    (PK11.CKA_ID, key_id_bytes),
+                    (PK11.CKA_ID, key_id),
                 ],
             )
             if not private_keys:
                 continue
-            label_text = bytes(label).decode('utf-8', errors='replace').split('\0')[0].strip()
-            pairs.append((key_id_bytes, bytes(value), label_text))
+            pairs.append((key_id, _pkcs11_bytes(value), _pkcs11_text(label)))
         return pairs
 
-    def _select_pair(self) -> tuple[bytes, bytes]:
+    def _select_pair(self) -> tuple[object, bytes]:
         if self._keyid is not None and self._cert_der is not None:
             return self._keyid, self._cert_der
 
@@ -191,7 +208,7 @@ class TokenSigner:
 
         if preferred is not None:
             for key_id, cert_der, _label in pairs:
-                if key_id == preferred:
+                if _pkcs11_bytes(key_id) == _pkcs11_bytes(preferred):
                     self._keyid, self._cert_der = key_id, cert_der
                     return key_id, cert_der
 
@@ -225,9 +242,12 @@ class TokenSigner:
         mechanism = getattr(PK11, mechanism_name, None)
         if mechanism is None:
             raise RuntimeError(f'Unsupported signing mechanism: {mech}')
+        sign_data = _pkcs11_bytes(data) if isinstance(data, str) else data
+        if not isinstance(sign_data, (bytes, bytearray)):
+            sign_data = bytes(sign_data)
         signature = self.session.sign(
             private_keys[0],
-            data,
+            sign_data,
             PK11.Mechanism(mechanism, None),
         )
         return bytes(signature)
