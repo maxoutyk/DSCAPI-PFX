@@ -8,4 +8,10 @@ IG E-Sign USB Agent
 5. The agent runs in the Windows system tray (near the clock). Right-click the icon for status and Quit.
 6. Insert your USB DSC token when signing from the portal.
 
+Windows Defender note
+---------------------
+This app is not code-signed yet. If Defender or SmartScreen blocks it, use Protection history
+to Allow/Restore, or add an exclusion for this install folder. Download only from your
+IG E-Sign portal USB Agent page.
+
 Support: https://incitegravity.com/

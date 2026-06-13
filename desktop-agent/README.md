@@ -31,6 +31,20 @@ Or copy the file into `desktop-agent/releases/` on the app host — the portal s
 
 GitHub Actions: **Build IG E-Sign Agent (Windows)** workflow (manual dispatch).
 
+## Windows Defender / SmartScreen
+
+The agent is a **PyInstaller** bundle and is **not code-signed yet**, so Windows Defender or SmartScreen may flag it as an unknown app. This is a common false positive for new internal tools.
+
+**If blocked on download or install:**
+
+1. In Windows Security → **Virus & threat protection** → **Protection history**, choose the IG E-Sign Agent item → **Allow** / **Restore**.
+2. Or add an exclusion for the install folder, e.g. `%LOCALAPPDATA%\Programs\IG E-Sign Agent`.
+3. Enterprise PCs: ask IT to allowlist `IG-E-Sign-Agent-Setup.exe` or the install path.
+
+**For production:** sign the installer with an Authenticode certificate (EV recommended) so SmartScreen trust builds over time. Submit false positives at [Microsoft security intelligence](https://www.microsoft.com/en-us/wdsi/filesubmission).
+
+Only download the agent from your IG E-Sign portal (`/dashboard/agent/download/`), not third-party links.
+
 ## Pair manually (developers)
 
 1. Log in to the portal → **USB Agent** → **Generate pairing code**

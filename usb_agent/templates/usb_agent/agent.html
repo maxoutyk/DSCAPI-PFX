@@ -24,6 +24,9 @@
     </a>
     {% if has_windows_installer %}
     <span style="font-size:0.8rem;color:var(--text-secondary);">Installer includes portal.url preconfigured for <span class="mono">{{ site_url }}</span>.</span>
+    <p style="margin:8px 0 0;font-size:0.78rem;color:var(--text-secondary);max-width:640px;">
+      Windows Defender may flag unsigned installers as unknown. If blocked, use <strong>Protection history</strong> → Allow, or add an exclusion for the install folder. Download only from this portal page.
+    </p>
     {% else %}
     <span style="font-size:0.8rem;color:var(--text-secondary);">Windows installer builds on CI — ZIP works everywhere with Python 3.</span>
     {% endif %}
