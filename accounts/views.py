@@ -433,7 +433,7 @@ def docs_download_view(request):
     from django.http import HttpResponse
     from django.template.loader import render_to_string
 
-    from .api_docs_odf import ODT_MIMETYPE, markdown_to_odt_bytes
+    from .api_docs_pdf import PDF_MIMETYPE, markdown_to_pdf_bytes
 
     tenant = get_primary_tenant(request.user)
     content = render_to_string(
@@ -441,9 +441,9 @@ def docs_download_view(request):
         {'tenant': tenant, 'request': request},
         request=request,
     )
-    odt_bytes = markdown_to_odt_bytes(content)
-    response = HttpResponse(odt_bytes, content_type=ODT_MIMETYPE)
-    response['Content-Disposition'] = 'attachment; filename="ig-esign-api-docs.odt"'
+    pdf_bytes = markdown_to_pdf_bytes(content)
+    response = HttpResponse(pdf_bytes, content_type=PDF_MIMETYPE)
+    response['Content-Disposition'] = 'attachment; filename="ig-esign-api-docs.pdf"'
     return response
 
 

@@ -331,19 +331,22 @@ class ApiDocsDownloadTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response.url)
 
-    def test_download_returns_odf_attachment(self):
+    def test_download_returns_pdf_attachment(self):
+        import fitz
+
         self.client.login(username='docs@example.com', password='docs-pass')
         response = self.client.get('/dashboard/docs/download/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response['Content-Type'],
-            'application/vnd.oasis.opendocument.text',
-        )
+        self.assertEqual(response['Content-Type'], 'application/pdf')
         self.assertIn('attachment', response['Content-Disposition'])
-        self.assertIn('ig-esign-api-docs.odt', response['Content-Disposition'])
-        self.assertTrue(response.content.startswith(b'PK'))
-        self.assertIn(b'content.xml', response.content)
-        self.assertIn(b'POST /api/sign/usb/', response.content)
-        self.assertIn(b'sign_token', response.content)
-        self.assertIn(b'250', response.content)
-        self.assertIn('Download API docs (ODF)', self.client.get('/dashboard/docs/').content.decode())
+        self.assertIn('ig-esign-api-docs.pdf', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF'))
+        doc = fitz.open(stream=response.content, filetype='pdf')
+        try:
+            text = ''.join(page.get_text() for page in doc)
+        finally:
+            doc.close()
+        self.assertIn('POST /api/sign/usb/', text)
+        self.assertIn('sign_token', text)
+        self.assertIn('250', text)
+        self.assertIn('Download API docs (PDF)', self.client.get('/dashboard/docs/').content.decode())
