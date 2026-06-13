@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import webbrowser
 from typing import Callable
 
@@ -41,6 +42,7 @@ class AgentDashboard:
         self.on_quit = on_quit
         self._hidden = False
         self._refresh_job = None
+        self._token_refresh_running = False
 
         self.root = tk.Tk()
         self.root.title('IG E-Sign Agent')
@@ -74,7 +76,7 @@ class AgentDashboard:
 
         self.token_frame = ttk.LabelFrame(container, text='USB signing token', padding=12)
         self.token_frame.pack(fill='x', pady=(0, 12))
-        self.token_count_var = tk.StringVar(value='No USB tokens detected.')
+        self.token_count_var = tk.StringVar(value='Insert your USB token and click Refresh.')
         ttk.Label(self.token_frame, textvariable=self.token_count_var, wraplength=360).pack(anchor='w')
         self.token_choice_var = tk.StringVar()
         self.token_combo = ttk.Combobox(
@@ -86,7 +88,7 @@ class AgentDashboard:
         self.token_combo.pack(fill='x', pady=(8, 8))
         token_actions = ttk.Frame(self.token_frame)
         token_actions.pack(fill='x')
-        ttk.Button(token_actions, text='Refresh tokens', command=self._refresh_usb_tokens).pack(side='left')
+        ttk.Button(token_actions, text='Refresh tokens', command=lambda: self._refresh_usb_tokens(background=True)).pack(side='left')
         ttk.Button(token_actions, text='Use for signing', command=self._save_usb_token).pack(side='left', padx=(8, 0))
         self._usb_tokens = []
 
@@ -130,38 +132,55 @@ class AgentDashboard:
         ).pack(anchor='w')
 
         self._refresh_view()
-        self._refresh_usb_tokens()
+        self._refresh_usb_tokens(background=True)
         self._schedule_refresh()
 
     def _initial_api_base(self) -> str:
         config = load_config()
         return config.get('api_base') or read_default_api_base()
 
-    def _refresh_usb_tokens(self):
-        from pkcs11_signing import format_token_display, list_usb_tokens, match_saved_token
-
-        self._usb_tokens = list_usb_tokens()
-        if not self._usb_tokens:
-            self.token_count_var.set('No USB tokens detected. Insert your DSC token and click Refresh.')
-            self.token_combo['values'] = ()
-            self.token_choice_var.set('')
+    def _refresh_usb_tokens(self, *, background: bool = True):
+        if self._token_refresh_running:
             return
 
-        count = len(self._usb_tokens)
-        if count == 1:
-            self.token_count_var.set('1 USB token detected.')
-        else:
-            self.token_count_var.set(
-                f'{count} USB tokens detected. Choose which token to use for signing.',
-            )
+        def worker():
+            from pkcs11_signing import refresh_usb_tokens
 
-        labels = [format_token_display(token) for token in self._usb_tokens]
-        self.token_combo['values'] = labels
-        matched = match_saved_token(self._usb_tokens)
-        if matched is not None:
-            self.token_choice_var.set(matched.display_name())
+            try:
+                tokens = refresh_usb_tokens()
+            except Exception:
+                tokens = []
+            self.root.after(0, lambda: self._apply_usb_tokens(tokens))
+
+        self._token_refresh_running = True
+        self.token_count_var.set('Scanning USB tokens…')
+        if background:
+            threading.Thread(target=worker, daemon=True, name='ig-agent-token-scan').start()
         else:
-            self.token_choice_var.set(labels[0])
+            worker()
+
+    def _apply_usb_tokens(self, tokens):
+        from pkcs11_signing import format_token_display, match_saved_token
+
+        self._token_refresh_running = False
+        self._usb_tokens = tokens
+        if not tokens:
+            self.token_count_var.set('No USB token detected. Insert your token and click Refresh.')
+            self.token_combo['values'] = ()
+            self.token_choice_var.set('')
+            self._refresh_view()
+            return
+
+        if len(tokens) == 1:
+            self.token_count_var.set('Select the token to use for signing.')
+        else:
+            self.token_count_var.set('Multiple tokens found. Select which one to use.')
+
+        labels = [format_token_display(token) for token in tokens]
+        self.token_combo['values'] = labels
+        matched = match_saved_token(tokens)
+        self.token_choice_var.set(matched.display_name() if matched is not None else labels[0])
+        self._refresh_view()
 
     def _save_usb_token(self):
         from pkcs11_signing import save_token_preference
@@ -174,31 +193,31 @@ class AgentDashboard:
         if token is None:
             self._messagebox.showerror('USB token', 'Select a token from the list.')
             return
-        save_token_preference(token.slot_id, label=token.label, serial=token.serial)
+        save_token_preference(
+            token.slot_id,
+            label=token.label,
+            serial=token.serial,
+            signer_name=token.signer_name,
+        )
         self._messagebox.showinfo('USB token', f'Using {token.display_name()} for signing.')
         self._refresh_view()
 
     def _selected_token_line(self, snap: dict) -> str:
-        from pkcs11_signing import list_usb_tokens, match_saved_token
+        from pkcs11_signing import saved_token_display
 
         if not snap.get('token_present'):
-            return 'USB token: not detected — insert token before signing'
-        tokens = list_usb_tokens()
-        if not tokens:
-            return 'USB token: not detected — insert token before signing'
-        matched = match_saved_token(tokens)
-        if matched is not None:
-            return f'USB token: {matched.display_name()}'
-        if len(tokens) == 1:
-            return f'USB token: {tokens[0].display_name()}'
-        return f'USB token: {len(tokens)} detected — choose one below'
+            return 'USB token: not detected'
+        display = saved_token_display()
+        if display:
+            return f'USB token: {display}'
+        if self._usb_tokens:
+            if len(self._usb_tokens) == 1:
+                return f'USB token: {self._usb_tokens[0].display_name()}'
+            return 'USB token: detected — select one below'
+        return 'USB token: detected'
 
     def _schedule_refresh(self):
         self._refresh_view()
-        counter = getattr(self, '_token_refresh_counter', 0)
-        if counter % 3 == 0:
-            self._refresh_usb_tokens()
-        self._token_refresh_counter = counter + 1
         self._refresh_job = self.root.after(4000, self._schedule_refresh)
 
     def _refresh_view(self):

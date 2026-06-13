@@ -7,6 +7,7 @@ import os
 import queue
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,13 +32,18 @@ _pin_ui_out: queue.Queue | None = None
 _main_ui_root = None
 
 
+_TOKEN_CACHE_LOCK = threading.Lock()
+_TOKEN_CACHE: tuple[float, list['TokenDescriptor']] | None = None
+_TOKEN_CACHE_TTL_SECONDS = 15
+_SIGNER_PROBE_TIMEOUT_SECONDS = 4
+
+
 @dataclass(frozen=True)
 class TokenDescriptor:
     slot_id: int
     label: str
     serial: str
-    manufacturer: str
-    cert_subjects: tuple[str, ...]
+    signer_name: str = ''
 
     def display_name(self) -> str:
         return format_token_display(self)
@@ -112,14 +118,25 @@ def save_agent_config(data: dict) -> None:
 
 
 def format_token_display(token: TokenDescriptor) -> str:
-    parts = [f'Slot {token.slot_id}']
-    if token.label:
-        parts.append(token.label)
-    if token.serial:
-        parts.append(f'SN {token.serial}')
-    if token.cert_subjects:
-        parts.append(token.cert_subjects[0])
-    return ' · '.join(parts)
+    label = token.label or 'USB token'
+    if token.signer_name:
+        return f'{label} · {token.signer_name}'
+    return label
+
+
+def saved_token_display() -> str:
+    pref = get_token_preference()
+    label = pref.get('token_label', '')
+    signer = pref.get('signer_name', '')
+    if label and signer:
+        return f'{label} · {signer}'
+    return label or signer or ''
+
+
+def invalidate_token_cache() -> None:
+    global _TOKEN_CACHE
+    with _TOKEN_CACHE_LOCK:
+        _TOKEN_CACHE = None
 
 
 def get_token_preference() -> dict:
@@ -129,6 +146,7 @@ def get_token_preference() -> dict:
         'token_slot_id': int(slot_id) if slot_id is not None else None,
         'token_serial': str(config.get('token_serial', '') or '').strip(),
         'token_label': str(config.get('token_label', '') or '').strip(),
+        'signer_name': str(config.get('signer_name', '') or '').strip(),
         'cert_key_id_hex': str(config.get('cert_key_id_hex', '') or '').strip(),
     }
 
@@ -138,6 +156,7 @@ def save_token_preference(
     *,
     label: str = '',
     serial: str = '',
+    signer_name: str = '',
     cert_key_id_hex: str = '',
 ) -> None:
     config = load_agent_config()
@@ -146,9 +165,12 @@ def save_token_preference(
         config['token_label'] = label
     if serial:
         config['token_serial'] = serial
+    if signer_name:
+        config['signer_name'] = signer_name
     if cert_key_id_hex:
         config['cert_key_id_hex'] = cert_key_id_hex
     save_agent_config(config)
+    invalidate_token_cache()
 
 
 def match_saved_token(tokens: list[TokenDescriptor], preference: dict | None = None) -> TokenDescriptor | None:
@@ -192,6 +214,7 @@ def resolve_signing_slot_from_tokens(
                     chosen.slot_id,
                     label=chosen.label,
                     serial=chosen.serial,
+                    signer_name=chosen.signer_name,
                 )
             return slot_id
     raise RuntimeError(
@@ -200,39 +223,38 @@ def resolve_signing_slot_from_tokens(
     )
 
 
-def _cert_subject_cn(cert_der: bytes) -> str:
-    try:
-        from cryptography import x509
-        from cryptography.x509.oid import NameOID
-
-        cert = x509.load_der_x509_certificate(cert_der)
-        attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
-        if attrs:
-            return str(attrs[0].value)
-        return cert.subject.rfc4514_string()
-    except Exception:
-        return ''
-
-
-def _probe_slot_cert_subjects(pkcs11, slot_id: int) -> tuple[str, ...]:
+def _probe_signer_name_inner(pkcs11, slot_id: int) -> str:
     import PyKCS11 as PK11
 
     session = None
     try:
         session = pkcs11.openSession(slot_id, PK11.CKF_SERIAL_SESSION)
         cert_objects = session.findObjects([(PK11.CKA_CLASS, PK11.CKO_CERTIFICATE)])
-        subjects: list[str] = []
+        candidates: list[tuple[int, str]] = []
         for cert_obj in cert_objects:
             try:
-                value = session.getAttributeValue(cert_obj, [PK11.CKA_VALUE])[0]
+                key_id, cert_label = session.getAttributeValue(
+                    cert_obj,
+                    [PK11.CKA_ID, PK11.CKA_LABEL],
+                )
             except PK11.PyKCS11Error:
                 continue
-            subject = _cert_subject_cn(_pkcs11_bytes(value))
-            if subject and subject not in subjects:
-                subjects.append(subject)
-        return tuple(subjects)
+            private_keys = session.findObjects(
+                [
+                    (PK11.CKA_CLASS, PK11.CKO_PRIVATE_KEY),
+                    (PK11.CKA_ID, key_id),
+                ],
+            )
+            if not private_keys:
+                continue
+            name = _pkcs11_text(cert_label)
+            if name:
+                candidates.append((len(name), name))
+        if not candidates:
+            return ''
+        return max(candidates, key=lambda item: item[0])[1]
     except Exception:
-        return ()
+        return ''
     finally:
         if session is not None:
             try:
@@ -241,7 +263,23 @@ def _probe_slot_cert_subjects(pkcs11, slot_id: int) -> tuple[str, ...]:
                 pass
 
 
-def list_usb_tokens(dll_path: str | None = None) -> list[TokenDescriptor]:
+def _probe_signer_name(pkcs11, slot_id: int) -> str:
+    result: list[str] = ['']
+    done = threading.Event()
+
+    def worker():
+        try:
+            result[0] = _probe_signer_name_inner(pkcs11, slot_id)
+        finally:
+            done.set()
+
+    threading.Thread(target=worker, daemon=True, name=f'ig-agent-signer-probe-{slot_id}').start()
+    if not done.wait(timeout=_SIGNER_PROBE_TIMEOUT_SECONDS):
+        return ''
+    return result[0]
+
+
+def _list_usb_tokens_fast(dll_path: str | None = None) -> list[TokenDescriptor]:
     dll_path = dll_path or resolve_pkcs11_dll()
     if not dll_path:
         return []
@@ -253,17 +291,11 @@ def list_usb_tokens(dll_path: str | None = None) -> list[TokenDescriptor]:
         tokens: list[TokenDescriptor] = []
         for slot_id in lib.getSlotList(tokenPresent=True):
             info = lib.getTokenInfo(slot_id)
-            label = _pkcs11_text(info.label)
-            serial = _pkcs11_text(info.serialNumber)
-            manufacturer = _pkcs11_text(info.manufacturerID)
-            cert_subjects = _probe_slot_cert_subjects(lib, slot_id)
             tokens.append(
                 TokenDescriptor(
                     slot_id=int(slot_id),
-                    label=label,
-                    serial=serial,
-                    manufacturer=manufacturer,
-                    cert_subjects=cert_subjects,
+                    label=_pkcs11_text(info.label),
+                    serial=_pkcs11_text(info.serialNumber),
                 ),
             )
         return tokens
@@ -271,13 +303,80 @@ def list_usb_tokens(dll_path: str | None = None) -> list[TokenDescriptor]:
         return []
 
 
+def _attach_signer_names(pkcs11, tokens: list[TokenDescriptor]) -> list[TokenDescriptor]:
+    enriched: list[TokenDescriptor] = []
+    for token in tokens:
+        signer_name = _probe_signer_name(pkcs11, token.slot_id)
+        enriched.append(
+            TokenDescriptor(
+                slot_id=token.slot_id,
+                label=token.label,
+                serial=token.serial,
+                signer_name=signer_name,
+            ),
+        )
+    return enriched
+
+
+def list_usb_tokens(
+    dll_path: str | None = None,
+    *,
+    include_signer: bool = False,
+    use_cache: bool = True,
+) -> list[TokenDescriptor]:
+    global _TOKEN_CACHE
+    now = time.monotonic()
+    if use_cache:
+        with _TOKEN_CACHE_LOCK:
+            cached = _TOKEN_CACHE
+            if cached is not None and (now - cached[0]) < _TOKEN_CACHE_TTL_SECONDS:
+                tokens = cached[1]
+                if not include_signer:
+                    return [
+                        TokenDescriptor(token.slot_id, token.label, token.serial, '')
+                        for token in tokens
+                    ]
+                return list(tokens)
+
+    dll_path = dll_path or resolve_pkcs11_dll()
+    if not dll_path:
+        return []
+
+    tokens = _list_usb_tokens_fast(dll_path)
+    if include_signer and tokens:
+        try:
+            import PyKCS11
+
+            lib = PyKCS11.PyKCS11Lib()
+            lib.load(dll_path)
+            tokens = _attach_signer_names(lib, tokens)
+        except Exception:
+            pass
+
+    if use_cache:
+        with _TOKEN_CACHE_LOCK:
+            _TOKEN_CACHE = (now, list(tokens))
+
+    if not include_signer:
+        return [TokenDescriptor(token.slot_id, token.label, token.serial, '') for token in tokens]
+    return tokens
+
+
+def refresh_usb_tokens(dll_path: str | None = None) -> list[TokenDescriptor]:
+    invalidate_token_cache()
+    return list_usb_tokens(dll_path, include_signer=True, use_cache=True)
+
+
 def selected_token_summary(dll_path: str | None = None) -> dict:
-    tokens = list_usb_tokens(dll_path)
-    matched = match_saved_token(tokens)
+    tokens = list_usb_tokens(dll_path, include_signer=False, use_cache=True)
+    display = saved_token_display()
+    if not display:
+        matched = match_saved_token(tokens)
+        if matched is not None:
+            display = matched.display_name()
     return {
         'token_count': len(tokens),
-        'selected_slot_id': matched.slot_id if matched else None,
-        'selected_token_display': matched.display_name() if matched else '',
+        'selected_token_display': display,
     }
 
 
@@ -648,7 +747,31 @@ class TokenSigner:
             key_id, cert_der, _label = max(pairs, key=lambda item: len(item[1]))
 
         self._keyid, self._cert_der = key_id, cert_der
+        self._maybe_cache_signer_name(cert_der)
         return key_id, cert_der
+
+    def _maybe_cache_signer_name(self, cert_der: bytes) -> None:
+        try:
+            from cryptography import x509
+            from cryptography.x509.oid import NameOID
+
+            cert = x509.load_der_x509_certificate(cert_der)
+            attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+            signer_name = str(attrs[0].value) if attrs else ''
+            if not signer_name or self._slot_id is None:
+                return
+            pref = get_token_preference()
+            if pref.get('signer_name') == signer_name:
+                return
+            save_token_preference(
+                self._slot_id,
+                label=pref.get('token_label', '') or self.token_label or '',
+                serial=pref.get('token_serial', ''),
+                signer_name=signer_name,
+                cert_key_id_hex=pref.get('cert_key_id_hex', ''),
+            )
+        except Exception:
+            pass
 
     def certificate(self):
         self._ensure_logged_in()

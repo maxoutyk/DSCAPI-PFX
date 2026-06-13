@@ -43,19 +43,18 @@ class Pkcs11DiscoveryTests(unittest.TestCase):
 
 def _sample_tokens() -> list[TokenDescriptor]:
     return [
-        TokenDescriptor(0, 'ePass2003', 'AAA111', 'Watchdata', ('Alice Signer',)),
-        TokenDescriptor(1, 'ePass2003', 'BBB222', 'Watchdata', ('Bob Signer',)),
+        TokenDescriptor(0, 'ePass2003', 'AAA111', 'Alice Signer'),
+        TokenDescriptor(1, 'ePass2003', 'BBB222', 'Bob Signer'),
     ]
 
 
 class TokenSelectionTests(unittest.TestCase):
-    def test_format_token_display_includes_slot_serial_and_subject(self):
+    def test_format_token_display_shows_label_and_signer(self):
         token = _sample_tokens()[0]
         display = format_token_display(token)
-        self.assertIn('Slot 0', display)
-        self.assertIn('ePass2003', display)
-        self.assertIn('SN AAA111', display)
-        self.assertIn('Alice Signer', display)
+        self.assertEqual(display, 'ePass2003 · Alice Signer')
+        self.assertNotIn('Slot', display)
+        self.assertNotIn('SN', display)
 
     def test_match_saved_token_prefers_slot_id(self):
         tokens = _sample_tokens()

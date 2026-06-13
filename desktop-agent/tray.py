@@ -93,19 +93,14 @@ def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
 
 def _token_status_line(snap: dict) -> str:
     try:
-        from pkcs11_signing import list_usb_tokens, match_saved_token
+        from pkcs11_signing import saved_token_display
 
         if not snap.get('token_present'):
             return 'USB token: not detected'
-        tokens = list_usb_tokens()
-        if not tokens:
-            return 'USB token: not detected'
-        matched = match_saved_token(tokens)
-        if matched is not None:
-            return f'USB token: {matched.display_name()}'
-        if len(tokens) == 1:
-            return f'USB token: {tokens[0].display_name()}'
-        return f'USB token: {len(tokens)} detected — choose in agent window'
+        display = saved_token_display()
+        if display:
+            return f'USB token: {display}'
+        return 'USB token: detected'
     except Exception:
         return 'USB token: detected' if snap.get('token_present') else 'USB token: not detected'
 
