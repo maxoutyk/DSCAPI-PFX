@@ -12,8 +12,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# endesive pulls pykcs11 (PKCS#11 hardware tokens); not needed for PFX signing.
-RUN pip install --no-cache-dir $(grep -v '^endesive' requirements.txt) \
+# Server image: skip desktop/USB-token-only deps (PyKCS11, pystray, waitress).
+RUN pip install --no-cache-dir $(grep -vE '^(endesive|PyKCS11|pystray|waitress)' requirements.txt) \
     && pip install --no-cache-dir endesive==2.17.2 --no-deps \
     && pip install --no-cache-dir requests==2.34.2 paramiko==3.4.0
 
