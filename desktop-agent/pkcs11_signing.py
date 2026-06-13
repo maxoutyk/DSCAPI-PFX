@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import sys
+import threading
 from pathlib import Path
 
 CONFIG_PATH = Path.home() / '.ig-esign-agent' / 'config.json'
@@ -22,6 +24,8 @@ WINDOWS_PKCS11_DLL_CANDIDATES = (
 )
 
 _session_pin: str | None = None
+_pin_ui_in: queue.Queue | None = None
+_pin_ui_out: queue.Queue | None = None
 
 
 def _pkcs11_bytes(value) -> bytes:
@@ -80,6 +84,36 @@ def token_slot_present(dll_path: str | None = None) -> bool:
         return False
 
 
+def ensure_pin_ui_thread() -> None:
+    """Dedicated Tk thread for PIN prompts (HTTP signing runs on worker threads)."""
+    global _pin_ui_in, _pin_ui_out
+    if sys.platform != 'win32' or (_pin_ui_in is not None and _pin_ui_out is not None):
+        return
+
+    q_in: queue.Queue = queue.Queue()
+    q_out: queue.Queue = queue.Queue()
+
+    def worker():
+        import tkinter as tk
+        from tkinter import simpledialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        while True:
+            item = q_in.get()
+            if item is None:
+                root.destroy()
+                break
+            title, message = item
+            pin = simpledialog.askstring(title, message, show='*', parent=root)
+            q_out.put(pin or '')
+
+    threading.Thread(target=worker, daemon=True, name='ig-agent-pin-ui').start()
+    _pin_ui_in = q_in
+    _pin_ui_out = q_out
+
+
 def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
     global _session_pin
     if _session_pin:
@@ -87,6 +121,17 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
 
     message = 'Enter your USB DSC token PIN to sign this document.'
     if sys.platform == 'win32':
+        ensure_pin_ui_thread()
+        if _pin_ui_in is not None and _pin_ui_out is not None:
+            _pin_ui_in.put((title, message))
+            try:
+                pin = _pin_ui_out.get(timeout=300)
+            except queue.Empty:
+                pin = ''
+            if pin:
+                _session_pin = pin
+                return pin
+
         try:
             import tkinter as tk
             from tkinter import simpledialog

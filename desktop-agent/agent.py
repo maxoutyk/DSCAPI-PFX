@@ -93,7 +93,10 @@ def run_server(port: int, *, use_tray: bool | None = None):
     state = None
 
     if use_tray and sys.platform == 'win32':
+        from pkcs11_signing import ensure_pin_ui_thread
         from tray import AgentRuntimeState
+
+        ensure_pin_ui_thread()
 
         state = AgentRuntimeState(
             port=port,

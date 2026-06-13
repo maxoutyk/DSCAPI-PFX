@@ -19,6 +19,10 @@ else:
         if path not in sys.path:
             sys.path.insert(0, path)
 
+from runtime import prepare_windowed_runtime  # noqa: E402
+
+prepare_windowed_runtime()
+
 from agent import main  # noqa: E402
 
 
