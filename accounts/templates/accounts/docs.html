@@ -62,6 +62,34 @@
 </div>
 
 <div class="card card-flat" style="margin-top:24px;">
+  <h2>Sign with USB token (DSC)</h2>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    Use this flow when the private key stays on a USB DSC token. Your server prepares the job;
+    the <strong>IG E-Sign Agent</strong> on the same PC as the token performs PKCS#11 signing.
+  </p>
+
+  <p><strong>POST</strong> <span class="inline-code">/api/sign/usb/</span></p>
+  <pre><code>{
+  "pdf_base64": "&lt;base64-encoded PDF&gt;",
+  "device_id": 1
+}</code></pre>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    <span class="inline-code">device_id</span> is <strong>required</strong> — the paired agent device that will sign this job.
+    List devices from the portal <strong>USB Agent</strong> page.
+  </p>
+
+  <p><strong>GET</strong> <span class="inline-code">/api/sign/usb/&lt;job_id&gt;/</span> — poll status (<span class="inline-code">prepared</span>, <span class="inline-code">completed</span>, <span class="inline-code">expired</span>, <span class="inline-code">failed</span>)</p>
+  <p><strong>GET</strong> <span class="inline-code">/api/sign/usb/&lt;job_id&gt;/download/</span> — download signed PDF when complete</p>
+
+  <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
+    After creating a job, trigger signing on the PC with the token:
+    <span class="inline-code">POST http://127.0.0.1:9765/sign</span> with
+    <span class="inline-code">{"job_id": "&lt;uuid&gt;", "api_base": "{{ request.scheme }}://{{ request.get_host }}", "sign_token": "&lt;from portal pending page&gt;"}</span>,
+    or use the portal <strong>USB Sign</strong> page on that machine.
+  </p>
+</div>
+
+<div class="card card-flat" style="margin-top:24px;">
   <h2>Signature placement</h2>
   <p style="color:var(--text-secondary);font-size:0.875rem;">
     The API searches the PDF for an <strong>anchor text</strong> (default: <span class="inline-code">Authorised Signatory</span>)

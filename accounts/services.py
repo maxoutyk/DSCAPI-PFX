@@ -295,3 +295,52 @@ def ensure_tenant_can_sign(tenant: Tenant):
         if tenant.status == TenantStatus.SUSPENDED:
             raise TenantNotActiveError('Your account has been suspended.')
         raise TenantNotActiveError('Your account is not active.')
+
+
+def store_portal_sign_artifact(
+    *,
+    tenant: Tenant,
+    user: User,
+    signed_pdf_data: bytes,
+    filename: str,
+    signing_event_id: int | None,
+    hash_before_prefix: str,
+    hash_after_prefix: str,
+    document_type_label: str,
+    ttl_minutes: int = 15,
+):
+    from .models import PortalSignArtifact
+
+    expires_at = timezone_now() + timedelta(minutes=ttl_minutes)
+    return PortalSignArtifact.objects.create(
+        tenant=tenant,
+        user=user,
+        encrypted_pdf=encrypt_pfx(signed_pdf_data),
+        filename=filename,
+        signing_event_id=signing_event_id,
+        hash_before_prefix=hash_before_prefix,
+        hash_after_prefix=hash_after_prefix,
+        document_type_label=document_type_label,
+        expires_at=expires_at,
+    )
+
+
+def get_portal_sign_artifact(*, user: User, artifact_id) -> tuple[bytes, dict] | None:
+    from .models import PortalSignArtifact
+
+    artifact = (
+        PortalSignArtifact.objects.filter(pk=artifact_id, user=user)
+        .select_related('tenant')
+        .first()
+    )
+    if not artifact or timezone_now() >= artifact.expires_at:
+        return None
+    metadata = {
+        'filename': artifact.filename,
+        'signing_id': artifact.signing_event_id,
+        'hash_before_prefix': artifact.hash_before_prefix,
+        'hash_after_prefix': artifact.hash_after_prefix,
+        'document_type_label': artifact.document_type_label,
+        'expires_at': artifact.expires_at.isoformat(),
+    }
+    return decrypt_pfx(artifact.encrypted_pdf), metadata

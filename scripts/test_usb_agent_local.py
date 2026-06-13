@@ -91,7 +91,11 @@ def main():
 
         req = urllib.request.Request(
             f'http://127.0.0.1:{AGENT_PORT}/sign',
-            data=json.dumps({'job_id': str(job.id), 'api_base': API_BASE}).encode(),
+            data=json.dumps({
+                'job_id': str(job.id),
+                'api_base': API_BASE,
+                'sign_token': job.sign_token,
+            }).encode(),
             headers={'Content-Type': 'application/json'},
             method='POST',
         )

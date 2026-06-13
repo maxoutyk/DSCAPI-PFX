@@ -18,6 +18,7 @@ from .signing_service import (
     sign_pdf_for_tenant,
 )
 from .throttling import SignPdfBurstThrottle, SignPdfUserThrottle
+from .validation import PdfValidationError, decode_pdf_base64
 
 
 class PDFPfxSignSerializer(serializers.Serializer):
@@ -102,12 +103,9 @@ class PDFPfxSignAPIView(APIView):
         password = serializer.validated_data['password']
 
         try:
-            pdf_data = base64.b64decode(pdf_b64)
-        except Exception as exc:
-            return Response(
-                {'error': f'Failed to decode base64 PDF data: {exc}'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            pdf_data = decode_pdf_base64(pdf_b64)
+        except PdfValidationError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         pfx_data = None
         if not cert_alias and not pfx_path and pfx_b64:

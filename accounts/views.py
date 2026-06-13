@@ -23,10 +23,12 @@ from .services import (
     PasswordResetTokenExpiredError,
     VerificationTokenExpiredError,
     create_api_key,
+    get_portal_sign_artifact,
     get_primary_tenant,
     request_password_reset,
     reset_password_with_token,
     revoke_api_key,
+    store_portal_sign_artifact,
     verify_email,
 )
 
@@ -412,15 +414,17 @@ def sign_view(request):
                     record_rate_limit_hit(request, 'portal_sign')
                     original_name = form.cleaned_data['pdf_file'].name
                     stem = original_name.rsplit('.', 1)[0] if '.' in original_name else original_name
-                    request.session['portal_sign_download'] = {
-                        'data': base64.b64encode(result.signed_pdf_data).decode(),
-                        'filename': f'{stem}-signed.pdf',
-                        'signing_id': result.signing_event.pk,
-                        'hash_before_prefix': result.signing_event.hash_before_prefix,
-                        'hash_after_prefix': result.signing_event.hash_after_prefix,
-                        'document_type_label': result.signing_event.get_document_type_display(),
-                        'expires_at': (timezone.now() + timedelta(minutes=15)).isoformat(),
-                    }
+                    artifact = store_portal_sign_artifact(
+                        tenant=tenant,
+                        user=request.user,
+                        signed_pdf_data=result.signed_pdf_data,
+                        filename=f'{stem}-signed.pdf',
+                        signing_event_id=result.signing_event.pk,
+                        hash_before_prefix=result.signing_event.hash_before_prefix,
+                        hash_after_prefix=result.signing_event.hash_after_prefix,
+                        document_type_label=result.signing_event.get_document_type_display(),
+                    )
+                    request.session['portal_sign_artifact_id'] = str(artifact.id)
                     request.session.modified = True
                     return redirect('sign_done')
 
@@ -469,21 +473,16 @@ def sign_preview_view(request):
 
 
 def _get_portal_sign_download(request):
-    from datetime import datetime
-
-    from django.utils import timezone
-
-    payload = request.session.get('portal_sign_download')
-    if not payload:
+    artifact_id = request.session.get('portal_sign_artifact_id')
+    if not artifact_id:
         return None
-    expires_at = datetime.fromisoformat(payload['expires_at'])
-    if timezone.is_naive(expires_at):
-        expires_at = timezone.make_aware(expires_at)
-    if timezone.now() > expires_at:
-        request.session.pop('portal_sign_download', None)
+    loaded = get_portal_sign_artifact(user=request.user, artifact_id=artifact_id)
+    if not loaded:
+        request.session.pop('portal_sign_artifact_id', None)
         request.session.modified = True
         return None
-    return payload
+    pdf_data, metadata = loaded
+    return {'data': pdf_data, **metadata}
 
 
 @login_required
@@ -498,8 +497,6 @@ def sign_done_view(request):
 
 @login_required
 def sign_download_view(request):
-    import base64
-
     from django.http import HttpResponse
 
     payload = _get_portal_sign_download(request)
@@ -508,7 +505,7 @@ def sign_download_view(request):
         return redirect('sign')
 
     response = HttpResponse(
-        base64.b64decode(payload['data']),
+        payload['data'],
         content_type='application/pdf',
     )
     response['Content-Disposition'] = f'attachment; filename="{payload["filename"]}"'

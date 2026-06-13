@@ -15,11 +15,13 @@ from .services import (
     pair_device,
     record_heartbeat,
 )
+from .throttling import AgentPairThrottle
 
 
 class AgentPairView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [AgentPairThrottle]
 
     def post(self, request):
         code = (request.data.get('code') or '').strip()
@@ -69,8 +71,9 @@ class AgentSignJobDetailView(APIView):
 
     def get(self, request, job_id):
         device = request.auth
+        sign_token = (request.query_params.get('sign_token') or '').strip()
         try:
-            job = get_job_for_device(device, job_id)
+            job = get_job_for_device(device, job_id, sign_token=sign_token)
         except SignJobError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(build_job_payload(job))
@@ -82,6 +85,7 @@ class AgentSignJobCompleteView(APIView):
     def post(self, request, job_id):
         device = request.auth
         signed_b64 = (request.data.get('signed_pdf_base64') or '').strip()
+        sign_token = (request.data.get('sign_token') or '').strip()
         if not signed_b64:
             return Response({'error': 'signed_pdf_base64 is required.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -89,7 +93,7 @@ class AgentSignJobCompleteView(APIView):
         except Exception as exc:
             return Response({'error': f'Invalid signed PDF data: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            job = complete_usb_sign_job(device, job_id, signed_pdf_data)
+            job = complete_usb_sign_job(device, job_id, signed_pdf_data, sign_token=sign_token)
         except SignJobError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(

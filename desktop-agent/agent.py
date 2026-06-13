@@ -22,6 +22,7 @@ import platform
 import sys
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -106,8 +107,33 @@ def heartbeat(api_base: str, token: str):
     )
 
 
-def sign_job(api_base: str, token: str, job_id: str) -> dict:
-    job = api_request('GET', f'{api_base}/api/agent/jobs/{job_id}/', token=token)
+def _origin_from_base(api_base: str) -> str:
+    parsed = urllib.parse.urlparse((api_base or '').strip())
+    if not parsed.scheme or not parsed.netloc:
+        return ''
+    return f'{parsed.scheme}://{parsed.netloc}'.rstrip('/')
+
+
+def _allowed_cors_origins(config: dict, api_base: str = '') -> set[str]:
+    origins: set[str] = set()
+    for base in (config.get('api_base', ''), api_base):
+        origin = _origin_from_base(base)
+        if origin:
+            origins.add(origin)
+    for item in config.get('allowed_origins', []):
+        normalized = str(item).strip().rstrip('/')
+        if normalized:
+            origins.add(normalized)
+    return origins
+
+
+def sign_job(api_base: str, token: str, job_id: str, sign_token: str) -> dict:
+    token_qs = urllib.parse.quote(sign_token, safe='')
+    job = api_request(
+        'GET',
+        f'{api_base}/api/agent/jobs/{job_id}/?sign_token={token_qs}',
+        token=token,
+    )
     pdf_data = base64.b64decode(job['pdf_base64'])
 
     dev_pfx = os.environ.get('IG_AGENT_DEV_PFX_PATH', '').strip()
@@ -137,7 +163,7 @@ def sign_job(api_base: str, token: str, job_id: str) -> dict:
         return api_request(
             'POST',
             f'{api_base}/api/agent/jobs/{job_id}/complete/',
-            {'signed_pdf_base64': signed_b64},
+            {'signed_pdf_base64': signed_b64, 'sign_token': sign_token},
             token=token,
         )
     finally:
@@ -155,27 +181,48 @@ class AgentHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
-    def _cors(self):
-        origin = self.headers.get('Origin', '*')
-        self.send_header('Access-Control-Allow-Origin', origin)
+    def _resolve_cors_origin(self, api_base: str = '') -> str | None:
+        request_origin = (self.headers.get('Origin') or '').strip().rstrip('/')
+        if not request_origin:
+            return None
+        config = load_config()
+        if request_origin in _allowed_cors_origins(config, api_base):
+            return request_origin
+        return None
+
+    def _cors(self, allowed_origin: str | None = None):
+        if allowed_origin:
+            self.send_header('Access-Control-Allow-Origin', allowed_origin)
+            self.send_header('Vary', 'Origin')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
 
     def do_OPTIONS(self):
+        config = load_config()
+        api_base = config.get('api_base', '')
+        allowed = self._resolve_cors_origin(api_base)
+        if self.headers.get('Origin') and not allowed:
+            self.send_error(403)
+            return
         self.send_response(204)
-        self._cors()
+        self._cors(allowed)
         self.end_headers()
 
     def do_GET(self):
         if self.path != '/health':
             self.send_error(404)
             return
+        config = load_config()
+        allowed = self._resolve_cors_origin(config.get('api_base', ''))
+        if self.headers.get('Origin') and not allowed:
+            self.send_error(403)
+            return
         payload = json.dumps(
             {'ok': True, 'version': AGENT_VERSION, 'token_present': token_present()},
         ).encode('utf-8')
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
-        self._cors()
+        self._cors(allowed)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -186,23 +233,28 @@ class AgentHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', '0'))
         body = json.loads(self.rfile.read(length).decode('utf-8') or '{}')
         job_id = body.get('job_id')
+        sign_token = (body.get('sign_token') or '').strip()
         config = load_config()
         token = config.get('device_token', '')
         api_base = (body.get('api_base') or config.get('api_base') or '').rstrip('/')
-        if not job_id or not token or not api_base:
-            self._json(400, {'error': 'Agent is not paired or job_id missing.'})
+        allowed = self._resolve_cors_origin(api_base)
+        if self.headers.get('Origin') and not allowed:
+            self.send_error(403)
+            return
+        if not job_id or not token or not api_base or not sign_token:
+            self._json(400, {'error': 'Agent is not paired or job_id/sign_token missing.'}, allowed)
             return
         try:
-            result = sign_job(api_base, token, job_id)
-            self._json(200, result)
+            result = sign_job(api_base, token, job_id, sign_token)
+            self._json(200, result, allowed)
         except Exception as exc:
-            self._json(500, {'error': str(exc)})
+            self._json(500, {'error': str(exc)}, allowed)
 
-    def _json(self, status: int, payload: dict):
+    def _json(self, status: int, payload: dict, allowed_origin: str | None = None):
         body = json.dumps(payload).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
-        self._cors()
+        self._cors(allowed_origin)
         self.end_headers()
         self.wfile.write(body)
 

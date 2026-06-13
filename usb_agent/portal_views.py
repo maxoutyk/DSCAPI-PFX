@@ -19,7 +19,7 @@ from .distribution import (
     resolve_agent_installer_path,
 )
 from .models import AgentDevice, UsbSignJob, UsbSignJobStatus
-from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, revoke_device
+from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, resolve_portal_usb_device, revoke_device
 
 
 @login_required
@@ -85,7 +85,7 @@ def agent_pair_code_view(request):
         )
     messages.success(
         request,
-        f'Pairing code: {pairing.code} (expires in 5 minutes). Enter it in the IG E-Sign Agent installer.',
+        'Pairing code generated (expires in 5 minutes). Enter it in the IG E-Sign Agent installer.',
     )
     return redirect('usb_agent')
 
@@ -110,14 +110,19 @@ def sign_usb_view(request):
     active_job = None
 
     if request.method == 'POST':
-        if tenant.status != TenantStatus.ACTIVE:
+        if not tenant or tenant.status != TenantStatus.ACTIVE:
             messages.error(request, 'Your account must be approved before signing documents.')
         else:
             form = UsbSignForm(request.POST, request.FILES)
             if form.is_valid():
                 pdf_data = form.cleaned_data['pdf_file'].read()
                 try:
-                    job = prepare_usb_sign_job(tenant=tenant, user=request.user, pdf_data=pdf_data)
+                    job = prepare_usb_sign_job(
+                        tenant=tenant,
+                        user=request.user,
+                        pdf_data=pdf_data,
+                        device=resolve_portal_usb_device(tenant),
+                    )
                 except SignJobError as exc:
                     messages.error(request, str(exc))
                 else:
@@ -157,6 +162,7 @@ def sign_usb_pending_view(request, job_id):
             'filename': request.session.get('usb_sign_filename', 'document.pdf'),
             'agent_local_port': settings.USB_AGENT_LOCAL_PORT,
             'site_url': request.build_absolute_uri('/').rstrip('/'),
+            'sign_token': job.sign_token,
         },
     )
 

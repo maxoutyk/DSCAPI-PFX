@@ -24,18 +24,24 @@ def _first_usable_ip(*candidates: str | None) -> str | None:
 
 
 def get_client_ip(request) -> str | None:
-    """Resolve the external client IP from proxy headers, skipping loopback hops."""
-    forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if forwarded_for:
-        forwarded_ips = [part.strip() for part in forwarded_for.split(',') if part.strip()]
-        usable = _first_usable_ip(*forwarded_ips)
-        if usable:
-            return usable
+    """Resolve client IP; honor X-Forwarded-For only when TRUSTED_PROXY_COUNT is set."""
+    from django.conf import settings
 
-    x_real_ip = request.META.get('HTTP_X_REAL_IP')
-    usable = _first_usable_ip(x_real_ip)
-    if usable:
-        return usable
+    trusted_hops = int(getattr(settings, 'TRUSTED_PROXY_COUNT', 0) or 0)
+    if trusted_hops > 0:
+        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if forwarded_for:
+            forwarded_ips = [part.strip() for part in forwarded_for.split(',') if part.strip()]
+            if len(forwarded_ips) >= trusted_hops:
+                candidate = forwarded_ips[-trusted_hops]
+                if candidate and candidate not in _LOOPBACK_IPS:
+                    return candidate
+
+        x_real_ip = request.META.get('HTTP_X_REAL_IP')
+        if x_real_ip:
+            ip = x_real_ip.strip()
+            if ip and ip not in _LOOPBACK_IPS:
+                return ip
 
     remote_addr = request.META.get('REMOTE_ADDR')
     if remote_addr:

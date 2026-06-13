@@ -6,7 +6,7 @@ from django.test import Client, TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import DocumentType, MembershipRole, Tenant, TenantMembership, TenantStatus, UsageLog
-from accounts.services import store_certificate
+from accounts.services import create_api_key, store_certificate
 from signPdf.pdf_signing import load_pfx_credentials
 from signPdf.signing_service import sign_pdf_for_tenant
 from signPdf.audit import SigningAuditMeta
@@ -73,7 +73,7 @@ class UsbAgentFlowTests(TestCase):
 
         pdf = _pdf_with_anchor()
         job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=pdf)
-        fetch = self.api.get(f'/api/agent/jobs/{job.id}/')
+        fetch = self.api.get(f'/api/agent/jobs/{job.id}/?sign_token={job.sign_token}')
         self.assertEqual(fetch.status_code, 200)
         self.assertIn('pdf_base64', fetch.json())
 
@@ -87,7 +87,10 @@ class UsbAgentFlowTests(TestCase):
         )
         complete = self.api.post(
             f'/api/agent/jobs/{job.id}/complete/',
-            {'signed_pdf_base64': base64.b64encode(signed.signed_pdf_data).decode('ascii')},
+            {
+                'signed_pdf_base64': base64.b64encode(signed.signed_pdf_data).decode('ascii'),
+                'sign_token': job.sign_token,
+            },
             format='json',
         )
         self.assertEqual(complete.status_code, 200)
@@ -98,6 +101,14 @@ class UsbAgentFlowTests(TestCase):
         self.assertTrue(log.success)
         self.assertEqual(log.signing_source, 'usb')
         self.assertEqual(log.user, self.user)
+
+    def test_agent_job_requires_sign_token(self):
+        pairing = create_pairing_code(tenant=self.tenant, user=self.user)
+        _device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
+        self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=_pdf_with_anchor())
+        denied = self.api.get(f'/api/agent/jobs/{job.id}/')
+        self.assertEqual(denied.status_code, 400)
 
     def test_agent_page_requires_login(self):
         anon = Client()
@@ -129,3 +140,78 @@ class UsbAgentFlowTests(TestCase):
             self.assertIn('ig-esign-agent/agent.py', names)
             self.assertIn('ig-esign-agent/portal.url', names)
             self.assertIn('ig-esign-agent/start-agent.bat', names)
+
+
+class TenantUsbSignApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='api-usb@example.com', email='api-usb@example.com', password='pass')
+        self.tenant = Tenant.objects.create(
+            name='API USB Org',
+            slug='api-usb-org',
+            status=TenantStatus.ACTIVE,
+            monthly_quota=100,
+        )
+        TenantMembership.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            role=MembershipRole.OWNER,
+            is_primary=True,
+        )
+        self.api_key, self.raw_api_key = create_api_key(self.tenant, 'usb-test')
+        self.api = APIClient()
+        self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {self.raw_api_key}')
+
+    def test_create_and_poll_usb_sign_job(self):
+        pairing = create_pairing_code(tenant=self.tenant, user=self.user)
+        device, _token = pair_device(code=pairing.code, machine_name='api-pc', agent_version='0.1.0')
+
+        pdf_b64 = base64.b64encode(_pdf_with_anchor()).decode('ascii')
+        create = self.api.post(
+            '/api/sign/usb/',
+            {'pdf_base64': pdf_b64, 'device_id': device.pk},
+            format='json',
+        )
+        self.assertEqual(create.status_code, 201)
+        body = create.json()
+        self.assertEqual(body['status'], UsbSignJobStatus.PREPARED)
+        self.assertIn('job_id', body)
+        self.assertIn('agent_sign_url', body)
+
+        job_id = body['job_id']
+        detail = self.api.get(f'/api/sign/usb/{job_id}/')
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()['status'], UsbSignJobStatus.PREPARED)
+
+    def test_create_requires_api_key(self):
+        client = APIClient()
+        pdf_b64 = base64.b64encode(_pdf_with_anchor()).decode('ascii')
+        response = client.post(
+            '/api/sign/usb/',
+            {'pdf_base64': pdf_b64, 'device_id': 1},
+            format='json',
+        )
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_create_requires_device_id(self):
+        pdf_b64 = base64.b64encode(_pdf_with_anchor()).decode('ascii')
+        response = self.api.post('/api/sign/usb/', {'pdf_base64': pdf_b64}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_download_completed_job(self):
+        pdf = _pdf_with_anchor()
+        job = prepare_usb_sign_job(tenant=self.tenant, pdf_data=pdf, api_key=self.api_key)
+        job.status = UsbSignJobStatus.COMPLETED
+        job.hash_after = 'abc123'
+        from accounts.services import encrypt_pfx
+
+        job.encrypted_pdf = encrypt_pfx(pdf)
+        job.save()
+
+        download = self.api.get(f'/api/sign/usb/{job.id}/download/')
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(download['Content-Type'], 'application/pdf')
+        self.assertEqual(download.content, pdf)
+
+        as_json = self.api.get(f'/api/sign/usb/{job.id}/download/?format=json')
+        self.assertEqual(as_json.status_code, 200)
+        self.assertIn('signed_pdf_base64', as_json.json())

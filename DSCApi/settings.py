@@ -28,14 +28,23 @@ else:
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-8#n$8*k^r9j2**wf8^p)guc*7ph4g)0ggah*!n5l(%_@s#42y#',
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True' if not getattr(sys, 'frozen', False) else 'False').lower() == 'true'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+_secret_key = os.environ.get('SECRET_KEY', '').strip()
+if not _secret_key:
+    if 'test' in sys.argv:
+        _secret_key = 'django-test-secret-key-not-for-production-use'
+    elif DEBUG and not getattr(sys, 'frozen', False):
+        _secret_key = 'django-insecure-dev-only-change-me-in-env'
+    elif getattr(sys, 'frozen', False):
+        _secret_key = 'frozen-build-placeholder-not-used-for-crypto'
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured('SECRET_KEY environment variable must be set.')
+SECRET_KEY = _secret_key
 
 _allowed_hosts = os.environ.get('ALLOWED_HOSTS') or os.environ.get('DSCAPI_ALLOWED_HOSTS')
 if _allowed_hosts:
@@ -63,14 +72,8 @@ INSTALLED_APPS = [
     'usb_agent',
 ]
 
-_allow_basic = os.environ.get('ALLOW_BASIC_AUTH', '').strip().lower()
-if _allow_basic == 'true':
-    ALLOW_BASIC_AUTH = True
-elif _allow_basic == 'false':
-    ALLOW_BASIC_AUTH = False
-else:
-    # Windows .exe on-prem keeps Basic Auth; public SaaS disables it when DEBUG is off.
-    ALLOW_BASIC_AUTH = getattr(sys, 'frozen', False) or DEBUG
+_allow_basic = os.environ.get('ALLOW_BASIC_AUTH', 'false').strip().lower()
+ALLOW_BASIC_AUTH = _allow_basic == 'true'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -82,6 +85,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'sign_pdf': os.environ.get('THROTTLE_SIGN_PDF', '60/hour'),
         'sign_pdf_burst': os.environ.get('THROTTLE_SIGN_PDF_BURST', '10/min'),
+        'agent_pair': os.environ.get('THROTTLE_AGENT_PAIR', '20/hour'),
     },
 }
 if ALLOW_BASIC_AUTH:
@@ -89,12 +93,28 @@ if ALLOW_BASIC_AUTH:
         'rest_framework.authentication.BasicAuthentication',
     )
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'dscapi-cache',
+_cache_backend = os.environ.get('CACHE_BACKEND', '').strip()
+if _cache_backend == 'database':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'django_cache_table',
+        }
     }
-}
+elif _cache_backend == 'locmem' or DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'dscapi-cache',
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'django_cache_table',
+        }
+    }
 
 RATELIMIT_DEFAULT_LIMIT = int(os.environ.get('RATELIMIT_DEFAULT_LIMIT', '10'))
 RATELIMIT_DEFAULT_PERIOD = int(os.environ.get('RATELIMIT_DEFAULT_PERIOD', '900'))
@@ -213,6 +233,8 @@ SIGNATURE_ICON_OVERLAP_INSET = 20
 SIGNATURE_ICON_PADDING = 2
 
 PORTAL_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('PORTAL_SIGN_MAX_UPLOAD_MB', '10')) * 1024 * 1024
+API_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('API_SIGN_MAX_UPLOAD_MB', '10')) * 1024 * 1024
+TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '0'))
 
 # SaaS settings
 DEFAULT_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_MONTHLY_QUOTA', '100'))
@@ -222,6 +244,12 @@ USB_AGENT_PAIRING_TTL_MINUTES = int(os.environ.get('USB_AGENT_PAIRING_TTL_MINUTE
 USB_AGENT_SIGN_JOB_TTL_MINUTES = int(os.environ.get('USB_AGENT_SIGN_JOB_TTL_MINUTES', '15'))
 USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS = int(os.environ.get('USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS', '90'))
 USB_AGENT_LOCAL_PORT = int(os.environ.get('USB_AGENT_LOCAL_PORT', '9765'))
+_usb_agent_origins = os.environ.get('USB_AGENT_ALLOWED_ORIGINS', '').strip()
+USB_AGENT_ALLOWED_ORIGINS = [
+    origin.strip().rstrip('/')
+    for origin in _usb_agent_origins.split(',')
+    if origin.strip()
+]
 # Optional: serve a built installer (.exe/.msi) instead of the dev ZIP bundle.
 USB_AGENT_INSTALLER_PATH = os.environ.get('USB_AGENT_INSTALLER_PATH', '').strip()
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8080')
@@ -248,12 +276,13 @@ if os.environ.get('EMAIL_HOST'):
 _encryption_key = os.environ.get('ENCRYPTION_KEY', '').strip()
 if _encryption_key:
     ENCRYPTION_KEY = _encryption_key.encode() if isinstance(_encryption_key, str) else _encryption_key
-elif not DEBUG and not getattr(sys, 'frozen', False):
+elif DEBUG or getattr(sys, 'frozen', False):
+    # Stable dev key — set ENCRYPTION_KEY in .env for persistent local data.
+    ENCRYPTION_KEY = base64.urlsafe_b64encode(b'ig-esign-dev-fernet-key-32bytes!')
+else:
     from django.core.exceptions import ImproperlyConfigured
 
     raise ImproperlyConfigured('ENCRYPTION_KEY must be set when DEBUG is false.')
-else:
-    ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest())
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
@@ -261,7 +290,7 @@ LOGOUT_REDIRECT_URL = 'login'
 
 if not DEBUG and not getattr(sys, 'frozen', False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    _secure_cookies = os.environ.get('SECURE_COOKIES', 'false').lower() == 'true'
+    _secure_cookies = os.environ.get('SECURE_COOKIES', 'true').lower() == 'true'
     SESSION_COOKIE_SECURE = _secure_cookies
     CSRF_COOKIE_SECURE = _secure_cookies
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))

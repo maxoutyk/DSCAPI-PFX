@@ -16,12 +16,12 @@
     }
   }
 
-  async function signJob(port, jobId, siteUrl) {
+  async function signJob(port, jobId, siteUrl, signToken) {
     var response = await fetch(localBase(port) + '/sign', {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ job_id: jobId, api_base: siteUrl }),
+      body: JSON.stringify({ job_id: jobId, api_base: siteUrl, sign_token: signToken }),
     });
     var data = await response.json().catch(function () { return {}; });
     if (!response.ok) {

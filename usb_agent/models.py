@@ -51,7 +51,7 @@ class AgentDevice(models.Model):
 class AgentPairingCode(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='agent_pairing_codes')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='agent_pairing_codes')
-    code = models.CharField(max_length=6, db_index=True)
+    code = models.CharField(max_length=64, db_index=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -74,7 +74,20 @@ class UsbSignJobStatus(models.TextChoices):
 class UsbSignJob(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='usb_sign_jobs')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='usb_sign_jobs')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='usb_sign_jobs',
+        null=True,
+        blank=True,
+    )
+    api_key = models.ForeignKey(
+        'accounts.APIKey',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usb_sign_jobs',
+    )
     device = models.ForeignKey(
         AgentDevice,
         on_delete=models.SET_NULL,
@@ -94,6 +107,7 @@ class UsbSignJob(models.Model):
     detected_keyword = models.CharField(max_length=100, null=True, blank=True)
     detection_confidence = models.CharField(max_length=8, default='none')
     placement_payload = models.JSONField()
+    sign_token = models.CharField(max_length=64, blank=True, default='')
     signing_event = models.ForeignKey(
         UsageLog,
         on_delete=models.SET_NULL,

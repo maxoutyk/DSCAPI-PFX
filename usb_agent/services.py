@@ -46,7 +46,7 @@ def generate_device_token() -> tuple[str, str, str]:
 
 
 def generate_pairing_code() -> str:
-    return f'{secrets.randbelow(1_000_000):06d}'
+    return secrets.token_urlsafe(16)
 
 
 def create_pairing_code(*, tenant: Tenant, user: User) -> AgentPairingCode:
@@ -64,10 +64,11 @@ def create_pairing_code(*, tenant: Tenant, user: User) -> AgentPairingCode:
 
 @transaction.atomic
 def pair_device(*, code: str, machine_name: str, agent_version: str) -> tuple[AgentDevice, str]:
+    normalized = code.strip()
     pairing = (
         AgentPairingCode.objects.select_for_update()
         .select_related('tenant', 'user')
-        .filter(code=code.strip(), used_at__isnull=True)
+        .filter(code=normalized, used_at__isnull=True)
         .first()
     )
     if not pairing or not pairing.is_valid:
@@ -160,10 +161,49 @@ def _decrypt_pdf(encrypted: bytes) -> bytes:
     return decrypt_pfx(encrypted)
 
 
+def ensure_tenant_has_quota(tenant: Tenant):
+    tenant.reset_quota_if_needed()
+    if tenant.usage_this_month >= tenant.monthly_quota:
+        raise SignJobError(
+            f'Monthly quota exceeded ({tenant.monthly_quota} signs/month).',
+        )
+
+
+def _generate_sign_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def resolve_portal_usb_device(tenant: Tenant) -> AgentDevice | None:
+    """Bind portal jobs to the sole online agent when unambiguous (M10)."""
+    if tenant is None:
+        return None
+    timeout = getattr(settings, 'USB_AGENT_HEARTBEAT_TIMEOUT_SECONDS', 90)
+    cutoff = timezone.now() - timedelta(seconds=timeout)
+    devices = list(
+        tenant.agent_devices.filter(revoked_at__isnull=True, last_seen_at__gte=cutoff),
+    )
+    if len(devices) == 1:
+        return devices[0]
+    return None
+
+
 @transaction.atomic
-def prepare_usb_sign_job(*, tenant: Tenant, user: User, pdf_data: bytes) -> UsbSignJob:
+def prepare_usb_sign_job(
+    *,
+    tenant: Tenant,
+    pdf_data: bytes,
+    user: User | None = None,
+    api_key=None,
+    device: AgentDevice | None = None,
+) -> UsbSignJob:
+    if user is None and api_key is None:
+        raise ValueError('user or api_key is required')
     if tenant.status != TenantStatus.ACTIVE:
         raise SignJobError('Your account must be approved before signing documents.')
+    if device is not None and device.tenant_id != tenant.pk:
+        raise SignJobError('Agent device not found for this tenant.')
+
+    ensure_tenant_has_quota(tenant)
 
     style = resolve_signature_style(tenant)
     positions = find_text_in_pdf(pdf_data, style=style)
@@ -175,6 +215,8 @@ def prepare_usb_sign_job(*, tenant: Tenant, user: User, pdf_data: bytes) -> UsbS
     job = UsbSignJob.objects.create(
         tenant=tenant,
         user=user,
+        api_key=api_key,
+        device=device,
         encrypted_pdf=_encrypt_pdf(pdf_data),
         hash_before=sha256_hex(pdf_data),
         document_type=detection.document_type,
@@ -184,12 +226,13 @@ def prepare_usb_sign_job(*, tenant: Tenant, user: User, pdf_data: bytes) -> UsbS
             'positions': positions,
             'style': _style_payload(tenant),
         },
+        sign_token=_generate_sign_token(),
         expires_at=timezone.now() + timedelta(minutes=ttl),
     )
     return job
 
 
-def get_job_for_device(device: AgentDevice, job_id) -> UsbSignJob:
+def get_job_for_device(device: AgentDevice, job_id, *, sign_token: str = '') -> UsbSignJob:
     job = (
         UsbSignJob.objects.select_related('tenant', 'user')
         .filter(pk=job_id, tenant=device.tenant, status=UsbSignJobStatus.PREPARED)
@@ -197,6 +240,8 @@ def get_job_for_device(device: AgentDevice, job_id) -> UsbSignJob:
     )
     if not job:
         raise SignJobError('Signing job not found.')
+    if not sign_token or not job.sign_token or sign_token != job.sign_token:
+        raise SignJobError('Invalid or missing sign token for this job.')
     if job.is_expired:
         job.status = UsbSignJobStatus.EXPIRED
         job.save(update_fields=['status'])
@@ -222,8 +267,23 @@ def build_job_payload(job: UsbSignJob) -> dict:
 
 
 @transaction.atomic
-def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes) -> UsbSignJob:
-    job = get_job_for_device(device, job_id)
+def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes, *, sign_token: str = '') -> UsbSignJob:
+    job = get_job_for_device(device, job_id, sign_token=sign_token)
+    original_pdf = _decrypt_pdf(job.encrypted_pdf)
+    from .verification import SignedPdfRejected, verify_usb_signed_pdf
+
+    try:
+        verify_usb_signed_pdf(
+            original_pdf=original_pdf,
+            signed_pdf=signed_pdf_data,
+            hash_before=job.hash_before,
+        )
+    except SignedPdfRejected as exc:
+        job.status = UsbSignJobStatus.FAILED
+        job.error_message = str(exc)[:255]
+        job.save(update_fields=['status', 'error_message'])
+        raise SignJobError(str(exc)) from exc
+
     hash_after = sha256_hex(signed_pdf_data)
     audit = SigningAuditMeta(
         hash_before=job.hash_before,
@@ -233,6 +293,7 @@ def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes) -
         detection_confidence=job.detection_confidence,
         endpoint='sign-usb',
         user=job.user,
+        api_key=job.api_key,
     )
     try:
         signing_event = record_signing_event(job.tenant, success=True, audit=audit)
@@ -247,6 +308,7 @@ def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes) -
     job.signing_event = signing_event
     job.completed_at = timezone.now()
     job.encrypted_pdf = _encrypt_pdf(signed_pdf_data)
+    job.sign_token = ''
     job.save(
         update_fields=[
             'status',
@@ -254,6 +316,7 @@ def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes) -
             'signing_event',
             'completed_at',
             'encrypted_pdf',
+            'sign_token',
         ],
     )
     return job
@@ -271,3 +334,31 @@ def get_job_status_for_user(user: User, job_id) -> UsbSignJob | None:
         .filter(pk=job_id, user=user)
         .first()
     )
+
+
+def get_job_for_tenant(tenant: Tenant, job_id) -> UsbSignJob | None:
+    job = (
+        UsbSignJob.objects.select_related('signing_event', 'device')
+        .filter(pk=job_id, tenant=tenant)
+        .first()
+    )
+    if not job:
+        return None
+    if job.is_expired and job.status == UsbSignJobStatus.PREPARED:
+        job.status = UsbSignJobStatus.EXPIRED
+        job.save(update_fields=['status'])
+    return job
+
+
+def build_job_status_payload(job: UsbSignJob) -> dict:
+    return {
+        'job_id': str(job.id),
+        'status': job.status,
+        'expires_at': job.expires_at.isoformat(),
+        'signing_id': job.signing_event_id,
+        'hash_before_prefix': (job.hash_before or '')[:8],
+        'hash_after_prefix': (job.hash_after or '')[:8] if job.hash_after else '',
+        'error': job.error_message,
+        'device_id': job.device_id,
+        'document_type': job.document_type,
+    }

@@ -254,3 +254,22 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f'Password reset for {self.user.email}'
+
+
+class PortalSignArtifact(models.Model):
+    """Short-lived server-side storage for portal-signed PDFs (avoids large session payloads)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='portal_sign_artifacts')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='portal_sign_artifacts')
+    encrypted_pdf = models.BinaryField()
+    filename = models.CharField(max_length=255)
+    signing_event_id = models.PositiveIntegerField(null=True, blank=True)
+    hash_before_prefix = models.CharField(max_length=8, blank=True)
+    hash_after_prefix = models.CharField(max_length=8, blank=True)
+    document_type_label = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

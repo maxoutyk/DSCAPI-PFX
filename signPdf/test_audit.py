@@ -1,7 +1,7 @@
 import base64
 
 import fitz
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 
 from accounts.models import DocumentType, Tenant, TenantStatus, UsageLog
 from accounts.services import create_api_key
@@ -29,10 +29,20 @@ class Sha256Tests(TestCase):
 
 
 class ClientIpTests(TestCase):
-    def test_uses_first_forwarded_ip(self):
-        request = RequestFactory().post('/api/signpdf-pfx', HTTP_X_FORWARDED_FOR='203.0.113.1, 10.0.0.1')
+    def test_ignores_forwarded_ip_without_trusted_proxy(self):
+        request = RequestFactory().post(
+            '/api/signpdf-pfx',
+            HTTP_X_FORWARDED_FOR='203.0.113.1, 10.0.0.1',
+            REMOTE_ADDR='127.0.0.1',
+        )
+        self.assertEqual(get_client_ip(request), '127.0.0.1')
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_uses_forwarded_ip_behind_one_proxy(self):
+        request = RequestFactory().post('/api/signpdf-pfx', HTTP_X_FORWARDED_FOR='203.0.113.1')
         self.assertEqual(get_client_ip(request), '203.0.113.1')
 
+    @override_settings(TRUSTED_PROXY_COUNT=1)
     def test_skips_loopback_forwarded_ip(self):
         request = RequestFactory().post(
             '/api/signpdf-pfx',
@@ -41,6 +51,7 @@ class ClientIpTests(TestCase):
         )
         self.assertEqual(get_client_ip(request), '203.0.113.1')
 
+    @override_settings(TRUSTED_PROXY_COUNT=1)
     def test_uses_x_real_ip_when_forwarded_is_loopback_only(self):
         request = RequestFactory().post(
             '/api/signpdf-pfx',
@@ -101,6 +112,7 @@ class SigningAuditIntegrationTests(TestCase):
         )
         _, self.api_key = create_api_key(self.tenant, 'Audit Test')
 
+    @override_settings(TRUSTED_PROXY_COUNT=1)
     def test_failed_sign_records_hash_and_document_type(self):
         from rest_framework.test import APIClient
 

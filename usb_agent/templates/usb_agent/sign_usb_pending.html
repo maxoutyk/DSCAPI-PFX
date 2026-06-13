@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function run() {
-  window.IGAgentBridge.signJob(port, jobId, '{{ site_url }}').then(function () {
+  window.IGAgentBridge.signJob(port, jobId, '{{ site_url }}', '{{ sign_token }}').then(function () {
     statusEl.textContent = 'Agent reported success. Finalizing…';
     return pollStatus();
   }).then(function (data) {
