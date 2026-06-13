@@ -123,11 +123,26 @@
 <script src="{% static 'usb_agent/js/agent-bridge.js' %}" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  window.IGAgentBridge.checkLocal({{ agent_local_port }}).then(function (ok) {
+  window.IGAgentBridge.checkLocal({{ agent_local_port }}).then(function (status) {
     var el = document.getElementById('agent-local-status');
     if (!el) return;
-    el.textContent = ok ? 'Local agent is running on this computer.' : 'Local agent not detected. Install and start IG E-Sign Agent.';
-    el.style.color = ok ? 'var(--success)' : 'var(--text-secondary)';
+    if (!status.running) {
+      el.textContent = 'Local agent not detected. Install and start IG E-Sign Agent.';
+      el.style.color = 'var(--text-secondary)';
+      return;
+    }
+    if (!status.portal_paired) {
+      el.textContent = 'Local agent is running but not paired. Open IG E-Sign Agent and enter a new pairing code.';
+      el.style.color = 'var(--warning, #d97706)';
+      return;
+    }
+    if (!status.portal_connected) {
+      el.textContent = 'Local agent is running but offline from the portal. Re-pair in the agent window if this device was revoked.';
+      el.style.color = 'var(--warning, #d97706)';
+      return;
+    }
+    el.textContent = 'Local agent is running and connected to the portal.';
+    el.style.color = 'var(--success)';
   });
   var form = document.getElementById('agent-pair-form');
   if (form) {

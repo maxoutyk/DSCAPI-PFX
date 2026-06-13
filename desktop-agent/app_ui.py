@@ -5,7 +5,16 @@ from __future__ import annotations
 import webbrowser
 from typing import Callable
 
-from agent import AGENT_VERSION, CONFIG_PATH, load_config, read_default_api_base, token_present, try_pair_agent
+from agent import (
+    AGENT_VERSION,
+    CONFIG_PATH,
+    clear_pairing,
+    is_revoked_token_error,
+    load_config,
+    read_default_api_base,
+    token_present,
+    try_pair_agent,
+)
 from tray import AgentRuntimeState
 
 
@@ -35,8 +44,8 @@ class AgentDashboard:
 
         self.root = tk.Tk()
         self.root.title('IG E-Sign Agent')
-        self.root.geometry('440x520')
-        self.root.minsize(400, 480)
+        self.root.geometry('440x620')
+        self.root.minsize(400, 560)
         self.root.protocol('WM_DELETE_WINDOW', self.hide_to_tray)
 
         from pkcs11_signing import register_main_ui_root
@@ -62,6 +71,24 @@ class AgentDashboard:
         ttk.Label(status_frame, textvariable=self.portal_var, wraplength=360).pack(anchor='w', pady=(6, 0))
         ttk.Label(status_frame, textvariable=self.token_var).pack(anchor='w', pady=(6, 0))
         ttk.Label(status_frame, textvariable=self.port_var).pack(anchor='w', pady=(6, 0))
+
+        self.token_frame = ttk.LabelFrame(container, text='USB signing token', padding=12)
+        self.token_frame.pack(fill='x', pady=(0, 12))
+        self.token_count_var = tk.StringVar(value='No USB tokens detected.')
+        ttk.Label(self.token_frame, textvariable=self.token_count_var, wraplength=360).pack(anchor='w')
+        self.token_choice_var = tk.StringVar()
+        self.token_combo = ttk.Combobox(
+            self.token_frame,
+            textvariable=self.token_choice_var,
+            state='readonly',
+            width=48,
+        )
+        self.token_combo.pack(fill='x', pady=(8, 8))
+        token_actions = ttk.Frame(self.token_frame)
+        token_actions.pack(fill='x')
+        ttk.Button(token_actions, text='Refresh tokens', command=self._refresh_usb_tokens).pack(side='left')
+        ttk.Button(token_actions, text='Use for signing', command=self._save_usb_token).pack(side='left', padx=(8, 0))
+        self._usb_tokens = []
 
         self.pair_frame = ttk.LabelFrame(container, text='Pair with portal', padding=12)
         self.pair_frame.pack(fill='x', pady=(0, 12))
@@ -91,6 +118,7 @@ class AgentDashboard:
         self.actions_frame = actions
         actions.pack(fill='x', pady=(0, 12))
         ttk.Button(actions, text='Open USB Agent page in browser', command=self._open_portal_page).pack(fill='x')
+        ttk.Button(actions, text='Re-pair with portal', command=self._unpair).pack(fill='x', pady=(8, 0))
         ttk.Button(actions, text='Open config folder', command=self._open_config_folder).pack(fill='x', pady=(8, 0))
         ttk.Button(actions, text='Quit agent', command=self._quit).pack(fill='x', pady=(8, 0))
 
@@ -102,46 +130,114 @@ class AgentDashboard:
         ).pack(anchor='w')
 
         self._refresh_view()
+        self._refresh_usb_tokens()
         self._schedule_refresh()
 
     def _initial_api_base(self) -> str:
         config = load_config()
         return config.get('api_base') or read_default_api_base()
 
+    def _refresh_usb_tokens(self):
+        from pkcs11_signing import format_token_display, list_usb_tokens, match_saved_token
+
+        self._usb_tokens = list_usb_tokens()
+        if not self._usb_tokens:
+            self.token_count_var.set('No USB tokens detected. Insert your DSC token and click Refresh.')
+            self.token_combo['values'] = ()
+            self.token_choice_var.set('')
+            return
+
+        count = len(self._usb_tokens)
+        if count == 1:
+            self.token_count_var.set('1 USB token detected.')
+        else:
+            self.token_count_var.set(
+                f'{count} USB tokens detected. Choose which token to use for signing.',
+            )
+
+        labels = [format_token_display(token) for token in self._usb_tokens]
+        self.token_combo['values'] = labels
+        matched = match_saved_token(self._usb_tokens)
+        if matched is not None:
+            self.token_choice_var.set(matched.display_name())
+        else:
+            self.token_choice_var.set(labels[0])
+
+    def _save_usb_token(self):
+        from pkcs11_signing import save_token_preference
+
+        if not self._usb_tokens:
+            self._messagebox.showerror('USB token', 'No USB tokens detected. Insert a token and click Refresh.')
+            return
+        selected = self.token_choice_var.get().strip()
+        token = next((item for item in self._usb_tokens if item.display_name() == selected), None)
+        if token is None:
+            self._messagebox.showerror('USB token', 'Select a token from the list.')
+            return
+        save_token_preference(token.slot_id, label=token.label, serial=token.serial)
+        self._messagebox.showinfo('USB token', f'Using {token.display_name()} for signing.')
+        self._refresh_view()
+
+    def _selected_token_line(self, snap: dict) -> str:
+        from pkcs11_signing import list_usb_tokens, match_saved_token
+
+        if not snap.get('token_present'):
+            return 'USB token: not detected — insert token before signing'
+        tokens = list_usb_tokens()
+        if not tokens:
+            return 'USB token: not detected — insert token before signing'
+        matched = match_saved_token(tokens)
+        if matched is not None:
+            return f'USB token: {matched.display_name()}'
+        if len(tokens) == 1:
+            return f'USB token: {tokens[0].display_name()}'
+        return f'USB token: {len(tokens)} detected — choose one below'
+
     def _schedule_refresh(self):
         self._refresh_view()
+        counter = getattr(self, '_token_refresh_counter', 0)
+        if counter % 3 == 0:
+            self._refresh_usb_tokens()
+        self._token_refresh_counter = counter + 1
         self._refresh_job = self.root.after(4000, self._schedule_refresh)
 
     def _refresh_view(self):
         snap = self.state.snapshot()
-        paired = snap['paired'] or bool(load_config().get('device_token'))
-        if not paired:
+        config = load_config()
+        has_token = bool(config.get('device_token'))
+        revoked = is_revoked_token_error(snap['last_error'])
+        show_pairing = not has_token or revoked
+
+        if show_pairing and not has_token:
             self.status_var.set('Not paired — enter a pairing code from the portal.')
             self.portal_var.set('Portal: not connected')
             self.token_var.set('USB token: —')
-        elif snap['portal_connected']:
+        elif show_pairing and revoked:
+            self.status_var.set('This device was revoked. Generate a new pairing code and re-pair below.')
+            self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
+            self.token_var.set('USB token: —')
+        elif snap['portal_connected'] and has_token:
             self.status_var.set('Connected and ready to sign.')
-            self.portal_var.set(f"Portal: {snap['api_base'] or load_config().get('api_base', '—')}")
-            self.token_var.set(
-                'USB token: detected' if snap['token_present'] else 'USB token: not detected — insert token before signing'
-            )
+            self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
+            self.token_var.set(self._selected_token_line(snap))
         else:
             detail = snap['last_error'] or 'portal unreachable'
             self.status_var.set(f'Paired but offline ({detail}).')
-            self.portal_var.set(f"Portal: {snap['api_base'] or load_config().get('api_base', '—')}")
-            self.token_var.set(
-                'USB token: detected' if snap['token_present'] else 'USB token: not detected'
-            )
+            self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
+            self.token_var.set(self._selected_token_line(snap))
 
         self.port_var.set(f"Local service: 127.0.0.1:{snap['port']}")
 
-        if paired:
+        if show_pairing:
+            if not self.pair_frame.winfo_ismapped():
+                self.pair_frame.pack(fill='x', pady=(0, 12), before=self.actions_frame)
+        else:
             self.pair_frame.pack_forget()
-        elif not self.pair_frame.winfo_ismapped():
-            self.pair_frame.pack(fill='x', pady=(0, 12), before=self.actions_frame)
 
-        if paired and snap.get('token_present') is not False:
-            self.state.update(token_present=token_present())
+        if has_token and snap.get('token_present') is not False:
+            self.state.update(paired=True, token_present=token_present())
+        elif not has_token:
+            self.state.update(paired=False, portal_connected=False, last_error='')
 
     def _pair(self):
         api_base = self.api_base_var.get().strip()
@@ -172,6 +268,16 @@ class AgentDashboard:
         )
         self.code_var.set('')
         self._messagebox.showinfo('Paired', f'Connected to {tenant or "your portal"}.')
+        self._refresh_view()
+
+    def _unpair(self):
+        clear_pairing()
+        self.code_var.set('')
+        self.api_base_var.set(self._initial_api_base())
+        self._messagebox.showinfo(
+            'Re-pair',
+            'Local pairing cleared. Generate a new code in the portal USB Agent page, then enter it above.',
+        )
         self._refresh_view()
 
     def _open_portal_page(self):

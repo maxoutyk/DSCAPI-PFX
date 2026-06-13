@@ -74,7 +74,7 @@ def _load_icon_image(*, alert: bool = False):
 
 def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
     snap = state.snapshot()
-    if not snap['paired']:
+    if not load_config().get('device_token'):
         return (
             'Status: Not paired',
             'Open the agent window to enter a pairing code.',
@@ -87,8 +87,27 @@ def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
         detail = snap['last_error'] or 'portal unreachable'
         status = f'Status: Offline ({detail})'
         level = 'warn'
-    token_line = 'USB token: detected' if snap['token_present'] else 'USB token: not detected'
+    token_line = _token_status_line(snap)
     return status, token_line, level
+
+
+def _token_status_line(snap: dict) -> str:
+    try:
+        from pkcs11_signing import list_usb_tokens, match_saved_token
+
+        if not snap.get('token_present'):
+            return 'USB token: not detected'
+        tokens = list_usb_tokens()
+        if not tokens:
+            return 'USB token: not detected'
+        matched = match_saved_token(tokens)
+        if matched is not None:
+            return f'USB token: {matched.display_name()}'
+        if len(tokens) == 1:
+            return f'USB token: {tokens[0].display_name()}'
+        return f'USB token: {len(tokens)} detected — choose in agent window'
+    except Exception:
+        return 'USB token: detected' if snap.get('token_present') else 'USB token: not detected'
 
 
 def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, icon_registry=None) -> None:

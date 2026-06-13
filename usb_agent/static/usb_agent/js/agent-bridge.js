@@ -8,11 +8,17 @@
   async function checkLocal(port) {
     try {
       var response = await fetch(localBase(port) + '/health', { mode: 'cors' });
-      if (!response.ok) return false;
+      if (!response.ok) return { running: false };
       var data = await response.json();
-      return Boolean(data && data.ok);
+      if (!data || !data.ok) return { running: false };
+      return {
+        running: true,
+        portal_paired: Boolean(data.portal_paired),
+        portal_connected: Boolean(data.portal_connected),
+        version: data.version || '',
+      };
     } catch (err) {
-      return false;
+      return { running: false };
     }
   }
 

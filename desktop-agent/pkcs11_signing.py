@@ -7,6 +7,7 @@ import os
 import queue
 import sys
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 
 CONFIG_PATH = Path.home() / '.ig-esign-agent' / 'config.json'
@@ -24,9 +25,22 @@ WINDOWS_PKCS11_DLL_CANDIDATES = (
 )
 
 _session_pin: str | None = None
+_session_slot_id: int | None = None
 _pin_ui_in: queue.Queue | None = None
 _pin_ui_out: queue.Queue | None = None
 _main_ui_root = None
+
+
+@dataclass(frozen=True)
+class TokenDescriptor:
+    slot_id: int
+    label: str
+    serial: str
+    manufacturer: str
+    cert_subjects: tuple[str, ...]
+
+    def display_name(self) -> str:
+        return format_token_display(self)
 
 
 def register_main_ui_root(root) -> None:
@@ -90,6 +104,181 @@ def load_agent_config() -> dict:
         return json.loads(CONFIG_PATH.read_text())
     except json.JSONDecodeError:
         return {}
+
+
+def save_agent_config(data: dict) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(data, indent=2))
+
+
+def format_token_display(token: TokenDescriptor) -> str:
+    parts = [f'Slot {token.slot_id}']
+    if token.label:
+        parts.append(token.label)
+    if token.serial:
+        parts.append(f'SN {token.serial}')
+    if token.cert_subjects:
+        parts.append(token.cert_subjects[0])
+    return ' · '.join(parts)
+
+
+def get_token_preference() -> dict:
+    config = load_agent_config()
+    slot_id = config.get('token_slot_id')
+    return {
+        'token_slot_id': int(slot_id) if slot_id is not None else None,
+        'token_serial': str(config.get('token_serial', '') or '').strip(),
+        'token_label': str(config.get('token_label', '') or '').strip(),
+        'cert_key_id_hex': str(config.get('cert_key_id_hex', '') or '').strip(),
+    }
+
+
+def save_token_preference(
+    slot_id: int,
+    *,
+    label: str = '',
+    serial: str = '',
+    cert_key_id_hex: str = '',
+) -> None:
+    config = load_agent_config()
+    config['token_slot_id'] = int(slot_id)
+    if label:
+        config['token_label'] = label
+    if serial:
+        config['token_serial'] = serial
+    if cert_key_id_hex:
+        config['cert_key_id_hex'] = cert_key_id_hex
+    save_agent_config(config)
+
+
+def match_saved_token(tokens: list[TokenDescriptor], preference: dict | None = None) -> TokenDescriptor | None:
+    if not tokens:
+        return None
+    pref = preference or get_token_preference()
+    saved_slot = pref.get('token_slot_id')
+    if saved_slot is not None:
+        for token in tokens:
+            if token.slot_id == saved_slot:
+                return token
+    saved_serial = pref.get('token_serial', '')
+    saved_label = pref.get('token_label', '')
+    if saved_serial:
+        for token in tokens:
+            if token.serial == saved_serial and (not saved_label or token.label == saved_label):
+                return token
+    return None
+
+
+def resolve_signing_slot_from_tokens(
+    tokens: list[TokenDescriptor],
+    *,
+    preference: dict | None = None,
+    allow_prompt: bool = False,
+    prompt_fn=None,
+) -> int:
+    if not tokens:
+        raise RuntimeError('No USB token detected. Insert your DSC token and try again.')
+    if len(tokens) == 1:
+        return tokens[0].slot_id
+    matched = match_saved_token(tokens, preference)
+    if matched is not None:
+        return matched.slot_id
+    if allow_prompt and prompt_fn is not None:
+        slot_id = prompt_fn(tokens)
+        if slot_id is not None:
+            chosen = next((token for token in tokens if token.slot_id == slot_id), None)
+            if chosen is not None:
+                save_token_preference(
+                    chosen.slot_id,
+                    label=chosen.label,
+                    serial=chosen.serial,
+                )
+            return slot_id
+    raise RuntimeError(
+        'Multiple USB tokens detected. Open the IG E-Sign Agent window, choose a token under '
+        '"USB signing token", and click "Use for signing".',
+    )
+
+
+def _cert_subject_cn(cert_der: bytes) -> str:
+    try:
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+
+        cert = x509.load_der_x509_certificate(cert_der)
+        attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        if attrs:
+            return str(attrs[0].value)
+        return cert.subject.rfc4514_string()
+    except Exception:
+        return ''
+
+
+def _probe_slot_cert_subjects(pkcs11, slot_id: int) -> tuple[str, ...]:
+    import PyKCS11 as PK11
+
+    session = None
+    try:
+        session = pkcs11.openSession(slot_id, PK11.CKF_SERIAL_SESSION)
+        cert_objects = session.findObjects([(PK11.CKA_CLASS, PK11.CKO_CERTIFICATE)])
+        subjects: list[str] = []
+        for cert_obj in cert_objects:
+            try:
+                value = session.getAttributeValue(cert_obj, [PK11.CKA_VALUE])[0]
+            except PK11.PyKCS11Error:
+                continue
+            subject = _cert_subject_cn(_pkcs11_bytes(value))
+            if subject and subject not in subjects:
+                subjects.append(subject)
+        return tuple(subjects)
+    except Exception:
+        return ()
+    finally:
+        if session is not None:
+            try:
+                session.closeSession()
+            except Exception:
+                pass
+
+
+def list_usb_tokens(dll_path: str | None = None) -> list[TokenDescriptor]:
+    dll_path = dll_path or resolve_pkcs11_dll()
+    if not dll_path:
+        return []
+    try:
+        import PyKCS11
+
+        lib = PyKCS11.PyKCS11Lib()
+        lib.load(dll_path)
+        tokens: list[TokenDescriptor] = []
+        for slot_id in lib.getSlotList(tokenPresent=True):
+            info = lib.getTokenInfo(slot_id)
+            label = _pkcs11_text(info.label)
+            serial = _pkcs11_text(info.serialNumber)
+            manufacturer = _pkcs11_text(info.manufacturerID)
+            cert_subjects = _probe_slot_cert_subjects(lib, slot_id)
+            tokens.append(
+                TokenDescriptor(
+                    slot_id=int(slot_id),
+                    label=label,
+                    serial=serial,
+                    manufacturer=manufacturer,
+                    cert_subjects=cert_subjects,
+                ),
+            )
+        return tokens
+    except Exception:
+        return []
+
+
+def selected_token_summary(dll_path: str | None = None) -> dict:
+    tokens = list_usb_tokens(dll_path)
+    matched = match_saved_token(tokens)
+    return {
+        'token_count': len(tokens),
+        'selected_slot_id': matched.slot_id if matched else None,
+        'selected_token_display': matched.display_name() if matched else '',
+    }
 
 
 def resolve_pkcs11_dll() -> str | None:
@@ -202,8 +391,138 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
 
 
 def clear_session_pin():
-    global _session_pin
+    global _session_pin, _session_slot_id
     _session_pin = None
+    _session_slot_id = None
+
+
+def _prompt_token_choice_on_main_thread(root, tokens: list[TokenDescriptor]) -> int | None:
+    result_queue: queue.Queue[int | None] = queue.Queue(maxsize=1)
+    done = threading.Event()
+
+    def show():
+        import tkinter as tk
+        from tkinter import ttk
+
+        dialog = tk.Toplevel(root)
+        dialog.title('Select USB token')
+        dialog.geometry('460x300')
+        dialog.minsize(400, 260)
+        dialog.transient(root)
+        dialog.grab_set()
+
+        frame = ttk.Frame(dialog, padding=12)
+        frame.pack(fill='both', expand=True)
+
+        ttk.Label(
+            frame,
+            text='Multiple USB tokens detected. Choose which token to use for signing:',
+            wraplength=400,
+        ).pack(anchor='w')
+
+        listbox = tk.Listbox(frame, height=min(8, max(3, len(tokens))), exportselection=False)
+        for token in tokens:
+            listbox.insert('end', format_token_display(token))
+        listbox.selection_set(0)
+        listbox.pack(fill='both', expand=True, pady=(10, 10))
+
+        def accept():
+            selection = listbox.curselection()
+            if not selection:
+                result_queue.put(None)
+            else:
+                result_queue.put(tokens[selection[0]].slot_id)
+            done.set()
+            dialog.destroy()
+
+        def cancel():
+            result_queue.put(None)
+            done.set()
+            dialog.destroy()
+
+        buttons = ttk.Frame(frame)
+        ttk.Button(buttons, text='Use this token', command=accept).pack(side='left')
+        ttk.Button(buttons, text='Cancel', command=cancel).pack(side='left', padx=(8, 0))
+        buttons.pack(anchor='w')
+        dialog.protocol('WM_DELETE_WINDOW', cancel)
+        listbox.bind('<Double-Button-1>', lambda _event: accept())
+        listbox.focus_set()
+
+    root.after(0, show)
+    if not done.wait(timeout=300):
+        return None
+    try:
+        return result_queue.get_nowait()
+    except queue.Empty:
+        return None
+
+
+def prompt_token_choice(tokens: list[TokenDescriptor]) -> int | None:
+    if not tokens:
+        return None
+    if len(tokens) == 1:
+        return tokens[0].slot_id
+
+    root = _main_ui_root
+    if root is not None:
+        try:
+            return _prompt_token_choice_on_main_thread(root, tokens)
+        except Exception:
+            pass
+
+    ensure_pin_ui_thread()
+
+    if sys.platform == 'win32':
+        try:
+            import tkinter as tk
+            from tkinter import ttk
+
+            result: dict[str, int | None] = {'slot_id': None}
+            picker_root = tk.Tk()
+            picker_root.withdraw()
+            picker_root.attributes('-topmost', True)
+
+            dialog = tk.Toplevel(picker_root)
+            dialog.title('Select USB token')
+            dialog.geometry('460x300')
+            dialog.attributes('-topmost', True)
+
+            frame = ttk.Frame(dialog, padding=12)
+            frame.pack(fill='both', expand=True)
+            ttk.Label(
+                frame,
+                text='Multiple USB tokens detected. Choose which token to use for signing:',
+                wraplength=400,
+            ).pack(anchor='w')
+
+            listbox = tk.Listbox(frame, height=min(8, max(3, len(tokens))), exportselection=False)
+            for token in tokens:
+                listbox.insert('end', format_token_display(token))
+            listbox.selection_set(0)
+            listbox.pack(fill='both', expand=True, pady=(10, 10))
+
+            def accept():
+                selection = listbox.curselection()
+                if selection:
+                    result['slot_id'] = tokens[selection[0]].slot_id
+                dialog.destroy()
+                picker_root.destroy()
+
+            def cancel():
+                dialog.destroy()
+                picker_root.destroy()
+
+            buttons = ttk.Frame(frame)
+            ttk.Button(buttons, text='Use this token', command=accept).pack(side='left')
+            ttk.Button(buttons, text='Cancel', command=cancel).pack(side='left', padx=(8, 0))
+            buttons.pack(anchor='w')
+            dialog.protocol('WM_DELETE_WINDOW', cancel)
+            picker_root.wait_window(dialog)
+            return result['slot_id']
+        except Exception:
+            pass
+
+    return None
 
 
 class TokenSigner:
@@ -214,6 +533,7 @@ class TokenSigner:
         dll_path: str,
         *,
         token_label: str | None = None,
+        slot_id: int | None = None,
         pin: str | None = None,
         cert_key_id: bytes | None = None,
     ):
@@ -223,40 +543,59 @@ class TokenSigner:
         self.pkcs11 = self._base.pkcs11
         self.session = None
         self.token_label = token_label
+        self._slot_id = slot_id
         self._pin = pin
         self._cert_key_id = cert_key_id
         self._keyid = None
         self._cert_der: bytes | None = None
 
     def logout(self):
+        if self.session is not None:
+            try:
+                self.session.logout()
+            except Exception:
+                pass
+            try:
+                self.session.closeSession()
+            except Exception:
+                pass
         self._base.logout()
         self.session = None
 
-    def _resolve_token_label(self) -> str:
-        if self.token_label:
-            return self.token_label
-        config_label = load_agent_config().get('token_label', '').strip()
-        if config_label:
-            return config_label
-        slots = self.pkcs11.getSlotList(tokenPresent=True)
-        if not slots:
-            raise RuntimeError(
-                'No USB token detected. Insert your DSC token and try again.',
-            )
-        info = self.pkcs11.getTokenInfo(slots[0])
-        return info.label.split('\0')[0].strip()
+    def _resolve_signing_slot(self) -> int:
+        global _session_slot_id
+        if self._slot_id is not None:
+            return self._slot_id
+        if _session_slot_id is not None:
+            return _session_slot_id
 
-    def _ensure_logged_in(self):
+        tokens = list_usb_tokens()
+        slot_id = resolve_signing_slot_from_tokens(
+            tokens,
+            allow_prompt=True,
+            prompt_fn=prompt_token_choice,
+        )
+        _session_slot_id = slot_id
+        self._slot_id = slot_id
+        return slot_id
+
+    def _login_slot(self, slot_id: int, pin: str):
         import PyKCS11 as PK11
 
+        self.session = self.pkcs11.openSession(
+            slot_id,
+            PK11.CKF_SERIAL_SESSION | PK11.CKF_RW_SESSION,
+        )
+        self.session.login(pin)
+
+    def _ensure_logged_in(self):
         if self.session is not None:
             return
-        label = self._resolve_token_label()
+        slot_id = self._resolve_signing_slot()
         pin = self._pin or prompt_token_pin()
         if not pin:
             raise RuntimeError('Token PIN is required to sign.')
-        self._base.login(label, pin)
-        self.session = self._base.session
+        self._login_slot(slot_id, pin)
 
     def _find_signing_pairs(self) -> list[tuple[object, bytes, str]]:
         import PyKCS11 as PK11

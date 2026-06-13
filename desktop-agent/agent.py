@@ -43,8 +43,24 @@ def _read_version() -> str:
 
 AGENT_VERSION = _read_version()
 CONFIG_PATH = Path.home() / '.ig-esign-agent' / 'config.json'
+_runtime_state_holder: dict = {'state': None}
 _heartbeat_started = False
 _heartbeat_lock = threading.Lock()
+
+
+def is_revoked_token_error(exc: Exception | str) -> bool:
+    text = str(exc).lower()
+    return 'revoked' in text or 'invalid or revoked' in text
+
+
+def clear_pairing() -> None:
+    config = load_config()
+    if 'device_token' in config:
+        config.pop('device_token', None)
+        save_config(config)
+    state = _runtime_state_holder.get('state')
+    if state is not None:
+        state.update(paired=False, portal_connected=False, last_error='')
 
 
 def read_default_api_base() -> str:
@@ -106,9 +122,12 @@ def start_portal_heartbeat(state) -> None:
                 state.update(paired=True, api_base=api_base)
                 try:
                     heartbeat(api_base, token)
-                    state.update(portal_connected=True, last_error='', token_present=token_present())
+                    state.update(portal_connected=True, last_error='', token_present=token_present(), paired=True)
                 except Exception as exc:
-                    state.update(portal_connected=False, last_error=str(exc)[:120])
+                    if is_revoked_token_error(exc):
+                        clear_pairing()
+                    else:
+                        state.update(portal_connected=False, last_error=str(exc)[:120], paired=True)
             threading.Event().wait(45)
 
     threading.Thread(target=heartbeat_loop, daemon=True, name='ig-agent-heartbeat').start()
@@ -143,6 +162,7 @@ def run_server(port: int, *, use_tray: bool | None = None):
             api_base=api_base,
             token_present=token_present() if token else False,
         )
+        _runtime_state_holder['state'] = state
 
     if not token:
         if not (use_tray and sys.platform == 'win32'):
@@ -409,7 +429,14 @@ class AgentHandler(BaseHTTPRequestHandler):
             self.send_error(403)
             return
         payload = json.dumps(
-            {'ok': True, 'version': AGENT_VERSION, 'token_present': token_present()},
+            {
+                'ok': True,
+                'version': AGENT_VERSION,
+                'token_present': token_present(),
+                'portal_paired': bool(config.get('device_token')),
+                'portal_connected': _health_portal_connected(),
+                **_health_token_fields(),
+            },
         ).encode('utf-8')
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
@@ -439,6 +466,8 @@ class AgentHandler(BaseHTTPRequestHandler):
             result = sign_job(api_base, token, job_id, sign_token)
             self._json(200, result, allowed)
         except Exception as exc:
+            if is_revoked_token_error(exc):
+                clear_pairing()
             self._json(500, {'error': str(exc)}, allowed)
 
     def _json(self, status: int, payload: dict, allowed_origin: str | None = None):
@@ -448,6 +477,26 @@ class AgentHandler(BaseHTTPRequestHandler):
         self._cors(allowed_origin)
         self.end_headers()
         self.wfile.write(body)
+
+
+def _health_portal_connected() -> bool:
+    state = _runtime_state_holder.get('state')
+    if state is None:
+        return False
+    return state.snapshot()['portal_connected']
+
+
+def _health_token_fields() -> dict:
+    try:
+        from pkcs11_signing import selected_token_summary
+
+        summary = selected_token_summary()
+        return {
+            'token_count': summary['token_count'],
+            'selected_token_display': summary['selected_token_display'],
+        }
+    except Exception:
+        return {'token_count': 0, 'selected_token_display': ''}
 
 
 def _port_available(port: int) -> bool:
