@@ -6,7 +6,7 @@ Separate installer package for USB DSC token signing. This folder contains a **d
 
 1. Log in to IG E-Sign → **USB Agent**
 2. Click **Download for Windows (.exe)** or **Download agent package (ZIP)**
-3. Windows installer: run **Pair Agent.bat**, then **Start Agent.bat**
+3. Windows installer: run **Pair Agent.bat**, then start **IG E-Sign Agent** from the Start menu (system tray icon near the clock)
 4. ZIP (dev/macOS/Linux): extract and run `start-agent.bat` or `start-agent.sh`
 
 The download includes `portal.url` with your tenant portal address preconfigured.
@@ -45,7 +45,8 @@ python desktop-agent/agent.py pair --api-base http://localhost --code 123456
 ```bash
 export IG_AGENT_DEV_PFX_PATH=/path/to/cert.pfx
 export IG_AGENT_DEV_PFX_PASSWORD=your-pin
-python desktop-agent/agent.py run --port 9765
+python desktop-agent/agent.py run --port 9765          # Windows: system tray
+python desktop-agent/agent.py run --port 9765 --console  # terminal mode
 ```
 
 Until PKCS#11 is implemented, dev signing uses the PFX env vars above (same placement as cloud prepare).

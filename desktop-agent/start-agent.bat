@@ -20,5 +20,5 @@ if not exist .paired (
   echo paired> .paired
 )
 
-echo Starting agent on http://127.0.0.1:9765
+echo Starting agent in the system tray (near the clock)...
 python agent.py run --port 9765

@@ -30,5 +30,5 @@ if errorlevel 1 (
 if exist .paired del .paired
 echo paired> .paired
 echo.
-echo Paired successfully. You can now run "Start Agent.bat".
+echo Paired successfully. Start IG E-Sign Agent from the Start menu or desktop shortcut.
 pause

@@ -17,6 +17,7 @@ idna==3.6
 lxml==5.1.0
 oscrypto==1.3.0
 pillow==10.2.0
+pystray==0.19.5
 pycparser==2.21
 PyMuPDF==1.23.26
 PyMuPDFb==1.23.22

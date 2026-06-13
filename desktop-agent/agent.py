@@ -72,21 +72,138 @@ def api_request(method: str, url: str, payload: dict | None = None, token: str =
         raise RuntimeError(detail or exc.reason) from exc
 
 
+def run_server(port: int, *, use_tray: bool | None = None):
+    if use_tray is None:
+        use_tray = sys.platform == 'win32' and not os.environ.get('IG_AGENT_CONSOLE')
+
+    if not _port_available(port):
+        message = (
+            f'Another IG E-Sign Agent is already running on port {port}.\n'
+            'Check the system tray near the clock.'
+        )
+        if use_tray and sys.platform == 'win32':
+            _show_windows_notice('IG E-Sign Agent', message)
+        else:
+            print(message)
+        raise SystemExit(1)
+
+    config = load_config()
+    api_base = config.get('api_base', '')
+    token = config.get('device_token', '')
+    state = None
+
+    if use_tray and sys.platform == 'win32':
+        from tray import AgentRuntimeState
+
+        state = AgentRuntimeState(
+            port=port,
+            paired=bool(token),
+            api_base=api_base,
+            token_present=token_present() if token else False,
+        )
+
+    if not token:
+        message = 'Agent is not paired yet. Run "Pair Agent.bat" and enter a code from the portal.'
+        if use_tray and sys.platform == 'win32':
+            _show_windows_notice('IG E-Sign Agent', message)
+        else:
+            print(message)
+    elif api_base and token:
+        def heartbeat_loop():
+            while True:
+                try:
+                    heartbeat(api_base, token)
+                    if state is not None:
+                        state.update(portal_connected=True, last_error='')
+                except Exception as exc:
+                    if state is not None:
+                        state.update(portal_connected=False, last_error=str(exc)[:120])
+                threading.Event().wait(45)
+
+        try:
+            heartbeat(api_base, token)
+            if state is not None:
+                state.update(portal_connected=True, last_error='')
+            if not use_tray:
+                print(f'Connected to portal at {api_base}')
+        except Exception as exc:
+            if state is not None:
+                state.update(portal_connected=False, last_error=str(exc)[:120])
+            if not use_tray:
+                print(f'Warning: could not reach portal ({exc}). Agent will still run locally.')
+
+        threading.Thread(target=heartbeat_loop, daemon=True).start()
+
+    server = ThreadingHTTPServer(('127.0.0.1', port), AgentHandler)
+
+    if use_tray and sys.platform == 'win32':
+        def serve():
+            server.serve_forever()
+
+        threading.Thread(target=serve, daemon=True).start()
+
+        def shutdown():
+            server.shutdown()
+
+        from tray import run_tray_loop
+
+        run_tray_loop(state=state or AgentRuntimeState(port=port), on_quit=shutdown)
+        return
+
+    print(f'IG E-Sign Agent listening on http://127.0.0.1:{port}')
+    print('Press Ctrl+C to stop.')
+    server.serve_forever()
+
+
+def _show_windows_notice(title: str, message: str):
+    if sys.platform != 'win32':
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(0, message, title, 0x40)
+    except Exception:
+        pass
+
+
+def _pair_feedback(success: bool, tenant: str = '', error: str = ''):
+    if success:
+        message = f'Paired with {tenant or "your portal"}. Start the agent from the Start menu or desktop shortcut.'
+        title = 'IG E-Sign Agent'
+    else:
+        message = error or 'Pairing failed. Check the portal URL and pairing code.'
+        title = 'IG E-Sign Agent — Pairing failed'
+    if getattr(sys, 'frozen', False) and sys.platform == 'win32':
+        try:
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 if success else 0x10)
+        except Exception:
+            pass
+    else:
+        print(message)
+
+
 def pair_agent(api_base: str, code: str):
-    data = api_request(
-        'POST',
-        f'{api_base.rstrip("/")}/api/agent/pair/',
-        {
-            'code': code,
-            'machine_name': platform.node(),
-            'agent_version': AGENT_VERSION,
-        },
-    )
+    try:
+        data = api_request(
+            'POST',
+            f'{api_base.rstrip("/")}/api/agent/pair/',
+            {
+                'code': code,
+                'machine_name': platform.node(),
+                'agent_version': AGENT_VERSION,
+            },
+        )
+    except Exception as exc:
+        _pair_feedback(False, error=str(exc))
+        raise SystemExit(1) from exc
+
     config = load_config()
     config['api_base'] = api_base.rstrip('/')
     config['device_token'] = data['device_token']
     save_config(config)
-    print(f"Paired with tenant {data.get('tenant')} (device {data.get('device_id')})")
+    _pair_feedback(True, tenant=data.get('tenant', ''))
 
 
 def token_present() -> bool:
@@ -259,33 +376,15 @@ class AgentHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def run_server(port: int):
-    config = load_config()
-    api_base = config.get('api_base', '')
-    token = config.get('device_token', '')
-    if not token:
-        print('Agent is not paired yet. Run "Pair Agent.bat" and enter a code from the portal.')
-    elif api_base and token:
+def _port_available(port: int) -> bool:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         try:
-            heartbeat(api_base, token)
-            print(f'Connected to portal at {api_base}')
-        except Exception as exc:
-            print(f'Warning: could not reach portal ({exc}). Agent will still run locally.')
-
-        def loop():
-            while True:
-                try:
-                    heartbeat(api_base, token)
-                except Exception:
-                    pass
-                threading.Event().wait(45)
-
-        threading.Thread(target=loop, daemon=True).start()
-
-    server = ThreadingHTTPServer(('127.0.0.1', port), AgentHandler)
-    print(f'IG E-Sign Agent listening on http://127.0.0.1:{port}')
-    print('Keep this window open while signing from the portal.')
-    server.serve_forever()
+            sock.bind(('127.0.0.1', port))
+        except OSError:
+            return False
+    return True
 
 
 def main():
@@ -301,12 +400,17 @@ def main():
 
     run_parser = sub.add_parser('run')
     run_parser.add_argument('--port', type=int, default=9765)
+    run_parser.add_argument(
+        '--console',
+        action='store_true',
+        help='Run in the terminal instead of the Windows system tray.',
+    )
 
     args = parser.parse_args()
     if args.command == 'pair':
         pair_agent(args.api_base, args.code)
     elif args.command == 'run':
-        run_server(args.port)
+        run_server(args.port, use_tray=False if args.console else None)
 
 
 if __name__ == '__main__':

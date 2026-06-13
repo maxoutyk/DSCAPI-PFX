@@ -40,13 +40,13 @@ Source: "agent-scripts\Pair Agent.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "agent-scripts\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Start {#AppName}"; Filename: "{app}\Start Agent.bat"; IconFilename: "{app}\{#AppExeName}"
+Name: "{group}\Start {#AppName}"; Filename: "{app}\{#AppExeName}"; Parameters: "run"; IconFilename: "{app}\{#AppExeName}"
 Name: "{group}\Pair {#AppName}"; Filename: "{app}\Pair Agent.bat"; IconFilename: "{app}\{#AppExeName}"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Start Agent.bat"; Tasks: desktopicon; IconFilename: "{app}\{#AppExeName}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Parameters: "run"; Tasks: desktopicon; IconFilename: "{app}\{#AppExeName}"
 
 [Run]
 Filename: "{app}\Pair Agent.bat"; Description: "Pair with your IG E-Sign account now"; Flags: postinstall skipifsilent nowait unchecked
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IGEsignAgent"; ValueData: """{app}\Start Agent.bat"""; Tasks: startup; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IGEsignAgent"; ValueData: """{app}\{#AppExeName}"" run"; Tasks: startup; Flags: uninsdeletevalue
