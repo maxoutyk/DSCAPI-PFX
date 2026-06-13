@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="pfxApiTitle">
+  <title id="pfxApiTitle">PFX API signing workflow</title>
+  <rect width="640" height="400" rx="16" fill="#0a0f2e"/>
+  <rect x="40" y="48" width="260" height="304" rx="14" fill="#121a3d" stroke="rgba(255,255,255,0.08)"/>
+  <text x="170" y="88" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700">Your application</text>
+  <rect x="72" y="108" width="196" height="40" rx="8" fill="rgba(255,102,0,0.14)" stroke="rgba(255,102,0,0.4)"/>
+  <text x="170" y="134" text-anchor="middle" fill="#ff6600" font-family="JetBrains Mono, monospace" font-size="11">POST /api/signpdf-pfx</text>
+  <rect x="72" y="164" width="196" height="56" rx="8" fill="#1a2347" stroke="rgba(255,255,255,0.1)"/>
+  <text x="88" y="188" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="11">pdf_base64</text>
+  <text x="88" y="206" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="11">cert_alias + password</text>
+  <path d="M316 200 H372" stroke="#ff6600" stroke-width="2" marker-end="url(#arrow)"/>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#ff6600"/>
+    </marker>
+  </defs>
+  <rect x="388" y="120" width="212" height="160" rx="14" fill="rgba(34,211,165,0.1)" stroke="#22d3a5" stroke-width="1.5"/>
+  <path d="M428 156 H560 M428 176 H536 M428 196 H548 M428 216 H520" stroke="rgba(34,211,165,0.7)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="564" cy="142" r="14" fill="#22d3a5"/>
+  <path d="M556 142 L562 148 L574 134" fill="none" stroke="#020626" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="494" y="260" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="700">Signed PDF + audit IDs</text>
+  <text x="320" y="360" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="12">Inline PFX or saved certificate alias</text>
+</svg>

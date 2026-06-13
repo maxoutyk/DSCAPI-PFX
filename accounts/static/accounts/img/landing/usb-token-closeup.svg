@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360" role="img" aria-labelledby="tokenCloseupTitle">
+  <title id="tokenCloseupTitle">Class 3 digital signature certificate USB token</title>
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="rgba(255,102,0,0.25)"/>
+      <stop offset="100%" stop-color="rgba(255,102,0,0)"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="360" rx="20" fill="#0a0f2e"/>
+  <circle cx="180" cy="150" r="120" fill="url(#halo)"/>
+
+  <g transform="translate(118 52)">
+    <rect x="0" y="0" width="124" height="188" rx="18" fill="#1a2347" stroke="#ff6600" stroke-width="3"/>
+    <rect x="18" y="24" width="88" height="56" rx="8" fill="rgba(255,102,0,0.14)" stroke="rgba(255,102,0,0.55)" stroke-width="1.5"/>
+    <text x="62" y="48" text-anchor="middle" fill="#ff6600" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="800">CLASS 3</text>
+    <text x="62" y="66" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600">DSC TOKEN</text>
+    <circle cx="62" cy="118" r="24" fill="rgba(34,211,165,0.12)" stroke="#22d3a5" stroke-width="2"/>
+    <path d="M50 118 L58 126 L76 104" fill="none" stroke="#22d3a5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="46" y="156" width="32" height="24" rx="5" fill="#c9a227"/>
+    <rect x="52" y="180" width="20" height="20" rx="4" fill="#8b8fa8"/>
+  </g>
+
+  <text x="180" y="268" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700">USB DSC Token</text>
+  <text x="180" y="292" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="13">eMudhra, Capricorn, ProxKey</text>
+  <text x="180" y="318" text-anchor="middle" fill="#22d3a5" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600">PKCS#11 - key never exported</text>
+</svg>

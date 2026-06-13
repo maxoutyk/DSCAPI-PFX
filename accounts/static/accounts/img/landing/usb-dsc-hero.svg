@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="usbHeroTitle">
+  <title id="usbHeroTitle">Class 3 USB DSC token connected to a Windows signing workstation</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#121a3d"/>
+      <stop offset="100%" stop-color="#0a0f2e"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a2347"/>
+      <stop offset="100%" stop-color="#0d1430"/>
+    </linearGradient>
+    <linearGradient id="token" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a355f"/>
+      <stop offset="100%" stop-color="#1a2347"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="640" height="480" rx="24" fill="url(#bg)"/>
+  <rect x="24" y="24" width="592" height="432" rx="18" fill="none" stroke="rgba(255,255,255,0.08)"/>
+
+  <!-- Cloud API -->
+  <g transform="translate(52 50)">
+    <path
+      d="M40 56c0-16 12-28 26-28 6 0 12 2 16 6 4-10 16-15 26-10 9 5 13 14 11 24h1c12 0 21 9 21 21s-9 21-21 21H46c-12 0-21-9-21-21 0-9 5-16 15-19z"
+      fill="rgba(255,102,0,0.12)"
+      stroke="#ff6600"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M40 56c0-16 12-28 26-28 6 0 12 2 16 6 4-10 16-15 26-10 9 5 13 14 11 24h1c12 0 21 9 21 21s-9 21-21 21H46c-12 0-21-9-21-21 0-9 5-16 15-19z"
+      fill="#121a3d"
+      stroke="rgba(255,255,255,0.18)"
+      stroke-width="1.5"
+      stroke-linejoin="round"
+    />
+    <text x="83" y="55" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="10" font-weight="600">IG E-Sign API</text>
+    <text text-anchor="middle" fill="#8b8fa8" font-family="JetBrains Mono, monospace" font-size="7">
+      <tspan x="83" y="67">POST</tspan>
+      <tspan x="83" dy="9">/api/sign/usb/</tspan>
+    </text>
+  </g>
+
+  <!-- Connection -->
+  <path d="M168 104 C250 112, 300 150, 360 170" fill="none" stroke="#ff6600" stroke-width="2" stroke-dasharray="6 6" opacity="0.8"/>
+  <circle cx="360" cy="170" r="5" fill="#ff6600"/>
+
+  <!-- Laptop -->
+  <g transform="translate(300 120)">
+    <rect x="0" y="0" width="280" height="180" rx="14" fill="#0a0f2e" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+    <rect x="16" y="16" width="248" height="140" rx="8" fill="url(#screen)"/>
+    <rect x="28" y="32" width="120" height="10" rx="5" fill="rgba(255,255,255,0.08)"/>
+    <rect x="28" y="54" width="180" height="8" rx="4" fill="rgba(255,255,255,0.06)"/>
+    <rect x="28" y="72" width="150" height="8" rx="4" fill="rgba(255,255,255,0.06)"/>
+    <rect x="28" y="104" width="92" height="28" rx="8" fill="rgba(255,102,0,0.18)" stroke="#ff6600" stroke-width="1.5"/>
+    <text x="74" y="122" text-anchor="middle" fill="#ff6600" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700">Enter token PIN</text>
+    <path d="M20 188 H260 L300 220 H-20 Z" fill="#121a3d" stroke="rgba(255,255,255,0.1)"/>
+    <text x="140" y="176" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="11">Windows signing PC</text>
+  </g>
+
+  <!-- USB Token -->
+  <g transform="translate(88 300)" filter="url(#glow)">
+    <rect x="0" y="0" width="88" height="128" rx="12" fill="url(#token)" stroke="#ff6600" stroke-width="2"/>
+    <rect x="14" y="18" width="60" height="42" rx="6" fill="rgba(255,102,0,0.15)" stroke="rgba(255,102,0,0.5)"/>
+    <text x="44" y="44" text-anchor="middle" fill="#ff6600" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700">DSC</text>
+    <circle cx="44" cy="88" r="16" fill="rgba(34,211,165,0.15)" stroke="#22d3a5" stroke-width="2"/>
+    <path d="M36 88 L42 94 L54 80" fill="none" stroke="#22d3a5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="34" y="118" width="20" height="18" rx="4" fill="#c9a227"/>
+    <text x="44" y="154" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600">Class 3 USB</text>
+    <text x="44" y="170" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="10">Private key on token</text>
+  </g>
+
+  <!-- USB cable to laptop -->
+  <path d="M176 330 C220 300, 280 285, 320 285" fill="none" stroke="#8b8fa8" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="320" cy="285" r="6" fill="#8b8fa8"/>
+
+  <!-- Signed PDF badge -->
+  <g transform="translate(430 330)">
+    <rect x="0" y="0" width="156" height="96" rx="12" fill="rgba(34,211,165,0.1)" stroke="#22d3a5" stroke-width="1.5"/>
+    <path d="M24 28 H88 V76 H24 Z" fill="none" stroke="#22d3a5" stroke-width="2"/>
+    <path d="M32 44 H80 M32 56 H68 M32 68 H76" stroke="rgba(34,211,165,0.7)" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="118" cy="34" r="16" fill="#22d3a5"/>
+    <path d="M110 34 L116 40 L128 26" fill="none" stroke="#020626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="78" y="88" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600">Signed PDF ready</text>
+  </g>
+
+  <path d="M500 285 C540 300, 560 320, 508 330" fill="none" stroke="#22d3a5" stroke-width="2" stroke-dasharray="5 5"/>
+</svg>

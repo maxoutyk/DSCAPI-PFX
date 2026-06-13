@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="portalBrowserTitle">
+  <title id="portalBrowserTitle">In-browser PDF signing workflow</title>
+  <rect width="640" height="400" rx="16" fill="#0a0f2e"/>
+  <rect x="72" y="40" width="496" height="280" rx="14" fill="#121a3d" stroke="rgba(255,255,255,0.08)"/>
+  <rect x="88" y="56" width="464" height="36" rx="8" fill="#1a2347"/>
+  <circle cx="108" cy="74" r="6" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="128" cy="74" r="6" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="148" cy="74" r="6" fill="rgba(255,255,255,0.12)"/>
+  <text x="324" y="79" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="11">IG E-Sign Portal - Sign PDF</text>
+  <rect x="108" y="112" width="200" height="168" rx="10" fill="#0a0f2e" stroke="rgba(255,255,255,0.1)"/>
+  <text x="208" y="140" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600">Upload PDF</text>
+  <rect x="128" y="156" width="160" height="96" rx="8" fill="rgba(255,102,0,0.1)" stroke="rgba(255,102,0,0.35)" stroke-dasharray="6 4"/>
+  <text x="208" y="210" text-anchor="middle" fill="#ff6600" font-family="Inter, system-ui, sans-serif" font-size="11">Drop file here</text>
+  <rect x="332" y="112" width="188" height="168" rx="10" fill="#0a0f2e" stroke="rgba(255,255,255,0.1)"/>
+  <text x="426" y="140" text-anchor="middle" fill="#f0f1f5" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600">Preview placement</text>
+  <rect x="352" y="156" width="148" height="88" rx="6" fill="#1a2347"/>
+  <path d="M368 220 Q404 188 440 206 T500 194" fill="none" stroke="#22d3a5" stroke-width="2"/>
+  <text x="426" y="262" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="10">Authorised Signatory</text>
+  <rect x="248" y="296" width="144" height="36" rx="18" fill="#ff6600"/>
+  <text x="320" y="319" text-anchor="middle" fill="#020626" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="700">Sign and download</text>
+  <text x="320" y="368" text-anchor="middle" fill="#8b8fa8" font-family="Inter, system-ui, sans-serif" font-size="12">No integration required - use saved PFX or USB sign</text>
+</svg>

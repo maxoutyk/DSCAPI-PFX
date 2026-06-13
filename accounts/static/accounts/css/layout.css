@@ -500,6 +500,144 @@
   overflow: hidden;
 }
 
+.landing-hero-visual--usb {
+  position: relative;
+}
+
+.landing-hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+.landing-hero-badge {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-card);
+}
+
+.landing-usb-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--space-5) var(--space-6);
+}
+
+.landing-usb-gallery-card {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+}
+
+.landing-usb-gallery-media {
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0a0f2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.landing-usb-gallery-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+
+.landing-usb-gallery-card--highlight {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.landing-usb-gallery-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.landing-usb-gallery-card p {
+  margin: 0;
+  margin-top: auto;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.landing-usb-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.landing-usb-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  height: 100%;
+}
+
+.landing-usb-flow-divider {
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+.landing-usb-figure {
+  margin: 0;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+}
+
+.landing-usb-figure-media {
+  flex: 1;
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  min-height: 280px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0a0f2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.landing-usb-figure-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+
+.landing-usb-figure figcaption {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
 .landing-mock-topbar {
   display: flex;
   align-items: center;
@@ -659,6 +797,21 @@
   border-color: var(--border-strong);
 }
 
+.landing-feature-card--highlight {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent-glow) 55%, transparent), var(--surface));
+}
+
+.landing-feature-tag {
+  display: inline-block;
+  margin: var(--space-3) 0 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
 .landing-feature-icon {
   width: 44px;
   height: 44px;
@@ -692,6 +845,43 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-5);
+  align-items: stretch;
+}
+
+.landing-paths--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-path-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.landing-path-media {
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  flex-shrink: 0;
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0a0f2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.landing-path-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.landing-path-card--highlight {
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  box-shadow: var(--shadow-glow);
 }
 
 .landing-path-card h3 {
@@ -717,10 +907,71 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1;
+}
+
+.landing-path-card .btn {
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 .landing-path-card ol strong {
   color: var(--text-primary);
+}
+
+.landing-usb-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.landing-usb-steps li {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--accent);
+}
+
+.landing-usb-steps strong {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.landing-usb-steps span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.landing-usb-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.landing-usb-points li {
+  position: relative;
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+
+.landing-usb-points li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 .landing-compliance-inner {
@@ -929,6 +1180,27 @@
     grid-template-columns: 1fr;
   }
 
+  .landing-paths--three {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-usb-flow {
+    padding: var(--space-5);
+  }
+
+  .landing-usb-points {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-usb-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-usb-gallery {
+    grid-template-columns: 1fr;
+    padding-bottom: var(--space-5);
+  }
+
   .landing-compliance-inner {
     grid-template-columns: 1fr;
   }
@@ -946,6 +1218,22 @@
 @media (max-width: 1024px) {
   .landing-features-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-paths--three {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-usb-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-usb-points {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-usb-gallery {
+    grid-template-columns: 1fr;
   }
 
   .landing-stats {

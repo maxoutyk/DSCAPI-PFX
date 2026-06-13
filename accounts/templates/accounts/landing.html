@@ -6,6 +6,7 @@
 {% block auth_nav %}
 <nav class="landing-header-nav" aria-label="Page sections">
   <a href="#features">Features</a>
+  <a href="#usb-signing">USB DSC</a>
   <a href="#how-it-works">How it works</a>
 </nav>
 <button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
@@ -17,11 +18,11 @@
 <div class="landing-page">
   <section class="landing-hero-section" aria-labelledby="landing-hero-title">
     <div class="landing-hero-copy">
-      <p class="landing-eyebrow">Incite Gravity · Digital signatures</p>
-      <h1 id="landing-hero-title">Sign PDFs with <span class="accent-text">authority</span>,<br>from API or browser.</h1>
+      <p class="landing-eyebrow">Incite Gravity · Class 3 digital signatures</p>
+      <h1 id="landing-hero-title">Sign PDFs with <span class="accent-text">authority</span>,<br>via API, USB token, or browser.</h1>
       <p class="landing-lead">
-        IG E-Sign is a developer-first DSC/PFX signing platform with a full tenant portal.
-        Integrate via REST API, or sign documents in the browser — with audit trails, saved certificates, and custom signature placement.
+        IG E-Sign is a developer-first signing platform for PFX files and Class 3 DSC USB tokens.
+        Integrate via REST API, keep private keys on the token with our Windows desktop agent, or sign in the portal — with audit trails and custom placement.
       </p>
       <div class="landing-cta">
         <a href="{% url 'register' %}" class="btn btn-lg">Start for free</a>
@@ -29,54 +30,40 @@
       </div>
       <ul class="landing-hero-bullets">
         <li>100 signs/month on the free tier</li>
-        <li>REST API &amp; in-browser signing</li>
+        <li>PFX API, Class 3 USB DSC, &amp; portal signing</li>
+        <li>Private key never leaves the USB token</li>
         <li>SHA-256 audit on every signature</li>
       </ul>
     </div>
-    <div class="landing-hero-visual glass-card" aria-hidden="true">
-      <div class="landing-mock-topbar">
-        <span class="landing-mock-dot"></span>
-        <span class="landing-mock-dot"></span>
-        <span class="landing-mock-dot"></span>
-        <span class="landing-mock-title">IG E-Sign · Dashboard</span>
-      </div>
-      <div class="landing-mock-body">
-        <div class="landing-mock-row">
-          <span class="badge badge-success">Signed</span>
-          <span class="mono landing-mock-hash">a3f8c912…</span>
-        </div>
-        <div class="landing-mock-row">
-          <span class="badge badge-neutral">Purchase Order</span>
-          <span class="landing-mock-meta">via API · 103.99.x.x</span>
-        </div>
-        <div class="landing-mock-row">
-          <span class="badge badge-success">Signed</span>
-          <span class="mono landing-mock-hash">7b2e41d0…</span>
-        </div>
-        <div class="landing-mock-row">
-          <span class="badge badge-neutral">Invoice</span>
-          <span class="landing-mock-meta">via Browser · portal</span>
-        </div>
-        <div class="landing-mock-signature">
-          <svg viewBox="0 0 200 48" aria-hidden="true"><path d="M8,36 Q32,8 56,32 T104,28 T168,18" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          <span>Authorised Signatory</span>
-        </div>
+    <div class="landing-hero-visual landing-hero-visual--usb">
+      <img
+        src="{% static 'accounts/img/landing/usb-dsc-hero.svg' %}"
+        alt="Class 3 USB DSC token connected to a Windows PC while IG E-Sign API prepares the signing job"
+        class="landing-hero-image"
+        width="640"
+        height="480"
+        loading="eager"
+        decoding="async"
+      >
+      <div class="landing-hero-badge glass-card">
+        <span class="badge badge-success">Signed</span>
+        <span class="mono">via USB token · PKCS#11</span>
       </div>
     </div>
   </section>
 
   <section class="landing-stats" aria-label="Platform highlights">
     <div class="landing-stat">
-      <strong>API + Portal</strong>
-      <span>Sign programmatically or in the browser</span>
+      <strong>PFX + USB + Portal</strong>
+      <span>Three signing paths, one audit log</span>
+    </div>
+    <div class="landing-stat">
+      <strong>Class 3 USB DSC</strong>
+      <span>PKCS#11 signing via IG E-Sign Agent</span>
     </div>
     <div class="landing-stat">
       <strong>Audit trail</strong>
       <span>Hashes, document type &amp; client IP logged</span>
-    </div>
-    <div class="landing-stat">
-      <strong>Saved PFX</strong>
-      <span>Encrypted certificates per organization</span>
     </div>
     <div class="landing-stat">
       <strong>ISO 27001:2022</strong>
@@ -84,19 +71,61 @@
     </div>
   </section>
 
+  <section class="landing-usb-gallery" aria-label="Class 3 USB DSC visuals">
+    <article class="landing-usb-gallery-card glass-card">
+      <div class="landing-usb-gallery-media">
+        <img src="{% static 'accounts/img/landing/usb-token-closeup.svg' %}" alt="Class 3 DSC USB token with private key stored on device" width="360" height="360" loading="lazy" decoding="async">
+      </div>
+      <h3>Token stays secure</h3>
+      <p>Class 3 credentials remain on the USB device. No PFX upload required for USB signing.</p>
+    </article>
+    <article class="landing-usb-gallery-card glass-card landing-usb-gallery-card--highlight">
+      <div class="landing-usb-gallery-media">
+        <img src="{% static 'accounts/img/landing/usb-signing-flow.svg' %}" alt="Three-step USB signing flow from API to local agent to signed PDF" width="720" height="280" loading="lazy" decoding="async">
+      </div>
+      <h3>API + local signing</h3>
+      <p>Cloud prepares the job. Windows agent signs with PKCS#11. Your backend polls and downloads.</p>
+    </article>
+    <article class="landing-usb-gallery-card glass-card">
+      <div class="landing-usb-gallery-media">
+        <img src="{% static 'accounts/img/landing/agent-tray.svg' %}" alt="IG E-Sign Agent in the Windows system tray with PIN entry" width="480" height="320" loading="lazy" decoding="async">
+      </div>
+      <h3>Desktop agent</h3>
+      <p>Pair once from the portal. Agent runs in the tray and prompts for the token PIN when needed.</p>
+    </article>
+  </section>
+
   <section id="features" class="landing-section">
     <div class="landing-section-header">
       <p class="landing-eyebrow">Capabilities</p>
       <h2>Everything you need to sign at scale</h2>
-      <p>From a single REST call to a DocuSign-style portal — one platform, one audit log, your DSC certificate.</p>
+      <p>PFX API, Class 3 USB tokens, and a DocuSign-style portal — one platform, one audit log, your certificates.</p>
     </div>
     <div class="landing-features-grid">
+      <article class="landing-feature-card landing-feature-card--highlight">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/><path d="M12 12v2"/></svg>
+        </div>
+        <p class="landing-feature-tag">New</p>
+        <h3>Class 3 USB DSC signing</h3>
+        <p>
+          Keep the private key on the USB token. Your ERP calls <span class="mono">POST /api/sign/usb/</span>;
+          the IG E-Sign Agent on Windows signs via PKCS#11 and uploads the result. PIN entry stays on the signing PC.
+        </p>
+      </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
         </div>
         <h3>REST API signing</h3>
         <p>POST a PDF with your API key. Use inline PFX or a saved certificate alias. Automatic anchor detection and signature placement.</p>
+      </article>
+      <article class="landing-feature-card">
+        <div class="landing-feature-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M9 2v2M15 2v2"/></svg>
+        </div>
+        <h3>IG E-Sign desktop agent</h3>
+        <p>Pair once with a code from the portal. Runs in the Windows system tray, listens on localhost, and signs jobs prepared by your API or portal workflow.</p>
       </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
@@ -136,16 +165,68 @@
     </div>
   </section>
 
-  <section id="how-it-works" class="landing-section landing-section--alt">
+  <section id="usb-signing" class="landing-section landing-section--alt">
     <div class="landing-section-header">
-      <p class="landing-eyebrow">Two ways to sign</p>
-      <h2>Integrate in minutes, or sign from the portal</h2>
-      <p>Choose the path that fits your team. Both flows share the same certificates, quotas, and audit log.</p>
+      <p class="landing-eyebrow">Class 3 USB DSC</p>
+      <h2>Sign with the token — not a file upload</h2>
+      <p>
+        For eMudhra, Capricorn, and other Class 3 DSC tokens, the private key never leaves the USB device.
+        IG E-Sign prepares the PDF in the cloud; signing happens locally via PKCS#11 on the machine where the token is plugged in.
+      </p>
     </div>
-    <div class="landing-paths">
+    <div class="landing-usb-layout">
+      <div class="landing-usb-flow glass-card">
+        <ol class="landing-usb-steps">
+          <li>
+            <strong>Prepare</strong>
+            <span>Your backend or portal creates a sign job with <span class="mono">POST /api/sign/usb/</span> and the target <span class="mono">device_id</span>.</span>
+          </li>
+          <li>
+            <strong>Sign locally</strong>
+            <span>The IG E-Sign Agent on Windows prompts for the token PIN and signs via PKCS#11.</span>
+          </li>
+          <li>
+            <strong>Retrieve</strong>
+            <span>Poll job status, then download the signed PDF - same audit trail as PFX signing.</span>
+          </li>
+        </ol>
+        <div class="landing-usb-flow-divider" aria-hidden="true"></div>
+        <ul class="landing-usb-points">
+          <li>One-time agent pairing from the portal</li>
+          <li>Per-job <span class="mono">sign_token</span> for secure local triggers</li>
+          <li>Works for ERP automation and portal upload flows</li>
+          <li>Signed PDF verified server-side before delivery</li>
+        </ul>
+      </div>
+      <figure class="landing-usb-figure glass-card">
+        <div class="landing-usb-figure-media">
+          <img
+            src="{% static 'accounts/img/landing/usb-dsc-hero.svg' %}"
+            alt="Diagram showing IG E-Sign API, Windows signing workstation, Class 3 USB token, and signed PDF output"
+            width="640"
+            height="480"
+            loading="lazy"
+            decoding="async"
+          >
+        </div>
+        <figcaption>Private key on token, signed PDF in the cloud, full audit trail</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="landing-section">
+    <div class="landing-section-header">
+      <p class="landing-eyebrow">Three ways to sign</p>
+      <h2>Integrate in minutes, sign on token, or use the portal</h2>
+      <p>Choose the path that fits your team. All flows share the same quotas, certificates, and audit log.</p>
+    </div>
+    <div class="landing-paths landing-paths--three">
       <article class="landing-path-card glass-card">
+        <div class="landing-path-media">
+          <img src="{% static 'accounts/img/landing/pfx-api-workflow.svg' %}" alt="PFX API signing with POST /api/signpdf-pfx" width="640" height="400" loading="lazy" decoding="async">
+        </div>
         <span class="landing-path-label">For developers</span>
-        <h3>API workflow</h3>
+        <h3>PFX API workflow</h3>
         <ol>
           <li>Register your organization and get approved</li>
           <li>Upload a PFX and create an API key</li>
@@ -154,32 +235,51 @@
         </ol>
         <a href="{% url 'register' %}" class="btn btn-sm">Create account</a>
       </article>
+      <article class="landing-path-card glass-card landing-path-card--highlight">
+        <div class="landing-path-media">
+          <img src="{% static 'accounts/img/landing/usb-token-closeup.svg' %}" alt="Class 3 DSC USB token for local PKCS#11 signing" width="360" height="360" loading="lazy" decoding="async">
+        </div>
+        <span class="landing-path-label">For Class 3 USB tokens</span>
+        <h3>USB DSC workflow</h3>
+        <ol>
+          <li>Install and pair the IG E-Sign Agent on the Windows signing PC</li>
+          <li>Call <span class="mono">POST /api/sign/usb/</span> with PDF and <span class="mono">device_id</span></li>
+          <li>Trigger the local agent - user enters token PIN on that machine</li>
+          <li>Poll until complete, then download the signed PDF</li>
+        </ol>
+        <a href="{% url 'register' %}" class="btn btn-sm">Get started with USB</a>
+      </article>
       <article class="landing-path-card glass-card">
+        <div class="landing-path-media">
+          <img src="{% static 'accounts/img/landing/portal-browser-workflow.svg' %}" alt="In-browser PDF upload, preview, and signing in the IG E-Sign portal" width="640" height="400" loading="lazy" decoding="async">
+        </div>
         <span class="landing-path-label">For business users</span>
         <h3>Browser workflow</h3>
         <ol>
           <li>Sign in to your IG E-Sign dashboard</li>
-          <li>Upload a saved certificate and open <strong>Sign PDF</strong></li>
+          <li>Upload a saved PFX or use <strong>Sign with USB</strong> in the portal</li>
           <li>Drop your document, preview signature placement</li>
-          <li>Sign and download — event logged in activity</li>
+          <li>Sign and download - event logged in activity</li>
         </ol>
         <a href="{% url 'register' %}" class="btn btn-sm">Get portal access</a>
       </article>
     </div>
   </section>
 
-  <section class="landing-section landing-compliance">
+  <section class="landing-section landing-section--alt landing-compliance">
     <div class="landing-compliance-inner glass-card">
       <div>
         <p class="landing-eyebrow">Trust &amp; compliance</p>
         <h2>Built for business-critical documents</h2>
         <p>
-          IG E-Sign uses your organization's DSC/PFX certificate for legally valid digital signatures.
+          IG E-Sign supports PFX files and Class 3 DSC USB tokens for legally valid digital signatures.
+          With USB signing, credentials stay on the token — only the signed PDF is uploaded.
           Platform defaults locate the <span class="mono">Authorised Signatory</span> anchor in your PDFs.
           Every signing event is traceable in your dashboard.
         </p>
       </div>
       <ul class="landing-compliance-list">
+        <li>Private key never exported from USB DSC tokens</li>
         <li>Multi-tenant isolation with per-org API keys</li>
         <li>Rate limiting and monthly signing quotas</li>
         <li>Document type auto-detection from PDF content</li>
@@ -190,7 +290,7 @@
 
   <section class="landing-cta-band" aria-labelledby="landing-cta-title">
     <h2 id="landing-cta-title">Ready to sign your first PDF?</h2>
-    <p>Create a free account, upload your certificate, and start signing via API or browser today.</p>
+    <p>Create a free account, connect your PFX or Class 3 USB token, and start signing via API, desktop agent, or browser today.</p>
     <div class="landing-cta">
       <a href="{% url 'register' %}" class="btn btn-lg">Create free account</a>
       <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
@@ -208,12 +308,13 @@
         <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="" class="brand-logo brand-logo--light">
         <span>IG E-Sign</span>
       </a>
-      <p>Digital PDF signing for developers and teams. A product of Incite Gravity.</p>
+      <p>Digital PDF signing for developers and teams — PFX, Class 3 USB DSC, and portal. A product of Incite Gravity.</p>
     </div>
     <div>
       <h3>Product</h3>
       <ul>
         <li><a href="#features">Features</a></li>
+        <li><a href="#usb-signing">USB DSC</a></li>
         <li><a href="#how-it-works">How it works</a></li>
         <li><a href="{% url 'register' %}">Get started</a></li>
         <li><a href="{% url 'login' %}">Sign in</a></li>

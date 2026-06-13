@@ -295,6 +295,14 @@ class PortalRateLimitTests(TestCase):
         response = client.post('/login/', {'username': 'nobody@example.com', 'password': 'wrong'})
         self.assertContains(response, 'Too many attempts')
 
+    def test_login_survives_cache_backend_failure(self):
+        from unittest.mock import patch
+
+        client = Client()
+        with patch('django.core.cache.cache.get', side_effect=Exception('cache down')):
+            response = client.post('/login/', {'username': 'nobody@example.com', 'password': 'wrong'})
+        self.assertEqual(response.status_code, 200)
+
 
 class ApiDocsDownloadTests(TestCase):
     def setUp(self):
