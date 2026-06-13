@@ -351,7 +351,7 @@ def get_job_for_tenant(tenant: Tenant, job_id) -> UsbSignJob | None:
 
 
 def build_job_status_payload(job: UsbSignJob) -> dict:
-    return {
+    payload = {
         'job_id': str(job.id),
         'status': job.status,
         'expires_at': job.expires_at.isoformat(),
@@ -362,3 +362,6 @@ def build_job_status_payload(job: UsbSignJob) -> dict:
         'device_id': job.device_id,
         'document_type': job.document_type,
     }
+    if job.status == UsbSignJobStatus.PREPARED and job.sign_token:
+        payload['sign_token'] = job.sign_token
+    return payload

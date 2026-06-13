@@ -363,6 +363,22 @@ def docs_view(request):
 
 
 @login_required
+def docs_download_view(request):
+    from django.http import HttpResponse
+    from django.template.loader import render_to_string
+
+    tenant = get_primary_tenant(request.user)
+    content = render_to_string(
+        'accounts/api-docs.md',
+        {'tenant': tenant, 'request': request},
+        request=request,
+    )
+    response = HttpResponse(content, content_type='text/markdown; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="ig-esign-api-docs.md"'
+    return response
+
+
+@login_required
 @require_http_methods(['GET', 'POST'])
 def sign_view(request):
     import base64

@@ -294,3 +294,44 @@ class PortalRateLimitTests(TestCase):
             client.post('/login/', {'username': 'nobody@example.com', 'password': 'wrong'})
         response = client.post('/login/', {'username': 'nobody@example.com', 'password': 'wrong'})
         self.assertContains(response, 'Too many attempts')
+
+
+class ApiDocsDownloadTests(TestCase):
+    def setUp(self):
+        self.tenant = Tenant.objects.create(
+            name='Docs Org',
+            slug='docs-org',
+            status=TenantStatus.ACTIVE,
+            monthly_quota=250,
+        )
+        self.user = User.objects.create_user(
+            username='docs@example.com',
+            email='docs@example.com',
+            password='docs-pass',
+            is_active=True,
+        )
+        TenantMembership.objects.create(
+            user=self.user,
+            tenant=self.tenant,
+            role='owner',
+            is_primary=True,
+        )
+        self.client = Client()
+
+    def test_download_requires_login(self):
+        response = self.client.get('/dashboard/docs/download/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_download_returns_markdown_attachment(self):
+        self.client.login(username='docs@example.com', password='docs-pass')
+        response = self.client.get('/dashboard/docs/download/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/markdown', response['Content-Type'])
+        self.assertIn('attachment', response['Content-Disposition'])
+        self.assertIn('ig-esign-api-docs.md', response['Content-Disposition'])
+        content = response.content.decode()
+        self.assertIn('POST /api/sign/usb/', content)
+        self.assertIn('sign_token', content)
+        self.assertIn('250', content)
+        self.assertIn('Download API docs', self.client.get('/dashboard/docs/').content.decode())

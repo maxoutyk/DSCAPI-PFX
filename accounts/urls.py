@@ -15,6 +15,7 @@ urlpatterns = [
     path('dashboard/keys/', views.keys_view, name='keys'),
     path('dashboard/certs/', views.certs_view, name='certs'),
     path('dashboard/docs/', views.docs_view, name='docs'),
+    path('dashboard/docs/download/', views.docs_download_view, name='docs_download'),
     path('dashboard/signature/', views.signature_style_view, name='signature_style'),
     path('dashboard/sign/', views.sign_view, name='sign'),
     path('dashboard/sign/preview/', views.sign_preview_view, name='sign_preview'),

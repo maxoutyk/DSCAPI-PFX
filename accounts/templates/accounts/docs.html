@@ -2,9 +2,12 @@
 {% block title %}API Docs — IG E-Sign{% endblock %}
 {% block page_title %}API Docs{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1>API documentation</h1>
-  <p class="subtitle">Integrate PDF signing into your application.</p>
+<div class="page-header page-header-row">
+  <div>
+    <h1>API documentation</h1>
+    <p class="subtitle">Integrate PDF signing into your application.</p>
+  </div>
+  <a href="{% url 'docs_download' %}" class="btn btn-secondary btn-sm" download>Download API docs</a>
 </div>
 
 <div class="card card-flat">
@@ -64,29 +67,185 @@
 <div class="card card-flat" style="margin-top:24px;">
   <h2>Sign with USB token (DSC)</h2>
   <p style="color:var(--text-secondary);font-size:0.875rem;">
-    Use this flow when the private key stays on a USB DSC token. Your server prepares the job;
-    the <strong>IG E-Sign Agent</strong> on the same PC as the token performs PKCS#11 signing.
+    Use this flow when the private key stays on a USB DSC token. Your backend prepares the job via API;
+    the <strong>IG E-Sign Agent</strong> on the same Windows PC as the token performs PKCS#11 signing.
+    Poll until complete, then download the signed PDF.
   </p>
 
+  <h3>How it works</h3>
+  <ol style="color:var(--text-secondary);font-size:0.875rem;display:flex;flex-direction:column;gap:8px;margin:12px 0 20px 20px;">
+    <li>Your server calls <span class="inline-code">POST /api/sign/usb/</span> with the PDF and target <span class="inline-code">device_id</span>.</li>
+    <li>On the signing PC, trigger the local agent at <span class="inline-code">http://127.0.0.1:9765/sign</span> (user PIN entry on that machine).</li>
+    <li>Your server polls <span class="inline-code">GET /api/sign/usb/&lt;job_id&gt;/</span> until <span class="inline-code">status</span> is <span class="inline-code">completed</span>.</li>
+    <li>Download the signed PDF with <span class="inline-code">GET /api/sign/usb/&lt;job_id&gt;/download/</span>.</li>
+  </ol>
+
+  <h3>One-time setup</h3>
+  <ol style="color:var(--text-secondary);font-size:0.875rem;display:flex;flex-direction:column;gap:8px;margin:12px 0 20px 20px;">
+    <li>Create an API key (this page) — use <span class="inline-code">Authorization: Bearer dsc_live_…</span> on all USB API calls.</li>
+    <li>On the Windows PC with the USB token: portal → <strong>USB Agent</strong> → download and install the agent.</li>
+    <li>Run <span class="inline-code">Pair Agent.bat</span> with a pairing code from the USB Agent page.</li>
+    <li>Start <strong>IG E-Sign Agent</strong> (system tray icon near the clock). Keep it running while signing.</li>
+    <li>Note the <span class="inline-code">device_id</span> for that machine (listed on the USB Agent page).</li>
+  </ol>
+
+  <h3>Step 1 — Create sign job</h3>
   <p><strong>POST</strong> <span class="inline-code">/api/sign/usb/</span></p>
   <pre><code>{
   "pdf_base64": "&lt;base64-encoded PDF&gt;",
   "device_id": 1
 }</code></pre>
   <p style="color:var(--text-secondary);font-size:0.875rem;">
-    <span class="inline-code">device_id</span> is <strong>required</strong> — the paired agent device that will sign this job.
-    List devices from the portal <strong>USB Agent</strong> page.
+    <span class="inline-code">device_id</span> is <strong>required</strong> — the paired agent that will sign this job.
+    PDF must be a valid file (max 10&nbsp;MB) and contain your anchor text (default: <span class="inline-code">Authorised Signatory</span>).
   </p>
 
-  <p><strong>GET</strong> <span class="inline-code">/api/sign/usb/&lt;job_id&gt;/</span> — poll status (<span class="inline-code">prepared</span>, <span class="inline-code">completed</span>, <span class="inline-code">expired</span>, <span class="inline-code">failed</span>)</p>
-  <p><strong>GET</strong> <span class="inline-code">/api/sign/usb/&lt;job_id&gt;/download/</span> — download signed PDF when complete</p>
-
-  <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
-    After creating a job, trigger signing on the PC with the token:
-    <span class="inline-code">POST http://127.0.0.1:9765/sign</span> with
-    <span class="inline-code">{"job_id": "&lt;uuid&gt;", "api_base": "{{ request.scheme }}://{{ request.get_host }}", "sign_token": "&lt;from portal pending page&gt;"}</span>,
-    or use the portal <strong>USB Sign</strong> page on that machine.
+  <h4>Create response (201)</h4>
+  <pre><code>{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "status": "prepared",
+  "sign_token": "xY7…",
+  "expires_at": "2026-06-13T12:30:00+00:00",
+  "device_id": 1,
+  "document_type": "tax_invoice",
+  "hash_before_prefix": "a1b2c3d4",
+  "agents_online": 1,
+  "agent_sign_url": "http://127.0.0.1:9765/sign",
+  "message": "USB sign job prepared…"
+}</code></pre>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    <span class="inline-code">sign_token</span> is a one-time secret for this job — pass it when triggering the local agent.
+    <span class="inline-code">agents_online</span> counts agents that sent a heartbeat in the last ~90 seconds.
+    Jobs expire after 15 minutes if not completed.
   </p>
+
+  <h4>curl example</h4>
+  <pre><code>curl -X POST "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/" \
+  -H "Authorization: Bearer dsc_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pdf_base64": "'$(base64 -i invoice.pdf | tr -d '\n')'",
+    "device_id": 1
+  }'</code></pre>
+
+  <h3>Step 2 — Trigger signing on the Windows PC</h3>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    Signing happens on the PC with the USB token. From that machine (or a local bridge service), POST to the agent:
+  </p>
+  <p><strong>POST</strong> <span class="inline-code">http://127.0.0.1:9765/sign</span></p>
+  <pre><code>{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "api_base": "{{ request.scheme }}://{{ request.get_host }}",
+  "sign_token": "xY7…"
+}</code></pre>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    The agent shows a PIN dialog, signs via PKCS#11, and uploads the result to the cloud.
+    <span class="inline-code">api_base</span> must match the portal URL the agent was paired with.
+    For ERP automation, run a small local service on the signing PC that receives
+    <span class="inline-code">job_id</span> + <span class="inline-code">sign_token</span> from your backend and calls this endpoint.
+  </p>
+
+  <h4>Local trigger curl (run on signing PC)</h4>
+  <pre><code>curl -X POST "http://127.0.0.1:9765/sign" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+    "api_base": "{{ request.scheme }}://{{ request.get_host }}",
+    "sign_token": "xY7…"
+  }'</code></pre>
+
+  <h3>Step 3 — Poll job status</h3>
+  <p><strong>GET</strong> <span class="inline-code">/api/sign/usb/&lt;job_id&gt;/</span></p>
+  <pre><code>{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "status": "completed",
+  "signing_id": 42,
+  "hash_before_prefix": "a1b2c3d4",
+  "hash_after_prefix": "e5f6g7h8",
+  "document_type": "tax_invoice",
+  "error": ""
+}</code></pre>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    Poll every 2–5 seconds until <span class="inline-code">status</span> is terminal.
+    While <span class="inline-code">prepared</span>, the response includes <span class="inline-code">sign_token</span> if you need to re-trigger the agent.
+    Optional: <span class="inline-code">?include_pdf=1</span> returns <span class="inline-code">signed_pdf_base64</span> when complete.
+  </p>
+
+  <h4>Status values</h4>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="USB job statuses">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="inline-code">prepared</span></td>
+          <td>Job created; waiting for agent to sign on the Windows PC</td>
+        </tr>
+        <tr>
+          <td><span class="inline-code">completed</span></td>
+          <td>Signed PDF ready — download or use <span class="inline-code">?include_pdf=1</span></td>
+        </tr>
+        <tr>
+          <td><span class="inline-code">failed</span></td>
+          <td>Signing or verification failed — see <span class="inline-code">error</span></td>
+        </tr>
+        <tr>
+          <td><span class="inline-code">expired</span></td>
+          <td>Job timed out before the agent completed signing</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Step 4 — Download signed PDF</h3>
+  <p><strong>GET</strong> <span class="inline-code">/api/sign/usb/&lt;job_id&gt;/download/</span></p>
+  <p style="color:var(--text-secondary);font-size:0.875rem;">
+    Returns <span class="inline-code">application/pdf</span> when <span class="inline-code">status</span> is <span class="inline-code">completed</span>.
+    Use <span class="inline-code">?format=json</span> for <span class="inline-code">signed_pdf_base64</span> instead of a file download.
+  </p>
+
+  <h4>curl examples</h4>
+  <pre><code># Poll status
+curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/" \
+  -H "Authorization: Bearer dsc_live_YOUR_KEY"
+
+# Download PDF file
+curl -o signed.pdf "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/download/" \
+  -H "Authorization: Bearer dsc_live_YOUR_KEY"
+
+# Download as JSON
+curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/download/?format=json" \
+  -H "Authorization: Bearer dsc_live_YOUR_KEY"</code></pre>
+
+  <h3>USB-specific errors</h3>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="USB API errors">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-error">400</span></td>
+          <td>Missing <span class="inline-code">device_id</span>, invalid PDF, anchor not found, or quota exceeded at job create</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">404</span></td>
+          <td>Unknown <span class="inline-code">job_id</span> or signed PDF no longer available</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">409</span></td>
+          <td>Download requested before <span class="inline-code">status</span> is <span class="inline-code">completed</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <div class="card card-flat" style="margin-top:24px;">

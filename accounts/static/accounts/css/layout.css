@@ -272,6 +272,14 @@
   margin-bottom: var(--space-5);
 }
 
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
 .page-header h1 {
   margin-bottom: var(--space-2);
 }

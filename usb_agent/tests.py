@@ -175,6 +175,7 @@ class TenantUsbSignApiTests(TestCase):
         body = create.json()
         self.assertEqual(body['status'], UsbSignJobStatus.PREPARED)
         self.assertIn('job_id', body)
+        self.assertIn('sign_token', body)
         self.assertIn('agent_sign_url', body)
 
         job_id = body['job_id']
