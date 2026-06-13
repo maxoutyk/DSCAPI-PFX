@@ -3,7 +3,11 @@ from django.test import TestCase, override_settings
 
 from accounts.models import Tenant, TenantSignatureStyle, TenantStatus
 from signPdf.pdf_signing import find_text_in_pdf, signature_box_for_position
-from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
+from signPdf.signature_style import (
+    SignatureStyleConfig,
+    SignatureStyleLookupError,
+    resolve_signature_style,
+)
 
 
 def _pdf_with_anchor(text: str) -> bytes:
@@ -29,9 +33,11 @@ class ResolveSignatureStyleTests(TestCase):
         self.assertFalse(style.is_custom)
         self.assertEqual(style.anchor_text, SignatureStyleConfig.from_settings().anchor_text)
 
-    def test_disabled_config_uses_platform_defaults(self):
+    def test_disabled_default_uses_platform_defaults(self):
         TenantSignatureStyle.objects.create(
             tenant=self.tenant,
+            name='Default',
+            is_default=True,
             is_enabled=False,
             anchor_text='Custom Signatory',
             box_shift_right=99,
@@ -40,9 +46,11 @@ class ResolveSignatureStyleTests(TestCase):
         self.assertFalse(style.is_custom)
         self.assertEqual(style.box_shift_right, SignatureStyleConfig.from_settings().box_shift_right)
 
-    def test_enabled_config_overrides_fields(self):
+    def test_enabled_default_overrides_fields(self):
         TenantSignatureStyle.objects.create(
             tenant=self.tenant,
+            name='Default',
+            is_default=True,
             is_enabled=True,
             anchor_text='Authorized Signatory',
             box_shift_right=42,
@@ -50,15 +58,50 @@ class ResolveSignatureStyleTests(TestCase):
         )
         style = resolve_signature_style(self.tenant)
         self.assertTrue(style.is_custom)
+        self.assertEqual(style.style_name, 'Default')
         self.assertEqual(style.anchor_text, 'Authorized Signatory')
         self.assertEqual(style.box_shift_right, 42)
         self.assertEqual(style.box_gap_above_label, 10)
         self.assertEqual(style.font_size, SignatureStyleConfig.from_settings().font_size)
 
+    def test_explicit_style_name_selects_matching_style(self):
+        TenantSignatureStyle.objects.create(
+            tenant=self.tenant,
+            name='Invoice',
+            is_default=True,
+            is_enabled=True,
+            anchor_text='For Company',
+        )
+        TenantSignatureStyle.objects.create(
+            tenant=self.tenant,
+            name='Purchase Order',
+            is_enabled=True,
+            anchor_text='Approved By',
+        )
+        style = resolve_signature_style(self.tenant, style_name='Purchase Order')
+        self.assertEqual(style.style_name, 'Purchase Order')
+        self.assertEqual(style.anchor_text, 'Approved By')
+
+    def test_missing_style_name_raises(self):
+        with self.assertRaises(SignatureStyleLookupError):
+            resolve_signature_style(self.tenant, style_name='Missing')
+
+    def test_disabled_explicit_style_raises(self):
+        TenantSignatureStyle.objects.create(
+            tenant=self.tenant,
+            name='Archived',
+            is_enabled=False,
+            anchor_text='Old Label',
+        )
+        with self.assertRaises(SignatureStyleLookupError):
+            resolve_signature_style(self.tenant, style_name='Archived')
+
     @override_settings(SIGNATURE_ANCHOR_TEXT='Authorised Signatory')
     def test_find_text_uses_custom_anchor_when_enabled(self):
         TenantSignatureStyle.objects.create(
             tenant=self.tenant,
+            name='Default',
+            is_default=True,
             is_enabled=True,
             anchor_text='For Company',
         )
@@ -81,6 +124,8 @@ class ResolveSignatureStyleTests(TestCase):
         default_box = signature_box_for_position(position, style=default_style)
         TenantSignatureStyle.objects.create(
             tenant=self.tenant,
+            name='Default',
+            is_default=True,
             is_enabled=True,
             box_shift_right=50,
         )

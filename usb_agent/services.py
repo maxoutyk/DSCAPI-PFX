@@ -13,7 +13,7 @@ from accounts.services import QuotaExceededError, encrypt_pfx, record_signing_ev
 from signPdf.audit import SigningAuditMeta, sha256_hex
 from signPdf.document_detection import detect_document_type
 from signPdf.pdf_signing import find_text_in_pdf
-from signPdf.signature_style import resolve_signature_style
+from signPdf.signature_style import SignatureStyleLookupError, resolve_signature_style
 
 from .models import AgentDevice, AgentPairingCode, UsbSignJob, UsbSignJobStatus
 
@@ -132,9 +132,10 @@ def record_heartbeat(
     return device
 
 
-def _style_payload(tenant) -> dict:
-    style = resolve_signature_style(tenant)
+def _style_payload(tenant, *, signature_style_name: str = '') -> dict:
+    style = resolve_signature_style(tenant, style_name=signature_style_name or None)
     return {
+        'name': style.style_name,
         'anchor_text': style.anchor_text,
         'font_size': style.font_size,
         'box_min_width': style.box_min_width,
@@ -195,6 +196,7 @@ def prepare_usb_sign_job(
     user: User | None = None,
     api_key=None,
     device: AgentDevice | None = None,
+    signature_style_name: str = '',
 ) -> UsbSignJob:
     if user is None and api_key is None:
         raise ValueError('user or api_key is required')
@@ -205,7 +207,10 @@ def prepare_usb_sign_job(
 
     ensure_tenant_has_quota(tenant)
 
-    style = resolve_signature_style(tenant)
+    try:
+        style = resolve_signature_style(tenant, style_name=signature_style_name or None)
+    except SignatureStyleLookupError as exc:
+        raise SignJobError(str(exc)) from exc
     positions = find_text_in_pdf(pdf_data, style=style)
     if not positions:
         raise SignJobError(f"No position found for anchor text: {style.anchor_text!r}")
@@ -224,7 +229,7 @@ def prepare_usb_sign_job(
         detection_confidence=detection.detection_confidence,
         placement_payload={
             'positions': positions,
-            'style': _style_payload(tenant),
+            'style': _style_payload(tenant, signature_style_name=signature_style_name),
         },
         sign_token=_generate_sign_token(),
         expires_at=timezone.now() + timedelta(minutes=ttl),

@@ -1,0 +1,40 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+{% block title %}PDF Signed — IG E-Sign{% endblock %}
+{% block public_shell_class %}auth-shell--landing{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'accounts/css/public-sign.css' %}">
+{% endblock %}
+
+{% block auth_nav %}
+<a href="{% url 'home' %}" class="btn btn-ghost btn-sm">Home</a>
+<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
+<a href="{% url 'public_sign' %}" class="btn btn-sm">Sign another</a>
+{% endblock %}
+
+{% block public_content %}
+<div class="auth-body">
+  <div class="glass-card public-sign-done-card" style="max-width:560px;width:100%;">
+    <p class="landing-eyebrow" style="margin-top:0;">Done</p>
+    <h1 style="margin:8px 0 12px;">Your PDF is ready</h1>
+    <p class="public-sign-lead" style="margin-bottom:24px;">Download your document with the visual signature applied.</p>
+
+    <div class="status-banner is-active" role="status" style="margin-bottom:20px;">
+      <span class="badge badge-success">Signed</span>
+    </div>
+    <dl class="public-sign-result-dl">
+      {% if result.signer_name %}
+      <dt>Signer</dt>
+      <dd>{{ result.signer_name }}</dd>
+      {% endif %}
+      <dt>File</dt>
+      <dd>{{ result.filename }}</dd>
+      <dt>Note</dt>
+      <dd>Visual signature only — not a DSC digital certificate.</dd>
+    </dl>
+    <a href="{% url 'public_sign_download' %}" class="btn">Download signed PDF</a>
+    <a href="{% url 'public_sign' %}" class="btn btn-secondary btn-sm" style="margin-left:8px;">Sign another</a>
+  </div>
+</div>
+{% endblock %}

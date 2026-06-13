@@ -38,6 +38,7 @@ def _count_online_agents(tenant) -> int:
 class UsbSignCreateSerializer(serializers.Serializer):
     pdf_base64 = serializers.CharField()
     device_id = serializers.IntegerField()
+    signature_style = serializers.CharField(required=False, allow_blank=True)
 
     def validate_device_id(self, value):
         tenant = self.context['tenant']
@@ -81,12 +82,14 @@ class UsbSignCreateView(TenantUsbSignMixin, APIView):
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         device = serializer.validated_data['device_id']
+        signature_style = (serializer.validated_data.get('signature_style') or '').strip()
         try:
             job = prepare_usb_sign_job(
                 tenant=tenant,
                 pdf_data=pdf_data,
                 api_key=api_key,
                 device=device,
+                signature_style_name=signature_style,
             )
         except SignJobError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)

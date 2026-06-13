@@ -143,10 +143,15 @@ class DetectionConfidence(models.TextChoices):
 
 
 class TenantSignatureStyle(models.Model):
-    tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name='signature_style')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='signature_styles')
+    name = models.CharField(max_length=80)
+    is_default = models.BooleanField(
+        default=False,
+        help_text='Used for API signing when signature_style is omitted.',
+    )
     is_enabled = models.BooleanField(
         default=False,
-        help_text='When off, global platform defaults are used (existing API behaviour).',
+        help_text='When off, this style is ignored unless selected explicitly by name.',
     )
     anchor_text = models.CharField(
         max_length=120,
@@ -169,10 +174,34 @@ class TenantSignatureStyle(models.Model):
 
     class Meta:
         verbose_name = 'Tenant signature style'
+        verbose_name_plural = 'Tenant signature styles'
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['tenant', 'name'], name='uniq_tenant_signature_style_name'),
+            models.UniqueConstraint(
+                fields=['tenant'],
+                condition=models.Q(is_default=True),
+                name='uniq_tenant_default_signature_style',
+            ),
+        ]
 
     def __str__(self):
-        state = 'custom' if self.is_enabled else 'default'
-        return f'{self.tenant.name} ({state})'
+        parts = [self.name]
+        if self.is_default:
+            parts.append('default')
+        if self.is_enabled:
+            parts.append('enabled')
+        return f'{self.tenant.name}: {" · ".join(parts)}'
+
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.tenant.signature_styles.exists():
+            self.is_default = True
+        if self.is_default:
+            TenantSignatureStyle.objects.filter(
+                tenant=self.tenant,
+                is_default=True,
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
 
 
 class UsageLog(models.Model):
@@ -268,6 +297,21 @@ class PortalSignArtifact(models.Model):
     hash_before_prefix = models.CharField(max_length=8, blank=True)
     hash_after_prefix = models.CharField(max_length=8, blank=True)
     document_type_label = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class PublicSignArtifact(models.Model):
+    """Ephemeral storage for free public visual signatures (no account required)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session_key = models.CharField(max_length=64, db_index=True)
+    encrypted_pdf = models.BinaryField()
+    filename = models.CharField(max_length=255)
+    signer_name = models.CharField(max_length=120, blank=True)
     expires_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 

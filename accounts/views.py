@@ -321,39 +321,105 @@ def certs_view(request):
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_http_methods(['GET'])
 def signature_style_view(request):
     from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
 
     tenant = get_primary_tenant(request.user)
-    style_obj, _ = TenantSignatureStyle.objects.get_or_create(tenant=tenant)
-    platform_defaults = SignatureStyleConfig.from_settings()
-
-    if request.method == 'POST':
-        if tenant.status != TenantStatus.ACTIVE:
-            messages.error(request, 'Your account must be approved before changing signature style.')
-        else:
-            form = SignatureStyleForm(request.POST, request.FILES, instance=style_obj)
-            if form.is_valid():
-                form.save()
-                if style_obj.is_enabled:
-                    messages.success(request, 'Custom signature style saved and enabled.')
-                else:
-                    messages.success(request, 'Signature style saved. Platform defaults remain active.')
-                return redirect('signature_style')
-    else:
-        form = SignatureStyleForm(instance=style_obj)
-
+    styles = tenant.signature_styles.all()
     return render(
         request,
         'accounts/signature.html',
         {
             'tenant': tenant,
-            'form': form,
-            'platform_defaults': platform_defaults,
+            'styles': styles,
+            'platform_defaults': SignatureStyleConfig.from_settings(),
             'resolved_style': resolve_signature_style(tenant),
         },
     )
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def signature_style_edit_view(request, style_id=None):
+    from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
+
+    tenant = get_primary_tenant(request.user)
+    platform_defaults = SignatureStyleConfig.from_settings()
+    if style_id is None:
+        style_obj = TenantSignatureStyle(tenant=tenant)
+        page_title = 'New signature style'
+    else:
+        style_obj = get_object_or_404(TenantSignatureStyle, pk=style_id, tenant=tenant)
+        page_title = f'Edit {style_obj.name}'
+
+    if request.method == 'POST':
+        if tenant.status != TenantStatus.ACTIVE:
+            messages.error(request, 'Your account must be approved before changing signature styles.')
+        else:
+            form = SignatureStyleForm(request.POST, request.FILES, instance=style_obj, tenant=tenant)
+            if form.is_valid():
+                style = form.save(commit=False)
+                style.tenant = tenant
+                style.save()
+                messages.success(request, f'Signature style “{style.name}” saved.')
+                return redirect('signature_style')
+    else:
+        form = SignatureStyleForm(instance=style_obj, tenant=tenant)
+
+    resolved = (
+        resolve_signature_style(tenant, style_name=style_obj.name)
+        if style_obj.pk and style_obj.is_enabled
+        else platform_defaults
+    )
+    return render(
+        request,
+        'accounts/signature_edit.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'style_obj': style_obj,
+            'page_title': page_title,
+            'platform_defaults': platform_defaults,
+            'resolved_style': resolved,
+        },
+    )
+
+
+@login_required
+@require_http_methods(['POST'])
+def signature_style_delete_view(request, style_id):
+    tenant = get_primary_tenant(request.user)
+    if tenant.status != TenantStatus.ACTIVE:
+        messages.error(request, 'Your account must be approved before changing signature styles.')
+        return redirect('signature_style')
+
+    style_obj = get_object_or_404(TenantSignatureStyle, pk=style_id, tenant=tenant)
+    style_name = style_obj.name
+    was_default = style_obj.is_default
+    style_obj.delete()
+    if was_default:
+        replacement = tenant.signature_styles.order_by('name').first()
+        if replacement is not None:
+            replacement.is_default = True
+            replacement.save(update_fields=['is_default'])
+    messages.success(request, f'Signature style “{style_name}” deleted.')
+    return redirect('signature_style')
+
+
+@login_required
+@require_http_methods(['POST'])
+def signature_style_default_view(request, style_id):
+    tenant = get_primary_tenant(request.user)
+    if tenant.status != TenantStatus.ACTIVE:
+        messages.error(request, 'Your account must be approved before changing signature styles.')
+        return redirect('signature_style')
+
+    style_obj = get_object_or_404(TenantSignatureStyle, pk=style_id, tenant=tenant)
+    style_obj.is_default = True
+    style_obj.save(update_fields=['is_default'])
+    messages.success(request, f'“{style_obj.name}” is now the default signature style.')
+    return redirect('signature_style')
 
 
 @login_required
@@ -367,14 +433,17 @@ def docs_download_view(request):
     from django.http import HttpResponse
     from django.template.loader import render_to_string
 
+    from .api_docs_odf import ODT_MIMETYPE, markdown_to_odt_bytes
+
     tenant = get_primary_tenant(request.user)
     content = render_to_string(
         'accounts/api-docs.md',
         {'tenant': tenant, 'request': request},
         request=request,
     )
-    response = HttpResponse(content, content_type='text/markdown; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="ig-esign-api-docs.md"'
+    odt_bytes = markdown_to_odt_bytes(content)
+    response = HttpResponse(odt_bytes, content_type=ODT_MIMETYPE)
+    response['Content-Disposition'] = 'attachment; filename="ig-esign-api-docs.odt"'
     return response
 
 
@@ -419,6 +488,7 @@ def sign_view(request):
                         password=form.cleaned_data['password'],
                         cert_alias=form.cleaned_data['cert_alias'],
                         audit=audit,
+                        signature_style_name=form.cleaned_data['signature_style'],
                     )
                 except SigningFailure as exc:
                     if exc.record_failure:
@@ -461,7 +531,7 @@ def sign_view(request):
 def sign_preview_view(request):
     from django.http import JsonResponse
 
-    from signPdf.signing_service import analyze_pdf_for_signing
+    from signPdf.signing_service import SigningFailure, analyze_pdf_for_signing
 
     tenant = get_primary_tenant(request.user)
     if tenant.status != TenantStatus.ACTIVE:
@@ -476,7 +546,15 @@ def sign_preview_view(request):
         return JsonResponse({'error': 'PDF file is too large.'}, status=400)
 
     pdf_data = pdf_file.read()
-    analysis = analyze_pdf_for_signing(pdf_data, tenant)
+    signature_style = (request.POST.get('signature_style') or '').strip()
+    try:
+        analysis = analyze_pdf_for_signing(
+            pdf_data,
+            tenant,
+            signature_style_name=signature_style,
+        )
+    except SigningFailure as exc:
+        return JsonResponse({'error': exc.message}, status=400)
     record_rate_limit_hit(request, 'portal_sign_preview')
 
     return JsonResponse({

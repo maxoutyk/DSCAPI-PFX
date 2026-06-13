@@ -1,0 +1,211 @@
+.public-sign-page {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.public-sign-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.public-sign-header h1 {
+  margin: 8px 0 12px;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+}
+
+.public-sign-lead {
+  max-width: 640px;
+  margin: 0 auto;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.public-sign-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.public-sign-grid.is-ready {
+  max-width: 1100px;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .public-sign-grid.is-ready {
+    grid-template-columns: 1fr;
+    max-width: 520px;
+  }
+}
+
+.public-sign-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.public-sign-mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.signature-preview-wrap {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+#signature-preview-canvas {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: 96px;
+}
+
+.public-sign-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.public-sign-preview-toolbar h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.public-sign-page-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.pdf-placement-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  cursor: crosshair;
+}
+
+#pdf-preview-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.placement-overlay {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 2px dashed var(--accent, #2563eb);
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: rgba(37, 99, 235, 0.06);
+  overflow: hidden;
+  cursor: move;
+  touch-action: none;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+}
+
+.placement-overlay.is-empty {
+  cursor: crosshair;
+}
+
+.placement-overlay img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.placement-size-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+
+.placement-size-control label {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.placement-size-control input[type='range'] {
+  flex: 1;
+  min-width: 120px;
+}
+
+.placement-size-value {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 9rem;
+}
+
+.public-sign-empty,
+.public-sign-meta {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.public-sign-meta {
+  margin-top: 10px;
+}
+
+.placement-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.placement-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.placement-list li.is-active {
+  border-color: var(--accent, #2563eb);
+}
+
+.placement-list button {
+  flex-shrink: 0;
+}
+
+.public-sign-result-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  font-size: 0.9rem;
+  margin: 0 0 24px;
+}
+
+.public-sign-result-dl dt {
+  color: var(--text-secondary);
+}

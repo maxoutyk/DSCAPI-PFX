@@ -34,6 +34,13 @@
         <label for="id_cert_alias">Certificate</label>
         {{ form.cert_alias }}
       </div>
+      {% if form.signature_style.field.choices|length > 1 %}
+      <div class="form-group">
+        <label for="id_signature_style">Signature style</label>
+        {{ form.signature_style }}
+        {% if form.signature_style.help_text %}<p class="form-help">{{ form.signature_style.help_text }}</p>{% endif %}
+      </div>
+      {% endif %}
       <div class="form-group">
         <label for="id_password">PFX password</label>
         {{ form.password }}

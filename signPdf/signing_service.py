@@ -22,7 +22,7 @@ from .pdf_signing import (
     read_pfx_file,
     sign_pdf_at_positions,
 )
-from .signature_style import resolve_signature_style
+from .signature_style import SignatureStyleLookupError, resolve_signature_style
 
 
 class SigningFailure(Exception):
@@ -56,8 +56,11 @@ def build_audit_for_http_request(request, *, endpoint: str = 'signpdf-pfx', user
     return audit
 
 
-def analyze_pdf_for_signing(pdf_data: bytes, tenant) -> PdfAnalysis:
-    style = resolve_signature_style(tenant)
+def analyze_pdf_for_signing(pdf_data: bytes, tenant, *, signature_style_name: str = '') -> PdfAnalysis:
+    try:
+        style = resolve_signature_style(tenant, style_name=signature_style_name or None)
+    except SignatureStyleLookupError as exc:
+        raise SigningFailure(str(exc), record_failure=False) from exc
     positions = find_text_in_pdf(pdf_data, style=style)
     detection = detect_document_type(pdf_data)
     from accounts.models import DocumentType
@@ -90,10 +93,14 @@ def sign_pdf_for_tenant(
     cert_alias: str = '',
     pfx_data: bytes | None = None,
     pfx_path: str = '',
+    signature_style_name: str = '',
 ) -> SigningResult:
     ensure_tenant_can_sign(tenant)
     audit.populate_from_pdf(pdf_data)
-    signature_style = resolve_signature_style(tenant)
+    try:
+        signature_style = resolve_signature_style(tenant, style_name=signature_style_name or None)
+    except SignatureStyleLookupError as exc:
+        raise SigningFailure(str(exc), record_failure=False) from exc
 
     try:
         if cert_alias:

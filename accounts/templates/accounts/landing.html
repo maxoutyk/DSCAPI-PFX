@@ -6,6 +6,7 @@
 {% block auth_nav %}
 <nav class="landing-header-nav" aria-label="Page sections">
   <a href="#features">Features</a>
+  <a href="{% url 'public_sign' %}">Free sign</a>
   <a href="#usb-signing">USB DSC</a>
   <a href="#how-it-works">How it works</a>
 </nav>
@@ -25,8 +26,9 @@
         Integrate via REST API, keep private keys on the token with our Windows desktop agent, or sign in the portal — with audit trails and custom placement.
       </p>
       <div class="landing-cta">
-        <a href="{% url 'register' %}" class="btn btn-lg">Start for free</a>
-        <a href="#how-it-works" class="btn btn-secondary btn-lg">See how it works</a>
+        <a href="{% url 'public_sign' %}" class="btn btn-lg">Sign free — no login</a>
+        <a href="{% url 'register' %}" class="btn btn-secondary btn-lg">Start for free</a>
+        <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works</a>
       </div>
       <ul class="landing-hero-bullets">
         <li>100 signs/month on the free tier</li>

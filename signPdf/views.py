@@ -27,6 +27,7 @@ class PDFPfxSignSerializer(serializers.Serializer):
     pfx_base64 = serializers.CharField(required=False, allow_blank=True)
     pfx_path = serializers.CharField(required=False, allow_blank=True)
     cert_alias = serializers.CharField(required=False, allow_blank=True)
+    signature_style = serializers.CharField(required=False, allow_blank=True)
 
     def __init__(self, *args, saas_mode=False, **kwargs):
         self.saas_mode = saas_mode
@@ -60,6 +61,7 @@ class PDFPfxSignSerializer(serializers.Serializer):
         data['pfx_base64'] = pfx_b64
         data['pfx_path'] = pfx_path
         data['cert_alias'] = cert_alias
+        data['signature_style'] = (data.get('signature_style') or '').strip()
         return data
 
 
@@ -100,6 +102,7 @@ class PDFPfxSignAPIView(APIView):
         pfx_b64 = serializer.validated_data['pfx_base64']
         pfx_path = serializer.validated_data['pfx_path']
         cert_alias = serializer.validated_data['cert_alias']
+        signature_style = serializer.validated_data['signature_style']
         password = serializer.validated_data['password']
 
         try:
@@ -130,6 +133,7 @@ class PDFPfxSignAPIView(APIView):
                     cert_alias=cert_alias,
                     pfx_data=pfx_data,
                     pfx_path=pfx_path,
+                    signature_style_name=signature_style,
                 )
             except SigningFailure as exc:
                 if exc.record_failure and audit:
@@ -150,6 +154,8 @@ class PDFPfxSignAPIView(APIView):
                 'hash_before_prefix': result.signing_event.hash_before_prefix,
                 'hash_after_prefix': result.signing_event.hash_after_prefix,
             }
+            if signature_style:
+                response_body['signature_style'] = signature_style
             return Response(response_body, status=status.HTTP_200_OK)
 
         # On-prem Basic Auth (no tenant audit)

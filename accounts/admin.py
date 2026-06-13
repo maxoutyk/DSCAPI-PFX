@@ -58,9 +58,9 @@ class StoredCertificateAdmin(admin.ModelAdmin):
 
 @admin.register(TenantSignatureStyle)
 class TenantSignatureStyleAdmin(admin.ModelAdmin):
-    list_display = ('tenant', 'is_enabled', 'anchor_text', 'updated_at')
-    list_filter = ('is_enabled',)
-    search_fields = ('tenant__name', 'anchor_text')
+    list_display = ('tenant', 'name', 'is_default', 'is_enabled', 'anchor_text', 'updated_at')
+    list_filter = ('is_enabled', 'is_default')
+    search_fields = ('tenant__name', 'name', 'anchor_text')
 
 
 @admin.register(UsageLog)

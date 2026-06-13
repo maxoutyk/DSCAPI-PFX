@@ -1,0 +1,126 @@
+{% extends "accounts/base.html" %}
+{% block title %}{{ page_title }} — IG E-Sign{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ page_title }}</h1>
+  <p class="subtitle"><a href="{% url 'signature_style' %}">← Back to signature styles</a></p>
+</div>
+
+<div class="grid-2">
+  <div class="card card-flat">
+    {% if tenant.status != 'active' %}
+    <p style="color:var(--text-secondary);">Your account must be approved before changing signature styles.</p>
+    {% else %}
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_name">Style name</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="message error" role="alert">{{ form.name.errors|striptags }}</div>{% endif %}
+        {% if form.name.help_text %}<p class="form-help">{{ form.name.help_text }}</p>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_is_default" class="checkbox-label">
+          {{ form.is_default }}
+          <span>Default style</span>
+        </label>
+        {% if form.is_default.help_text %}<p class="form-help">{{ form.is_default.help_text }}</p>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_is_enabled" class="checkbox-label">
+          {{ form.is_enabled }}
+          <span>Enable this style</span>
+        </label>
+        {% if form.is_enabled.help_text %}<p class="form-help">{{ form.is_enabled.help_text }}</p>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_anchor_text">Anchor text</label>
+        {{ form.anchor_text }}
+        {% if form.anchor_text.help_text %}<p class="form-help">{{ form.anchor_text.help_text }}</p>{% endif %}
+      </div>
+      <div class="form-group" style="max-width:200px;">
+        <label for="id_font_size">Font size</label>
+        {{ form.font_size }}
+        <p class="form-help">Leave blank for default ({{ platform_defaults.font_size }}).</p>
+      </div>
+
+      <h3 class="form-section-title">Box relative to anchor</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label for="id_box_min_width">Min width</label>
+          {{ form.box_min_width }}
+          <p class="form-help">Default: {{ platform_defaults.box_min_width }}</p>
+        </div>
+        <div class="form-group">
+          <label for="id_box_height">Height</label>
+          {{ form.box_height }}
+          <p class="form-help">Default: {{ platform_defaults.box_height }}</p>
+        </div>
+        <div class="form-group">
+          <label for="id_box_right_padding">Right padding</label>
+          {{ form.box_right_padding }}
+          <p class="form-help">Default: {{ platform_defaults.box_right_padding }}</p>
+        </div>
+        <div class="form-group">
+          <label for="id_box_shift_right">Shift right</label>
+          {{ form.box_shift_right }}
+          {% if form.box_shift_right.help_text %}<p class="form-help">{{ form.box_shift_right.help_text }} Default: {{ platform_defaults.box_shift_right }}.</p>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="id_box_gap_above_label">Gap above label</label>
+          {{ form.box_gap_above_label }}
+          {% if form.box_gap_above_label.help_text %}<p class="form-help">{{ form.box_gap_above_label.help_text }} Default: {{ platform_defaults.box_gap_above_label }}.</p>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="id_box_shift_down_fitz">Shift down</label>
+          {{ form.box_shift_down_fitz }}
+          {% if form.box_shift_down_fitz.help_text %}<p class="form-help">{{ form.box_shift_down_fitz.help_text }} Default: {{ platform_defaults.box_shift_down_fitz }}.</p>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="id_box_page_margin">Page margin</label>
+          {{ form.box_page_margin }}
+          <p class="form-help">Default: {{ platform_defaults.box_page_margin }}</p>
+        </div>
+      </div>
+
+      <h3 class="form-section-title">Tick icon (optional)</h3>
+      <div class="form-group">
+        <label for="id_custom_icon">Custom icon (PNG)</label>
+        {{ form.custom_icon }}
+      </div>
+      <div class="form-group" style="max-width:200px;">
+        <label for="id_icon_display_width">Icon width</label>
+        {{ form.icon_display_width }}
+        <p class="form-help">Default: {{ platform_defaults.icon_display_width }}</p>
+      </div>
+
+      <button class="btn" type="submit" style="margin-top:var(--space-2);">Save style</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="card card-flat">
+    <h2>Preview settings</h2>
+    <p style="color:var(--text-secondary);font-size:0.875rem;">
+      {% if resolved_style.is_custom %}
+      <span class="badge badge-active">Custom style</span>
+      {% else %}
+      <span class="badge badge-neutral">Platform defaults</span>
+      {% endif %}
+    </p>
+    <dl style="margin:16px 0 0;display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:0.875rem;">
+      <dt style="color:var(--text-secondary);">Anchor text</dt>
+      <dd class="mono">{{ resolved_style.anchor_text }}</dd>
+      <dt style="color:var(--text-secondary);">Font size</dt>
+      <dd>{{ resolved_style.font_size }}</dd>
+      <dt style="color:var(--text-secondary);">Box size</dt>
+      <dd>{{ resolved_style.box_min_width }} × {{ resolved_style.box_height }}</dd>
+      <dt style="color:var(--text-secondary);">Shift right / down</dt>
+      <dd>{{ resolved_style.box_shift_right }} / {{ resolved_style.box_shift_down_fitz }}</dd>
+      <dt style="color:var(--text-secondary);">Gap above label</dt>
+      <dd>{{ resolved_style.box_gap_above_label }}</dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

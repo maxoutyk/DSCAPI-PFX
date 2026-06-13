@@ -6,6 +6,10 @@ from django.conf import settings
 DEFAULT_ANCHOR_TEXT = 'Authorised Signatory'
 
 
+class SignatureStyleLookupError(LookupError):
+    """Raised when a tenant requests a signature style that does not exist or is disabled."""
+
+
 @dataclass(frozen=True)
 class SignatureStyleConfig:
     """Resolved signature placement and appearance for a signing request."""
@@ -24,6 +28,7 @@ class SignatureStyleConfig:
     icon_overlap_inset: int
     icon_padding: int
     is_custom: bool = False
+    style_name: str | None = None
 
     @classmethod
     def from_settings(cls) -> 'SignatureStyleConfig':
@@ -44,23 +49,29 @@ class SignatureStyleConfig:
             icon_overlap_inset=getattr(settings, 'SIGNATURE_ICON_OVERLAP_INSET', 20),
             icon_padding=getattr(settings, 'SIGNATURE_ICON_PADDING', 2),
             is_custom=False,
+            style_name=None,
         )
 
 
-def resolve_signature_style(tenant=None) -> SignatureStyleConfig:
-    """
-    Return global defaults unless the tenant has explicitly enabled a custom style.
-    Existing tenants without configuration behave exactly as before.
-    """
-    base = SignatureStyleConfig.from_settings()
-    if tenant is None:
-        return base
+def lookup_tenant_signature_style(
+    tenant,
+    *,
+    style_name: str | None = None,
+    style_id: int | None = None,
+):
+    styles = tenant.signature_styles.all()
+    if style_id is not None:
+        return styles.filter(pk=style_id).first()
+    if style_name:
+        normalized = style_name.strip()
+        if not normalized:
+            return None
+        return styles.filter(name__iexact=normalized).first()
+    return styles.filter(is_enabled=True, is_default=True).first()
 
-    tenant_style = getattr(tenant, 'signature_style', None)
-    if tenant_style is None or not tenant_style.is_enabled:
-        return base
 
-    updates: dict = {'is_custom': True}
+def _merge_tenant_style(base: SignatureStyleConfig, tenant_style) -> SignatureStyleConfig:
+    updates: dict = {'is_custom': True, 'style_name': tenant_style.name}
     if tenant_style.anchor_text:
         updates['anchor_text'] = tenant_style.anchor_text
     for field in (
@@ -86,3 +97,43 @@ def resolve_signature_style(tenant=None) -> SignatureStyleConfig:
             updates['icon_path'] = icon_path
 
     return replace(base, **updates)
+
+
+def resolve_signature_style(
+    tenant=None,
+    *,
+    style_name: str | None = None,
+    style_id: int | None = None,
+) -> SignatureStyleConfig:
+    """
+    Return global defaults unless the tenant has an enabled style to apply.
+
+    - No tenant: platform defaults only.
+    - style_name / style_id: use that style (must exist and be enabled).
+    - Otherwise: tenant default style if enabled, else platform defaults.
+    """
+    base = SignatureStyleConfig.from_settings()
+    if tenant is None:
+        if style_name or style_id is not None:
+            raise SignatureStyleLookupError('signature_style requires tenant API authentication.')
+        return base
+
+    explicit_request = bool(style_name or style_id is not None)
+    tenant_style = lookup_tenant_signature_style(
+        tenant,
+        style_name=style_name,
+        style_id=style_id,
+    )
+
+    if explicit_request:
+        if tenant_style is None:
+            label = style_name or style_id
+            raise SignatureStyleLookupError(f'Signature style not found: {label!r}')
+        if not tenant_style.is_enabled:
+            raise SignatureStyleLookupError(f'Signature style is disabled: {tenant_style.name!r}')
+        return _merge_tenant_style(base, tenant_style)
+
+    if tenant_style is None or not tenant_style.is_enabled:
+        return base
+
+    return _merge_tenant_style(base, tenant_style)

@@ -344,3 +344,50 @@ def get_portal_sign_artifact(*, user: User, artifact_id) -> tuple[bytes, dict] |
         'expires_at': artifact.expires_at.isoformat(),
     }
     return decrypt_pfx(artifact.encrypted_pdf), metadata
+
+
+def store_public_sign_artifact(
+    *,
+    session_key: str,
+    stamped_pdf_data: bytes,
+    filename: str,
+    signer_name: str = '',
+    ttl_minutes: int = 15,
+):
+    from .models import PublicSignArtifact
+
+    expires_at = timezone_now() + timedelta(minutes=ttl_minutes)
+    return PublicSignArtifact.objects.create(
+        session_key=session_key,
+        encrypted_pdf=encrypt_pfx(stamped_pdf_data),
+        filename=filename,
+        signer_name=signer_name,
+        expires_at=expires_at,
+    )
+
+
+def get_public_sign_artifact(*, session_key: str, artifact_id) -> tuple[bytes, dict] | None:
+    from .models import PublicSignArtifact
+
+    artifact = PublicSignArtifact.objects.filter(pk=artifact_id, session_key=session_key).first()
+    if not artifact or timezone_now() >= artifact.expires_at:
+        return None
+    metadata = {
+        'filename': artifact.filename,
+        'signer_name': artifact.signer_name,
+        'expires_at': artifact.expires_at.isoformat(),
+    }
+    return decrypt_pfx(artifact.encrypted_pdf), metadata
+
+
+def get_public_sign_artifact_metadata(*, session_key: str, artifact_id) -> dict | None:
+    from .models import PublicSignArtifact
+
+    artifact = PublicSignArtifact.objects.filter(pk=artifact_id, session_key=session_key).first()
+    if not artifact or timezone_now() >= artifact.expires_at:
+        return None
+    return {
+        'filename': artifact.filename,
+        'signer_name': artifact.signer_name,
+        'expires_at': artifact.expires_at.isoformat(),
+    }

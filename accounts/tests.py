@@ -331,15 +331,19 @@ class ApiDocsDownloadTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response.url)
 
-    def test_download_returns_markdown_attachment(self):
+    def test_download_returns_odf_attachment(self):
         self.client.login(username='docs@example.com', password='docs-pass')
         response = self.client.get('/dashboard/docs/download/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('text/markdown', response['Content-Type'])
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.oasis.opendocument.text',
+        )
         self.assertIn('attachment', response['Content-Disposition'])
-        self.assertIn('ig-esign-api-docs.md', response['Content-Disposition'])
-        content = response.content.decode()
-        self.assertIn('POST /api/sign/usb/', content)
-        self.assertIn('sign_token', content)
-        self.assertIn('250', content)
-        self.assertIn('Download API docs', self.client.get('/dashboard/docs/').content.decode())
+        self.assertIn('ig-esign-api-docs.odt', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'PK'))
+        self.assertIn(b'content.xml', response.content)
+        self.assertIn(b'POST /api/sign/usb/', response.content)
+        self.assertIn(b'sign_token', response.content)
+        self.assertIn(b'250', response.content)
+        self.assertIn('Download API docs (ODF)', self.client.get('/dashboard/docs/').content.decode())

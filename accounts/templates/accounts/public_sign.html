@@ -1,0 +1,119 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+{% block title %}Free PDF Sign — IG E-Sign{% endblock %}
+{% block public_shell_class %}auth-shell--landing{% endblock %}
+
+{% block extra_head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'accounts/css/public-sign.css' %}">
+{% endblock %}
+
+{% block auth_nav %}
+<a href="{% url 'home' %}" class="btn btn-ghost btn-sm">Home</a>
+<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
+<a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
+<a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
+{% endblock %}
+
+{% block public_content %}
+<div class="public-sign-page">
+  <div class="public-sign-header">
+    <p class="landing-eyebrow">Free · No account required</p>
+    <h1>Sign a PDF with your name</h1>
+    <p class="public-sign-lead">
+      Add a handwritten-style signature or upload your signature image.
+      This is a <strong>visual signature only</strong> — not a Class 3 digital certificate (DSC).
+    </p>
+  </div>
+
+  <div class="public-sign-grid" id="public-sign-grid">
+    <div class="card card-flat public-sign-form-card">
+      <form method="post" enctype="multipart/form-data" id="public-sign-form">
+        {% csrf_token %}
+        <input type="hidden" name="signature_data" id="id_signature_data" value="">
+        <input type="hidden" name="placements_json" id="id_placements_json" value="[]">
+        <input type="hidden" name="signature_width_ratio" id="id_signature_width_ratio" value="0.27">
+
+        <div class="form-group">
+          <label>PDF document</label>
+          <div class="upload-zone">
+            {{ form.pdf_file }}
+            <div class="upload-zone-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <p style="margin:0;font-weight:500;">Drop your PDF here</p>
+            <p class="upload-filename" style="margin:8px 0 0;color:var(--text-secondary);font-size:0.8rem;">or click to browse (max 10 MB)</p>
+          </div>
+          {% if form.pdf_file.errors %}<div class="message error" role="alert">{{ form.pdf_file.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div id="public-sign-options" hidden>
+          <div class="form-group">
+            <label>Signature style</label>
+            <div class="public-sign-mode">
+              {% for radio in form.signature_mode %}
+              <label class="public-sign-mode-option">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="form-group" id="text-signature-group">
+            <label for="id_signer_name">Your name</label>
+            {{ form.signer_name }}
+            <div class="signature-preview-wrap">
+              <canvas id="signature-preview-canvas" width="360" height="96" aria-label="Cursive signature preview"></canvas>
+            </div>
+            {% if form.signer_name.errors %}<div class="message error" role="alert">{{ form.signer_name.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div class="form-group" id="image-signature-group" hidden>
+            <label for="id_signature_image">Signature image</label>
+            {{ form.signature_image }}
+            <p class="form-help">PNG or JPG with a transparent or white background works best.</p>
+            {% if form.signature_image.errors %}<div class="message error" role="alert">{{ form.signature_image.errors|striptags }}</div>{% endif %}
+          </div>
+
+          {% if form.non_field_errors %}
+          <div class="message error" role="alert">{{ form.non_field_errors|striptags }}</div>
+          {% endif %}
+
+          <button class="btn" type="submit" id="public-sign-submit" disabled>Place signature &amp; download</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card card-flat public-sign-preview-card" id="public-sign-preview-card" hidden>
+      <div class="public-sign-preview-toolbar">
+        <h2>Place signature</h2>
+        <div class="public-sign-page-nav" id="page-nav" hidden>
+          <button type="button" class="btn btn-secondary btn-sm" id="page-prev" disabled>Prev</button>
+          <span id="page-label">Page 1</span>
+          <button type="button" class="btn btn-secondary btn-sm" id="page-next" disabled>Next</button>
+        </div>
+      </div>
+      <p class="form-help" id="placement-hint">Click the page to place your signature. Drag the box to move it, or use the size slider.</p>
+      <div class="placement-size-control" id="placement-size-control" hidden>
+        <label for="signature-size-range">Signature size</label>
+        <input type="range" id="signature-size-range" min="8" max="45" value="27" step="1" aria-valuemin="8" aria-valuemax="45" aria-valuenow="27">
+        <span id="signature-size-label" class="placement-size-value">27% of page width</span>
+      </div>
+      <div class="pdf-placement-wrap" id="pdf-placement-wrap" hidden>
+        <canvas id="pdf-preview-canvas"></canvas>
+        <div class="placement-overlay" id="placement-overlay" hidden>
+          <img id="placement-signature-preview" alt="" draggable="false">
+        </div>
+      </div>
+      <ul class="placement-list" id="placement-list" hidden></ul>
+      <p id="pdf-preview-meta" class="public-sign-meta"></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script>window.PUBLIC_SIGN_PREVIEW_URL = "{% url 'public_sign_preview' %}";</script>
+<script src="{% static 'accounts/js/public-sign.js' %}" defer></script>
+{% endblock %}

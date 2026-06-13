@@ -7,7 +7,7 @@
     <h1>API documentation</h1>
     <p class="subtitle">Integrate PDF signing into your application.</p>
   </div>
-  <a href="{% url 'docs_download' %}" class="btn btn-secondary btn-sm" download>Download API docs</a>
+  <a href="{% url 'docs_download' %}" class="btn btn-secondary btn-sm" download>Download API docs (ODF)</a>
 </div>
 
 <div class="card card-flat">
@@ -252,12 +252,14 @@ curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/download
   <h2>Signature placement</h2>
   <p style="color:var(--text-secondary);font-size:0.875rem;">
     The API searches the PDF for an <strong>anchor text</strong> (default: <span class="inline-code">Authorised Signatory</span>)
-    and places the signature box just above it. Platform defaults apply to all tenants unless you opt in to a custom style.
+    and places the signature box just above it.
   </p>
   <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:12px;">
-    To customize anchor text or box offsets (shift, size, font), use
-    <a href="{% url 'signature_style' %}">Signature</a> in the portal and enable <strong>custom signature style</strong>.
-    Until enabled, signing behaviour is unchanged for existing API clients.
+    Create multiple named styles under
+    <a href="{% url 'signature_style' %}">Signature styles</a> in the portal (e.g. <span class="inline-code">Invoice</span>,
+    <span class="inline-code">Purchase Order</span>). Each can use different anchor text and box offsets.
+    Pass optional <span class="inline-code">signature_style</span> in API requests to pick one by name; omit it to use your
+    default enabled style, or platform defaults if none is enabled. Existing integrations keep working without changes.
   </p>
 </div>
 
@@ -287,6 +289,11 @@ curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/download
           <td><span class="badge badge-error">400</span></td>
           <td>Validation error, bad PFX password, cert not found</td>
           <td class="mono" style="font-size:0.8rem;">Failed to load PFX: invalid password…</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-error">400</span></td>
+          <td>Unknown or disabled signature style</td>
+          <td class="mono" style="font-size:0.8rem;">Signature style not found: 'Invoice'</td>
         </tr>
         <tr>
           <td><span class="badge badge-error">400</span></td>

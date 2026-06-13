@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from accounts.models import Tenant, TenantStatus
+from accounts.models import Tenant, TenantSignatureStyle, TenantStatus
 from accounts.services import create_api_key
 
 
@@ -81,6 +81,48 @@ class SignPdfAPIAuthTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('pfx_path', response.json())
+
+    def test_unknown_signature_style_returns_400(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.api_key}')
+        response = self.client.post(
+            '/api/signpdf-pfx',
+            {
+                'pdf_base64': self.pdf_b64,
+                'pfx_base64': 'YWJj',
+                'password': 'x',
+                'signature_style': 'Missing Style',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Signature style not found', response.json()['error'])
+
+    def test_signature_style_selects_anchor_before_signing(self):
+        TenantSignatureStyle.objects.create(
+            tenant=self.tenant,
+            name='Alt',
+            is_enabled=True,
+            anchor_text='Other Signatory',
+        )
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), 'Other Signatory')
+        alt_pdf = base64.b64encode(doc.tobytes()).decode()
+        doc.close()
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.api_key}')
+        response = self.client.post(
+            '/api/signpdf-pfx',
+            {
+                'pdf_base64': alt_pdf,
+                'pfx_base64': 'YWJj',
+                'password': 'x',
+                'signature_style': 'Alt',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn('No position found for anchor text', response.json()['error'])
 
     @override_settings(ALLOW_BASIC_AUTH=False)
     def test_basic_auth_rejected_when_disabled(self):

@@ -1,98 +1,85 @@
 {% extends "accounts/base.html" %}
-{% block title %}Signature style — IG E-Sign{% endblock %}
-{% block page_title %}Signature style{% endblock %}
+{% block title %}Signature styles — IG E-Sign{% endblock %}
+{% block page_title %}Signature styles{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>Signature style</h1>
-  <p class="subtitle">Customize anchor text and box placement. Until you enable a custom style, API signing uses platform defaults — no change for existing integrations.</p>
+  <h1>Signature styles</h1>
+  <p class="subtitle">Maintain multiple anchor/placement profiles for API signing. Pick a style by name in API calls, or omit it to use your default.</p>
 </div>
 
 <div class="grid-2">
   <div class="card card-flat">
-    <h2>Custom style</h2>
-    {% if tenant.status != 'active' %}
-    <p style="color:var(--text-secondary);">Your account must be approved before changing signature style.</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
+      <h2 style="margin:0;">Your styles</h2>
+      {% if tenant.status == 'active' %}
+      <a href="{% url 'signature_style_create' %}" class="btn btn-sm">New style</a>
+      {% endif %}
+    </div>
+
+    {% if styles %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Anchor text</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for style in styles %}
+          <tr>
+            <td>
+              <strong>{{ style.name }}</strong>
+              {% if style.is_default %}<span class="badge badge-active" style="margin-left:8px;">Default</span>{% endif %}
+            </td>
+            <td class="mono">{{ style.anchor_text|default:platform_defaults.anchor_text }}</td>
+            <td>
+              {% if style.is_enabled %}
+              <span class="badge badge-active">Enabled</span>
+              {% else %}
+              <span class="badge badge-neutral">Disabled</span>
+              {% endif %}
+            </td>
+            <td style="white-space:nowrap;">
+              <a href="{% url 'signature_style_edit' style.id %}" class="btn btn-ghost btn-sm">Edit</a>
+              {% if tenant.status == 'active' and not style.is_default %}
+              <form method="post" action="{% url 'signature_style_default' style.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm">Set default</button>
+              </form>
+              {% endif %}
+              {% if tenant.status == 'active' %}
+              <form method="post" action="{% url 'signature_style_delete' style.id %}" style="display:inline;" onsubmit="return confirm('Delete style {{ style.name|escapejs }}?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm">Delete</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% else %}
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="form-group">
-        <label for="id_is_enabled" class="checkbox-label">
-          {{ form.is_enabled }}
-          <span>Enable custom signature style</span>
-        </label>
-        {% if form.is_enabled.help_text %}<p class="form-help">{{ form.is_enabled.help_text }}</p>{% endif %}
-      </div>
-      <div class="form-group">
-        <label for="id_anchor_text">Anchor text</label>
-        {{ form.anchor_text }}
-        {% if form.anchor_text.help_text %}<p class="form-help">{{ form.anchor_text.help_text }}</p>{% endif %}
-      </div>
-      <div class="form-group" style="max-width:200px;">
-        <label for="id_font_size">Font size</label>
-        {{ form.font_size }}
-        <p class="form-help">Leave blank for default ({{ platform_defaults.font_size }}).</p>
-      </div>
+    <p style="color:var(--text-secondary);">No custom styles yet. API signing uses platform defaults until you create and enable one.</p>
+    {% if tenant.status == 'active' %}
+    <a href="{% url 'signature_style_create' %}" class="btn btn-sm" style="margin-top:12px;">Create your first style</a>
+    {% endif %}
+    {% endif %}
 
-      <h3 class="form-section-title">Box relative to anchor</h3>
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label for="id_box_min_width">Min width</label>
-          {{ form.box_min_width }}
-          <p class="form-help">Default: {{ platform_defaults.box_min_width }}</p>
-        </div>
-        <div class="form-group">
-          <label for="id_box_height">Height</label>
-          {{ form.box_height }}
-          <p class="form-help">Default: {{ platform_defaults.box_height }}</p>
-        </div>
-        <div class="form-group">
-          <label for="id_box_right_padding">Right padding</label>
-          {{ form.box_right_padding }}
-          <p class="form-help">Default: {{ platform_defaults.box_right_padding }}</p>
-        </div>
-        <div class="form-group">
-          <label for="id_box_shift_right">Shift right</label>
-          {{ form.box_shift_right }}
-          {% if form.box_shift_right.help_text %}<p class="form-help">{{ form.box_shift_right.help_text }} Default: {{ platform_defaults.box_shift_right }}.</p>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="id_box_gap_above_label">Gap above label</label>
-          {{ form.box_gap_above_label }}
-          {% if form.box_gap_above_label.help_text %}<p class="form-help">{{ form.box_gap_above_label.help_text }} Default: {{ platform_defaults.box_gap_above_label }}.</p>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="id_box_shift_down_fitz">Shift down</label>
-          {{ form.box_shift_down_fitz }}
-          {% if form.box_shift_down_fitz.help_text %}<p class="form-help">{{ form.box_shift_down_fitz.help_text }} Default: {{ platform_defaults.box_shift_down_fitz }}.</p>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="id_box_page_margin">Page margin</label>
-          {{ form.box_page_margin }}
-          <p class="form-help">Default: {{ platform_defaults.box_page_margin }}</p>
-        </div>
-      </div>
-
-      <h3 class="form-section-title">Tick icon (optional)</h3>
-      <div class="form-group">
-        <label for="id_custom_icon">Custom icon (PNG)</label>
-        {{ form.custom_icon }}
-      </div>
-      <div class="form-group" style="max-width:200px;">
-        <label for="id_icon_display_width">Icon width</label>
-        {{ form.icon_display_width }}
-        <p class="form-help">Default: {{ platform_defaults.icon_display_width }}</p>
-      </div>
-
-      <button class="btn" type="submit" style="margin-top:var(--space-2);">Save signature style</button>
-    </form>
+    {% if tenant.status != 'active' %}
+    <p style="color:var(--text-secondary);margin-top:16px;">Your account must be approved before creating or editing styles.</p>
     {% endif %}
   </div>
 
   <div class="card card-flat">
-    <h2>Effective settings</h2>
+    <h2>API default</h2>
     <p style="color:var(--text-secondary);font-size:0.875rem;">
       {% if resolved_style.is_custom %}
-      <span class="badge badge-active">Custom style active</span>
+      <span class="badge badge-active">Custom default active</span>
+      {% if resolved_style.style_name %}<span style="margin-left:8px;">{{ resolved_style.style_name }}</span>{% endif %}
       {% else %}
       <span class="badge badge-neutral">Platform defaults</span>
       {% endif %}
@@ -106,11 +93,10 @@
       <dd>{{ resolved_style.box_min_width }} × {{ resolved_style.box_height }}</dd>
       <dt style="color:var(--text-secondary);">Shift right / down</dt>
       <dd>{{ resolved_style.box_shift_right }} / {{ resolved_style.box_shift_down_fitz }}</dd>
-      <dt style="color:var(--text-secondary);">Gap above label</dt>
-      <dd>{{ resolved_style.box_gap_above_label }}</dd>
     </dl>
     <p style="color:var(--text-secondary);font-size:0.8rem;margin-top:20px;">
-      The signature box is placed above the anchor text using these offsets. API clients need no code changes until you enable a custom style here.
+      Pass <code class="mono">signature_style</code> in API requests to use a specific style by name. Example:
+      <code class="mono">"signature_style": "Invoice"</code>
     </p>
   </div>
 </div>

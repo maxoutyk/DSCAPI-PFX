@@ -8,9 +8,20 @@
   var empty = document.getElementById('pdf-preview-empty');
   var meta = document.getElementById('pdf-preview-meta');
   var submitBtn = document.getElementById('sign-submit-btn');
+  var styleInput = document.getElementById('id_signature_style');
 
   if (!pdfInput || !previewUrl) {
     return;
+  }
+
+  function currentPdfFile() {
+    return pdfInput.files && pdfInput.files[0] ? pdfInput.files[0] : null;
+  }
+
+  function rerunPreview() {
+    var file = currentPdfFile();
+    if (!file) return;
+    analyzePdf(file);
   }
 
   function getCsrfToken() {
@@ -55,6 +66,9 @@
   function analyzePdf(file) {
     var formData = new FormData();
     formData.append('pdf_file', file);
+    if (styleInput && styleInput.value) {
+      formData.append('signature_style', styleInput.value);
+    }
 
     fetch(previewUrl, {
       method: 'POST',
@@ -85,7 +99,7 @@
   }
 
   pdfInput.addEventListener('change', function () {
-    var file = pdfInput.files && pdfInput.files[0];
+    var file = currentPdfFile();
     if (!file) {
       if (wrap) wrap.style.display = 'none';
       if (empty) empty.style.display = 'block';
@@ -95,4 +109,8 @@
     renderPdfPreview(file);
     analyzePdf(file);
   });
+
+  if (styleInput) {
+    styleInput.addEventListener('change', rerunPreview);
+  }
 })();
