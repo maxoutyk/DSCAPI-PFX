@@ -135,10 +135,7 @@ def run_server(port: int, *, use_tray: bool | None = None):
     state = None
 
     if use_tray and sys.platform == 'win32':
-        from pkcs11_signing import ensure_pin_ui_thread
         from tray import AgentRuntimeState
-
-        ensure_pin_ui_thread()
 
         state = AgentRuntimeState(
             port=port,
@@ -173,6 +170,9 @@ def run_server(port: int, *, use_tray: bool | None = None):
         dashboard_holder: dict = {'dashboard': None}
 
         def shutdown():
+            from pkcs11_signing import unregister_main_ui_root
+
+            unregister_main_ui_root()
             server.shutdown()
             dashboard = dashboard_holder.get('dashboard')
             if dashboard is not None:

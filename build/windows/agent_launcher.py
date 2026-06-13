@@ -29,9 +29,22 @@ from agent import main  # noqa: E402
 def _pause_on_windows():
     if sys.platform != 'win32':
         return
+    if getattr(sys, 'frozen', False):
+        try:
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                'The agent exited due to an error. Check %USERPROFILE%\\.ig-esign-agent\\agent.log',
+                'IG E-Sign Agent',
+                0x10,
+            )
+        except Exception:
+            pass
+        return
     try:
         input('\nPress Enter to exit...')
-    except EOFError:
+    except (EOFError, RuntimeError):
         pass
 
 

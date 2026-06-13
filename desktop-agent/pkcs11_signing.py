@@ -26,6 +26,42 @@ WINDOWS_PKCS11_DLL_CANDIDATES = (
 _session_pin: str | None = None
 _pin_ui_in: queue.Queue | None = None
 _pin_ui_out: queue.Queue | None = None
+_main_ui_root = None
+
+
+def register_main_ui_root(root) -> None:
+    """Use the dashboard Tk root for PIN prompts on the main thread."""
+    global _main_ui_root
+    _main_ui_root = root
+
+
+def unregister_main_ui_root() -> None:
+    global _main_ui_root
+    _main_ui_root = None
+
+
+def _prompt_pin_on_main_thread(root, *, title: str, message: str) -> str:
+    result_queue: queue.Queue[str] = queue.Queue(maxsize=1)
+    done = threading.Event()
+
+    def show():
+        from tkinter import simpledialog
+
+        try:
+            pin = simpledialog.askstring(title, message, show='*', parent=root)
+            result_queue.put(pin or '')
+        except Exception:
+            result_queue.put('')
+        finally:
+            done.set()
+
+    root.after(0, show)
+    if not done.wait(timeout=300):
+        return ''
+    try:
+        return result_queue.get_nowait()
+    except queue.Empty:
+        return ''
 
 
 def _pkcs11_bytes(value) -> bytes:
@@ -85,9 +121,9 @@ def token_slot_present(dll_path: str | None = None) -> bool:
 
 
 def ensure_pin_ui_thread() -> None:
-    """Dedicated Tk thread for PIN prompts (HTTP signing runs on worker threads)."""
+    """Fallback Tk thread for PIN prompts when no dashboard root is registered."""
     global _pin_ui_in, _pin_ui_out
-    if sys.platform != 'win32' or (_pin_ui_in is not None and _pin_ui_out is not None):
+    if sys.platform != 'win32' or _main_ui_root is not None or (_pin_ui_in is not None and _pin_ui_out is not None):
         return
 
     q_in: queue.Queue = queue.Queue()
@@ -121,6 +157,16 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
 
     message = 'Enter your USB DSC token PIN to sign this document.'
     if sys.platform == 'win32':
+        root = _main_ui_root
+        if root is not None:
+            try:
+                pin = _prompt_pin_on_main_thread(root, title=title, message=message)
+            except Exception:
+                pin = ''
+            if pin:
+                _session_pin = pin
+                return pin
+
         ensure_pin_ui_thread()
         if _pin_ui_in is not None and _pin_ui_out is not None:
             _pin_ui_in.put((title, message))

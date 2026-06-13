@@ -39,6 +39,10 @@ class AgentDashboard:
         self.root.minsize(400, 480)
         self.root.protocol('WM_DELETE_WINDOW', self.hide_to_tray)
 
+        from pkcs11_signing import register_main_ui_root
+
+        register_main_ui_root(self.root)
+
         container = ttk.Frame(self.root, padding=16)
         container.pack(fill='both', expand=True)
 
@@ -207,6 +211,9 @@ class AgentDashboard:
     def _quit(self):
         if self._refresh_job:
             self.root.after_cancel(self._refresh_job)
+        from pkcs11_signing import unregister_main_ui_root
+
+        unregister_main_ui_root()
         if self.on_quit:
             self.on_quit()
 
