@@ -20,6 +20,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 cd "$ROOT"
 
+AGENT_INSTALLER="${ROOT}/desktop-agent/releases/IG-E-Sign-Agent-Setup.exe"
+if [[ ! -f "${AGENT_INSTALLER}" ]]; then
+  echo "Missing ${AGENT_INSTALLER}"
+  echo "Download the Windows agent first, then rebuild the image:"
+  echo "  gh workflow run \"Build IG E-Sign Agent (Windows)\" --ref \$(git branch --show-current)"
+  echo "  gh run download <run-id> -n IG-E-Sign-Agent-Setup -D desktop-agent/releases"
+  exit 1
+fi
+echo "Including agent installer ($(du -h "${AGENT_INSTALLER}" | cut -f1)) in image build..."
+
 echo "Building ${IMAGE_TAG} for linux/amd64..."
 if docker buildx ls | grep -q amd64builder; then
   docker buildx use amd64builder
