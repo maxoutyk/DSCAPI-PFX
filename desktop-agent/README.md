@@ -6,10 +6,10 @@ Separate installer package for USB DSC token signing. This folder contains a **d
 
 1. Log in to IG E-Sign → **USB Agent**
 2. Click **Download for Windows (.exe)** or **Download agent package (ZIP)**
-3. Windows installer: run **Pair Agent.bat**, then start **IG E-Sign Agent** from the Start menu (system tray icon near the clock)
+3. Windows installer: launch **IG E-Sign Agent**, pair from the app window, then sign from the portal. Closing the window keeps the agent in the tray.
 4. ZIP (dev/macOS/Linux): extract and run `start-agent.bat` or `start-agent.sh`
 
-The download includes `portal.url` with your tenant portal address preconfigured.
+The Windows installer includes `portal.url` with the live portal address preconfigured.
 
 ## Build Windows installer (.exe)
 

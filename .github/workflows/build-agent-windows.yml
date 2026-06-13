@@ -19,6 +19,8 @@ jobs:
 
       - name: Build agent installer
         shell: pwsh
+        env:
+          AGENT_API_BASE: https://sign.incitegravity.com
         run: ./build/windows/build-agent.ps1
 
       - uses: actions/upload-artifact@v4

@@ -125,21 +125,22 @@ class UsbAgentFlowTests(TestCase):
 
         response = self.client.get('/dashboard/agent/download/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'application/zip')
         self.assertIn('attachment', response['Content-Disposition'])
         self.assertGreater(len(response.content), 500)
+        if resolve_agent_installer_path() is not None:
+            self.assertEqual(response['Content-Type'], 'application/octet-stream')
+            self.assertIn('IG-E-Sign-Agent-Setup.exe', response['Content-Disposition'])
+            return
+
+        self.assertEqual(response['Content-Type'], 'application/zip')
         import zipfile
         from io import BytesIO
 
         with zipfile.ZipFile(BytesIO(response.content)) as archive:
             names = archive.namelist()
-        if resolve_agent_installer_path() is not None:
-            self.assertIn('IG-E-Sign-Agent-Setup.exe', names)
-            self.assertIn('portal.url', names)
-        else:
-            self.assertIn('ig-esign-agent/agent.py', names)
-            self.assertIn('ig-esign-agent/portal.url', names)
-            self.assertIn('ig-esign-agent/start-agent.bat', names)
+        self.assertIn('ig-esign-agent/agent.py', names)
+        self.assertIn('ig-esign-agent/portal.url', names)
+        self.assertIn('ig-esign-agent/start-agent.bat', names)
 
 
 class TenantUsbSignApiTests(TestCase):

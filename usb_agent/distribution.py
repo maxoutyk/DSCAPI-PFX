@@ -67,24 +67,5 @@ def agent_zip_filename(version: str | None = None) -> str:
     return f'ig-esign-agent-{safe_version}.zip'
 
 
-def build_windows_installer_zip(*, api_base: str, installer_path: Path) -> bytes:
-    buffer = io.BytesIO()
-    version = read_agent_version()
-    quickstart = (
-        'IG E-Sign USB Agent (Windows)\n'
-        f'Version: {version}\n\n'
-        f'Portal: {api_base}\n\n'
-        '1. Run IG-E-Sign-Agent-Setup.exe to install\n'
-        '2. Copy portal.url into the install folder\n'
-        '   (e.g. C:\\Users\\You\\AppData\\Local\\Programs\\IG E-Sign Agent)\n'
-        '3. Run "Pair Agent.bat" and enter a pairing code from the portal\n'
-        '4. Start IG E-Sign Agent from the Start menu (system tray icon near the clock)\n'
-    )
-    portal_url = f'api_base={api_base.rstrip("/")}\n'
-
-    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.write(installer_path, arcname=installer_path.name)
-        archive.writestr('portal.url', portal_url)
-        archive.writestr('QUICKSTART.txt', quickstart)
-
-    return buffer.getvalue()
+def windows_installer_filename() -> str:
+    return 'IG-E-Sign-Agent-Setup.exe'

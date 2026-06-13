@@ -77,7 +77,7 @@ def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
     if not snap['paired']:
         return (
             'Status: Not paired',
-            'Run Pair Agent.bat from the install folder.',
+            'Open the agent window to enter a pairing code.',
             'error',
         )
     if snap['portal_connected']:
@@ -91,27 +91,38 @@ def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
     return status, token_line, level
 
 
-def run_tray_loop(*, state: AgentRuntimeState, on_quit) -> None:
+def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, icon_registry=None) -> None:
     import pystray
 
-    icon_holder: dict[str, pystray.Icon | None] = {'icon': None}
+    registry: dict[str, pystray.Icon | None] = icon_registry if icon_registry is not None else {}
     stop_event = threading.Event()
 
     def refresh_menu(icon: pystray.Icon):
         status_line, token_line, level = _status_lines(state)
         icon.icon = _load_icon_image(alert=level != 'ok')
         icon.title = f'IG E-Sign Agent v{AGENT_VERSION}'
-        icon.menu = pystray.Menu(
+        menu_items = [
             pystray.MenuItem(f'IG E-Sign Agent v{AGENT_VERSION}', None, enabled=False),
             pystray.MenuItem(status_line, None, enabled=False),
             pystray.MenuItem(token_line, None, enabled=False),
             pystray.MenuItem(f'Listening on 127.0.0.1:{state.port}', None, enabled=False),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem('Open USB Agent page', _open_portal_page),
-            pystray.MenuItem('Open config folder', _open_config_folder),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem('Quit', _quit),
+        ]
+        if on_show_window is not None:
+            menu_items.append(pystray.MenuItem('Open agent window', _show_window))
+        menu_items.extend(
+            [
+                pystray.MenuItem('Open USB Agent page', _open_portal_page),
+                pystray.MenuItem('Open config folder', _open_config_folder),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem('Quit', _quit),
+            ]
         )
+        icon.menu = pystray.Menu(*menu_items)
+
+    def _show_window(_icon, _item):
+        if on_show_window is not None:
+            on_show_window()
 
     def _open_portal_page(_icon, _item):
         snap = state.snapshot()
@@ -146,22 +157,29 @@ def run_tray_loop(*, state: AgentRuntimeState, on_quit) -> None:
             stop_event.wait(5)
 
     status_line, token_line, level = _status_lines(state)
-    icon = pystray.Icon(
-        'ig-esign-agent',
-        _load_icon_image(alert=level != 'ok'),
-        f'IG E-Sign Agent v{AGENT_VERSION}',
-        menu=pystray.Menu(
-            pystray.MenuItem(f'IG E-Sign Agent v{AGENT_VERSION}', None, enabled=False),
-            pystray.MenuItem(status_line, None, enabled=False),
-            pystray.MenuItem(token_line, None, enabled=False),
-            pystray.MenuItem(f'Listening on 127.0.0.1:{state.port}', None, enabled=False),
-            pystray.Menu.SEPARATOR,
+    initial_menu = [
+        pystray.MenuItem(f'IG E-Sign Agent v{AGENT_VERSION}', None, enabled=False),
+        pystray.MenuItem(status_line, None, enabled=False),
+        pystray.MenuItem(token_line, None, enabled=False),
+        pystray.MenuItem(f'Listening on 127.0.0.1:{state.port}', None, enabled=False),
+        pystray.Menu.SEPARATOR,
+    ]
+    if on_show_window is not None:
+        initial_menu.append(pystray.MenuItem('Open agent window', _show_window))
+    initial_menu.extend(
+        [
             pystray.MenuItem('Open USB Agent page', _open_portal_page),
             pystray.MenuItem('Open config folder', _open_config_folder),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem('Quit', _quit),
-        ),
+        ]
     )
-    icon_holder['icon'] = icon
+    icon = pystray.Icon(
+        'ig-esign-agent',
+        _load_icon_image(alert=level != 'ok'),
+        f'IG E-Sign Agent v{AGENT_VERSION}',
+        menu=pystray.Menu(*initial_menu),
+    )
+    registry['icon'] = icon
     threading.Thread(target=_refresh_loop, args=(icon,), daemon=True).start()
     icon.run()

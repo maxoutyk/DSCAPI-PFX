@@ -15,8 +15,8 @@ if exist portal.url (
   for /f "usebackq tokens=1,* delims==" %%A in (`findstr /b "api_base=" portal.url`) do set "API_BASE=%%B"
 )
 if "%API_BASE%"=="" (
-  echo Open your IG E-Sign portal - USB Agent page - and note the portal URL.
-  set /p API_BASE=Portal URL ^(e.g. http://192.168.1.53:8000^): 
+  echo Portal URL not found in portal.url. Enter your IG E-Sign portal address.
+  set /p API_BASE=Portal URL ^(e.g. https://sign.incitegravity.com^): 
 )
 set /p CODE=Pairing code from USB Agent page: 
 echo.

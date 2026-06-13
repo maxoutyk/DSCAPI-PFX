@@ -43,6 +43,22 @@ def _read_version() -> str:
 
 AGENT_VERSION = _read_version()
 CONFIG_PATH = Path.home() / '.ig-esign-agent' / 'config.json'
+_heartbeat_started = False
+_heartbeat_lock = threading.Lock()
+
+
+def read_default_api_base() -> str:
+    candidates: list[Path] = []
+    if getattr(sys, 'frozen', False):
+        candidates.append(Path(sys.executable).parent / 'portal.url')
+    candidates.append(Path(__file__).resolve().parent / 'portal.url')
+    for path in candidates:
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
+            if line.startswith('api_base='):
+                return line.split('=', 1)[1].strip()
+    return ''
 
 
 def load_config() -> dict:
@@ -70,6 +86,32 @@ def api_request(method: str, url: str, payload: dict | None = None, token: str =
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode('utf-8', errors='replace')
         raise RuntimeError(detail or exc.reason) from exc
+
+
+def start_portal_heartbeat(state) -> None:
+    global _heartbeat_started
+    with _heartbeat_lock:
+        if _heartbeat_started:
+            return
+        _heartbeat_started = True
+
+    def heartbeat_loop():
+        while True:
+            config = load_config()
+            api_base = config.get('api_base', '')
+            token = config.get('device_token', '')
+            if not token:
+                state.update(paired=False, portal_connected=False, api_base=api_base, last_error='')
+            else:
+                state.update(paired=True, api_base=api_base)
+                try:
+                    heartbeat(api_base, token)
+                    state.update(portal_connected=True, last_error='', token_present=token_present())
+                except Exception as exc:
+                    state.update(portal_connected=False, last_error=str(exc)[:120])
+            threading.Event().wait(45)
+
+    threading.Thread(target=heartbeat_loop, daemon=True, name='ig-agent-heartbeat').start()
 
 
 def run_server(port: int, *, use_tray: bool | None = None):
@@ -106,36 +148,18 @@ def run_server(port: int, *, use_tray: bool | None = None):
         )
 
     if not token:
-        message = 'Agent is not paired yet. Run "Pair Agent.bat" and enter a code from the portal.'
-        if use_tray and sys.platform == 'win32':
-            _show_windows_notice('IG E-Sign Agent', message)
-        else:
-            print(message)
+        if not (use_tray and sys.platform == 'win32'):
+            print('Agent is not paired yet. Pair it from the agent window or run: agent.py pair')
     elif api_base and token:
-        def heartbeat_loop():
-            while True:
-                try:
-                    heartbeat(api_base, token)
-                    if state is not None:
-                        state.update(portal_connected=True, last_error='')
-                except Exception as exc:
-                    if state is not None:
-                        state.update(portal_connected=False, last_error=str(exc)[:120])
-                threading.Event().wait(45)
-
-        try:
-            heartbeat(api_base, token)
-            if state is not None:
-                state.update(portal_connected=True, last_error='')
-            if not use_tray:
+        if not use_tray:
+            try:
+                heartbeat(api_base, token)
                 print(f'Connected to portal at {api_base}')
-        except Exception as exc:
-            if state is not None:
-                state.update(portal_connected=False, last_error=str(exc)[:120])
-            if not use_tray:
+            except Exception as exc:
                 print(f'Warning: could not reach portal ({exc}). Agent will still run locally.')
 
-        threading.Thread(target=heartbeat_loop, daemon=True).start()
+    if use_tray and sys.platform == 'win32':
+        start_portal_heartbeat(state)
 
     server = ThreadingHTTPServer(('127.0.0.1', port), AgentHandler)
 
@@ -143,14 +167,54 @@ def run_server(port: int, *, use_tray: bool | None = None):
         def serve():
             server.serve_forever()
 
-        threading.Thread(target=serve, daemon=True).start()
+        threading.Thread(target=serve, daemon=True, name='ig-agent-http').start()
+
+        tray_holder: dict = {'icon': None}
+        dashboard_holder: dict = {'dashboard': None}
 
         def shutdown():
             server.shutdown()
+            dashboard = dashboard_holder.get('dashboard')
+            if dashboard is not None:
+                try:
+                    if dashboard.root.winfo_exists():
+                        dashboard.root.after(0, dashboard.root.destroy)
+                except Exception:
+                    pass
+            icon = tray_holder.get('icon')
+            if icon is not None:
+                try:
+                    icon.stop()
+                except Exception:
+                    pass
 
-        from tray import run_tray_loop
+        def show_window():
+            dashboard = dashboard_holder.get('dashboard')
+            if dashboard is not None:
+                dashboard.root.after(0, dashboard.show)
 
-        run_tray_loop(state=state or AgentRuntimeState(port=port), on_quit=shutdown)
+        def run_tray():
+            from tray import run_tray_loop
+
+            run_tray_loop(
+                state=state or AgentRuntimeState(port=port),
+                on_quit=shutdown,
+                on_show_window=show_window,
+                icon_registry=tray_holder,
+            )
+
+        threading.Thread(target=run_tray, daemon=True, name='ig-agent-tray').start()
+
+        from app_ui import AgentDashboard
+
+        dashboard = AgentDashboard(
+            state=state or AgentRuntimeState(port=port),
+            on_pair=try_pair_agent,
+            on_quit=shutdown,
+        )
+        dashboard_holder['dashboard'] = dashboard
+        dashboard.run()
+        shutdown()
         return
 
     print(f'IG E-Sign Agent listening on http://127.0.0.1:{port}')
@@ -187,7 +251,7 @@ def _pair_feedback(success: bool, tenant: str = '', error: str = ''):
         print(message)
 
 
-def pair_agent(api_base: str, code: str):
+def try_pair_agent(api_base: str, code: str) -> tuple[bool, str, str]:
     try:
         data = api_request(
             'POST',
@@ -199,14 +263,21 @@ def pair_agent(api_base: str, code: str):
             },
         )
     except Exception as exc:
-        _pair_feedback(False, error=str(exc))
-        raise SystemExit(1) from exc
+        return False, str(exc), ''
 
     config = load_config()
     config['api_base'] = api_base.rstrip('/')
     config['device_token'] = data['device_token']
     save_config(config)
-    _pair_feedback(True, tenant=data.get('tenant', ''))
+    return True, 'Paired successfully.', data.get('tenant', '')
+
+
+def pair_agent(api_base: str, code: str):
+    ok, message, tenant = try_pair_agent(api_base, code)
+    if not ok:
+        _pair_feedback(False, error=message)
+        raise SystemExit(1)
+    _pair_feedback(True, tenant=tenant)
 
 
 def token_present() -> bool:

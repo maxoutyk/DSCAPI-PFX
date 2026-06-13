@@ -29,6 +29,15 @@ if (-not $Inno) {
     exit 0
 }
 
+$ApiBase = $env:AGENT_API_BASE
+if (-not $ApiBase) {
+    $ApiBase = "https://sign.incitegravity.com"
+}
+$PortalUrlPath = Join-Path $PSScriptRoot "agent-scripts\portal.url"
+Set-Content -Path $PortalUrlPath -Value "api_base=$ApiBase" -Encoding ascii -NoNewline
+Add-Content -Path $PortalUrlPath -Value "" -Encoding ascii
+Write-Host "Portal URL: $ApiBase"
+
 Write-Host "Building installer..."
 Set-Location $PSScriptRoot
 & $Inno "/DAgentVersion=$AgentVersion" "agent_installer.iss"

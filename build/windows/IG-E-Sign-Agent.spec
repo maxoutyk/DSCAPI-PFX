@@ -29,6 +29,7 @@ hiddenimports = collect_submodules('signPdf') + [
     'pkcs11_signing',
     'runtime',
     'tray',
+    'app_ui',
     'pystray',
     'pystray._win32',
     'PyKCS11',

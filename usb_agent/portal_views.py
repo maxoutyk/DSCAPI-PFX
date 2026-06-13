@@ -14,9 +14,9 @@ from accounts.services import get_primary_tenant
 from .distribution import (
     agent_zip_filename,
     build_agent_zip,
-    build_windows_installer_zip,
     read_agent_version,
     resolve_agent_installer_path,
+    windows_installer_filename,
 )
 from .models import AgentDevice, UsbSignJob, UsbSignJobStatus
 from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, resolve_portal_usb_device, revoke_device
@@ -49,16 +49,15 @@ def agent_download_view(request):
         messages.error(request, 'Your account must be active to download the agent.')
         return redirect('usb_agent')
 
-    api_base = request.build_absolute_uri('/').rstrip('/')
     installer_path = resolve_agent_installer_path()
     if installer_path is not None:
-        payload = build_windows_installer_zip(api_base=api_base, installer_path=installer_path)
-        version = read_agent_version()
-        response = HttpResponse(payload, content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="{agent_zip_filename(version)}"'
+        payload = installer_path.read_bytes()
+        response = HttpResponse(payload, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{windows_installer_filename()}"'
         response['Content-Length'] = len(payload)
         return response
 
+    api_base = request.build_absolute_uri('/').rstrip('/')
     payload = build_agent_zip(api_base=api_base)
     version = read_agent_version()
     response = HttpResponse(payload, content_type='application/zip')

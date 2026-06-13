@@ -20,16 +20,16 @@
   {% if tenant.status == 'active' %}
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
     <a href="{% url 'usb_agent_download' %}" class="btn">
-      {% if has_windows_installer %}Download for Windows (ZIP){% else %}Download agent package (ZIP){% endif %}
+      {% if has_windows_installer %}Download for Windows (.exe){% else %}Download agent package (ZIP){% endif %}
     </a>
     {% if has_windows_installer %}
-    <span style="font-size:0.8rem;color:var(--text-secondary);">Includes installer + portal.url — copy portal.url into the install folder after setup.</span>
+    <span style="font-size:0.8rem;color:var(--text-secondary);">Installer includes portal.url preconfigured for <span class="mono">{{ site_url }}</span>.</span>
     {% else %}
     <span style="font-size:0.8rem;color:var(--text-secondary);">Windows installer builds on CI — ZIP works everywhere with Python 3.</span>
     {% endif %}
   </div>
   <p style="margin:12px 0 0;font-size:0.8rem;color:var(--text-secondary);">
-    Windows installer: run <span class="mono">Pair Agent.bat</span>, then start <span class="mono">IG E-Sign Agent</span> from the Start menu. It runs in the system tray near the clock.
+    Windows installer: launch <span class="mono">IG E-Sign Agent</span>, pair from the app window, then sign from the portal. Closing the window keeps the agent in the tray.
     ZIP: <span class="mono">start-agent.bat</span> / <span class="mono">start-agent.sh</span>.
   </p>
   {% else %}
