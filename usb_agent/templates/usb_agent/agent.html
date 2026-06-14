@@ -67,10 +67,14 @@
       <a href="{% url 'usb_sign' %}" class="btn btn-secondary btn-sm">Sign with USB</a>
     </div>
     {% if devices %}
+    <p style="font-size:0.8rem;color:var(--text-secondary);margin:0 0 12px;">
+      Use <span class="inline-code">device_id</span> from this table in <span class="inline-code">POST /api/sign/usb/</span> requests.
+    </p>
     <div class="table-wrap">
       <table class="data-table" aria-label="Paired USB agents">
         <thead>
           <tr>
+            <th>Device ID</th>
             <th>Device</th>
             <th>Status</th>
             <th>Version</th>
@@ -81,6 +85,7 @@
         <tbody>
           {% for device in devices %}
           <tr>
+            <td class="mono" style="font-size:0.8rem;">{{ device.pk }}</td>
             <td>
               <strong>{{ device.label|default:device.prefix }}</strong>
               {% if device.cert_cn %}<br><span style="font-size:0.8rem;color:var(--text-secondary);">{{ device.cert_cn }}</span>{% endif %}

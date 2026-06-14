@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
+from .decorators import primary_tenant_required, tenant_owner_required
 from .emailing import EmailDeliveryError, resend_verification_email
 from .forms import (
     APIKeyForm,
@@ -211,6 +212,7 @@ def password_reset_confirm_view(request, token):
 
 
 @login_required
+@primary_tenant_required
 def dashboard_view(request):
     from django.db.models import Count
     from django.utils import timezone
@@ -250,6 +252,8 @@ def dashboard_view(request):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['GET', 'POST'])
 def keys_view(request):
     tenant = get_primary_tenant(request.user)
@@ -288,6 +292,8 @@ def keys_view(request):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['GET', 'POST'])
 def certs_view(request):
     tenant = get_primary_tenant(request.user)
@@ -321,6 +327,7 @@ def certs_view(request):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def signature_style_view(request):
     from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
@@ -340,6 +347,8 @@ def signature_style_view(request):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['GET', 'POST'])
 def signature_style_edit_view(request, style_id=None):
     from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
@@ -387,6 +396,8 @@ def signature_style_edit_view(request, style_id=None):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['POST'])
 def signature_style_delete_view(request, style_id):
     tenant = get_primary_tenant(request.user)
@@ -408,6 +419,8 @@ def signature_style_delete_view(request, style_id):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['POST'])
 def signature_style_default_view(request, style_id):
     tenant = get_primary_tenant(request.user)
@@ -423,12 +436,14 @@ def signature_style_default_view(request, style_id):
 
 
 @login_required
+@primary_tenant_required
 def docs_view(request):
     tenant = get_primary_tenant(request.user)
     return render(request, 'accounts/docs.html', {'tenant': tenant})
 
 
 @login_required
+@primary_tenant_required
 def docs_download_view(request):
     from django.http import HttpResponse
     from django.template.loader import render_to_string
@@ -448,6 +463,7 @@ def docs_download_view(request):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET', 'POST'])
 def sign_view(request):
     import base64
@@ -499,7 +515,9 @@ def sign_view(request):
                 else:
                     record_rate_limit_hit(request, 'portal_sign')
                     original_name = form.cleaned_data['pdf_file'].name
-                    stem = original_name.rsplit('.', 1)[0] if '.' in original_name else original_name
+                    from signPdf.validation import safe_attachment_filename
+
+                    stem = safe_attachment_filename(original_name, default='document.pdf').rsplit('.', 1)[0]
                     artifact = store_portal_sign_artifact(
                         tenant=tenant,
                         user=request.user,
@@ -527,11 +545,13 @@ def sign_view(request):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['POST'])
 def sign_preview_view(request):
     from django.http import JsonResponse
 
     from signPdf.signing_service import SigningFailure, analyze_pdf_for_signing
+    from signPdf.validation import PdfValidationError, validate_pdf_bytes
 
     tenant = get_primary_tenant(request.user)
     if tenant.status != TenantStatus.ACTIVE:
@@ -546,6 +566,11 @@ def sign_preview_view(request):
         return JsonResponse({'error': 'PDF file is too large.'}, status=400)
 
     pdf_data = pdf_file.read()
+    try:
+        validate_pdf_bytes(pdf_data)
+    except PdfValidationError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
     signature_style = (request.POST.get('signature_style') or '').strip()
     try:
         analysis = analyze_pdf_for_signing(
@@ -580,6 +605,7 @@ def _get_portal_sign_download(request):
 
 
 @login_required
+@primary_tenant_required
 def sign_done_view(request):
     payload = _get_portal_sign_download(request)
     if not payload:
@@ -590,8 +616,11 @@ def sign_done_view(request):
 
 
 @login_required
+@primary_tenant_required
 def sign_download_view(request):
     from django.http import HttpResponse
+
+    from signPdf.validation import safe_attachment_filename
 
     payload = _get_portal_sign_download(request)
     if not payload:
@@ -602,5 +631,7 @@ def sign_download_view(request):
         payload['data'],
         content_type='application/pdf',
     )
-    response['Content-Disposition'] = f'attachment; filename="{payload["filename"]}"'
+    response['Content-Disposition'] = (
+        f'attachment; filename="{safe_attachment_filename(payload["filename"])}"'
+    )
     return response

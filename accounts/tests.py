@@ -7,7 +7,7 @@ from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from .emailing import resend_verification_email, send_password_reset_email, send_verification_email
-from .models import EmailVerificationToken, PasswordResetToken, Tenant, TenantMembership, TenantStatus
+from .models import EmailVerificationToken, MembershipRole, PasswordResetToken, Tenant, TenantMembership, TenantStatus
 from .services import (
     PasswordResetTokenExpiredError,
     VerificationTokenExpiredError,
@@ -350,3 +350,63 @@ class ApiDocsDownloadTests(TestCase):
         self.assertIn('sign_token', text)
         self.assertIn('250', text)
         self.assertIn('Download API docs (PDF)', self.client.get('/dashboard/docs/').content.decode())
+
+
+class PortalSecurityTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='owner@example.com',
+            email='owner@example.com',
+            password='owner-pass',
+            is_active=True,
+        )
+        self.member = User.objects.create_user(
+            username='member@example.com',
+            email='member@example.com',
+            password='member-pass',
+            is_active=True,
+        )
+        self.tenant = Tenant.objects.create(
+            name='Sec Org',
+            slug='sec-org',
+            status=TenantStatus.ACTIVE,
+            monthly_quota=100,
+        )
+        TenantMembership.objects.create(
+            user=self.owner,
+            tenant=self.tenant,
+            role=MembershipRole.OWNER,
+            is_primary=True,
+        )
+        TenantMembership.objects.create(
+            user=self.member,
+            tenant=self.tenant,
+            role=MembershipRole.MEMBER,
+            is_primary=True,
+        )
+        self.client = Client()
+
+    def test_dashboard_redirects_without_tenant_membership(self):
+        orphan = User.objects.create_user(
+            username='orphan@example.com',
+            email='orphan@example.com',
+            password='orphan-pass',
+            is_active=True,
+        )
+        self.client.login(username='orphan@example.com', password='orphan-pass')
+        response = self.client.get('/dashboard/')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/')
+
+    def test_member_cannot_create_api_key(self):
+        self.client.login(username='member@example.com', password='member-pass')
+        response = self.client.post('/dashboard/keys/', {'name': 'blocked'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/dashboard/')
+        self.assertEqual(self.tenant.api_keys.count(), 0)
+
+    def test_owner_can_create_api_key(self):
+        self.client.login(username='owner@example.com', password='owner-pass')
+        response = self.client.post('/dashboard/keys/', {'name': 'allowed'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.tenant.api_keys.count(), 1)

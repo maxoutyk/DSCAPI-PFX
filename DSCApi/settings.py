@@ -86,6 +86,8 @@ REST_FRAMEWORK = {
         'sign_pdf': os.environ.get('THROTTLE_SIGN_PDF', '60/hour'),
         'sign_pdf_burst': os.environ.get('THROTTLE_SIGN_PDF_BURST', '10/min'),
         'agent_pair': os.environ.get('THROTTLE_AGENT_PAIR', '20/hour'),
+        'agent_heartbeat': os.environ.get('THROTTLE_AGENT_HEARTBEAT', '120/hour'),
+        'agent_job': os.environ.get('THROTTLE_AGENT_JOB', '120/hour'),
     },
 }
 if ALLOW_BASIC_AUTH:
@@ -234,6 +236,7 @@ SIGNATURE_ICON_PADDING = 2
 
 PORTAL_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('PORTAL_SIGN_MAX_UPLOAD_MB', '10')) * 1024 * 1024
 API_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('API_SIGN_MAX_UPLOAD_MB', '10')) * 1024 * 1024
+PFX_MAX_UPLOAD_BYTES = int(os.environ.get('PFX_MAX_UPLOAD_MB', '5')) * 1024 * 1024
 TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '0'))
 
 # SaaS settings

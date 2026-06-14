@@ -12,7 +12,7 @@ class SignedPdfRejected(Exception):
 
 
 def verify_usb_signed_pdf(*, original_pdf: bytes, signed_pdf: bytes, hash_before: str) -> None:
-    """Ensure the agent returned a structurally signed PDF, not an arbitrary file."""
+    """Ensure the agent returned an incremental signature of the prepared job PDF."""
     from signPdf.audit import sha256_hex
 
     validate_pdf_bytes(signed_pdf)
@@ -22,6 +22,11 @@ def verify_usb_signed_pdf(*, original_pdf: bytes, signed_pdf: bytes, hash_before
 
     if len(signed_pdf) < len(original_pdf):
         raise SignedPdfRejected('Signed PDF is smaller than the original document.')
+
+    if not signed_pdf.startswith(original_pdf):
+        raise SignedPdfRejected(
+            'Signed PDF does not contain the prepared document — submission rejected.',
+        )
 
     try:
         results = endesive_pdf.verify(signed_pdf)

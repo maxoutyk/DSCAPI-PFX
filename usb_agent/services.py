@@ -271,7 +271,16 @@ def build_job_payload(job: UsbSignJob) -> dict:
     }
 
 
-@transaction.atomic
+def _mark_usb_job_failed(job_id, message: str) -> None:
+    UsbSignJob.objects.filter(
+        pk=job_id,
+        status=UsbSignJobStatus.PREPARED,
+    ).update(
+        status=UsbSignJobStatus.FAILED,
+        error_message=message[:255],
+    )
+
+
 def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes, *, sign_token: str = '') -> UsbSignJob:
     job = get_job_for_device(device, job_id, sign_token=sign_token)
     original_pdf = _decrypt_pdf(job.encrypted_pdf)
@@ -284,9 +293,7 @@ def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes, *
             hash_before=job.hash_before,
         )
     except SignedPdfRejected as exc:
-        job.status = UsbSignJobStatus.FAILED
-        job.error_message = str(exc)[:255]
-        job.save(update_fields=['status', 'error_message'])
+        _mark_usb_job_failed(job.id, str(exc))
         raise SignJobError(str(exc)) from exc
 
     hash_after = sha256_hex(signed_pdf_data)
@@ -301,29 +308,29 @@ def complete_usb_sign_job(device: AgentDevice, job_id, signed_pdf_data: bytes, *
         api_key=job.api_key,
     )
     try:
-        signing_event = record_signing_event(job.tenant, success=True, audit=audit)
+        with transaction.atomic():
+            job = get_job_for_device(device, job_id, sign_token=sign_token)
+            signing_event = record_signing_event(job.tenant, success=True, audit=audit)
+            job.status = UsbSignJobStatus.COMPLETED
+            job.hash_after = hash_after
+            job.signing_event = signing_event
+            job.completed_at = timezone.now()
+            job.encrypted_pdf = _encrypt_pdf(signed_pdf_data)
+            job.sign_token = ''
+            job.save(
+                update_fields=[
+                    'status',
+                    'hash_after',
+                    'signing_event',
+                    'completed_at',
+                    'encrypted_pdf',
+                    'sign_token',
+                ],
+            )
     except QuotaExceededError as exc:
-        job.status = UsbSignJobStatus.FAILED
-        job.error_message = str(exc)[:255]
-        job.save(update_fields=['status', 'error_message'])
+        _mark_usb_job_failed(job.id, str(exc))
         raise SignJobError(str(exc)) from exc
 
-    job.status = UsbSignJobStatus.COMPLETED
-    job.hash_after = hash_after
-    job.signing_event = signing_event
-    job.completed_at = timezone.now()
-    job.encrypted_pdf = _encrypt_pdf(signed_pdf_data)
-    job.sign_token = ''
-    job.save(
-        update_fields=[
-            'status',
-            'hash_after',
-            'signing_event',
-            'completed_at',
-            'encrypted_pdf',
-            'sign_token',
-        ],
-    )
     return job
 
 

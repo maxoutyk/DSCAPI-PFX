@@ -102,6 +102,44 @@ class UsbAgentFlowTests(TestCase):
         self.assertEqual(log.signing_source, 'usb')
         self.assertEqual(log.user, self.user)
 
+    def test_complete_rejects_unrelated_signed_pdf(self):
+        if not self.has_pfx:
+            self.skipTest('PFX cert not available locally')
+
+        pairing = create_pairing_code(tenant=self.tenant, user=self.user)
+        _device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
+        self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        original = _pdf_with_anchor()
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), 'DIFFERENT INVOICE BODY')
+        page.insert_text((72, 120), 'Authorised Signatory')
+        other = doc.tobytes()
+        doc.close()
+
+        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=original)
+        audit = SigningAuditMeta(endpoint='signpdf-pfx', user=self.user)
+        signed_other = sign_pdf_for_tenant(
+            tenant=self.tenant,
+            pdf_data=other,
+            password=self.pfx_password,
+            cert_alias='emudratest',
+            audit=audit,
+        )
+        complete = self.api.post(
+            f'/api/agent/jobs/{job.id}/complete/',
+            {
+                'signed_pdf_base64': base64.b64encode(signed_other.signed_pdf_data).decode('ascii'),
+                'sign_token': job.sign_token,
+            },
+            format='json',
+        )
+        self.assertEqual(complete.status_code, 400)
+        job.refresh_from_db()
+        self.assertEqual(job.status, UsbSignJobStatus.FAILED)
+        self.assertIn('prepared document', job.error_message)
+
     def test_agent_job_requires_sign_token(self):
         pairing = create_pairing_code(tenant=self.tenant, user=self.user)
         _device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')

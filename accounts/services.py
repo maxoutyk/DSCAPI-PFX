@@ -193,6 +193,15 @@ def get_primary_tenant(user: User) -> Tenant | None:
     return membership.tenant if membership else None
 
 
+def user_is_tenant_owner(user: User) -> bool:
+    membership = (
+        TenantMembership.objects.filter(user=user, is_primary=True)
+        .values_list('role', flat=True)
+        .first()
+    )
+    return membership == MembershipRole.OWNER
+
+
 def create_api_key(tenant: Tenant, name: str) -> tuple[APIKey, str]:
     full_key, prefix, key_hash = generate_api_key()
     api_key = APIKey.objects.create(

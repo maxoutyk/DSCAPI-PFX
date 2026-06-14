@@ -1,7 +1,7 @@
-from accounts.safe_throttle import SafeSimpleRateThrottle
+from accounts.safe_throttle import FailClosedSimpleRateThrottle, SafeSimpleRateThrottle
 
 
-class SignPdfUserThrottle(SafeSimpleRateThrottle):
+class SignPdfUserThrottle(FailClosedSimpleRateThrottle):
     """Per API key or client IP — limits expensive PDF signing."""
 
     scope = 'sign_pdf'
@@ -13,7 +13,7 @@ class SignPdfUserThrottle(SafeSimpleRateThrottle):
         return f'throttle_sign_ip_{self.get_ident(request)}'
 
 
-class SignPdfBurstThrottle(SafeSimpleRateThrottle):
+class SignPdfBurstThrottle(FailClosedSimpleRateThrottle):
     scope = 'sign_pdf_burst'
 
     def get_cache_key(self, request, view):

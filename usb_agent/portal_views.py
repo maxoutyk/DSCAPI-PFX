@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
+from accounts.decorators import primary_tenant_required, tenant_owner_required
 from accounts.models import TenantStatus
 from accounts.services import get_primary_tenant
 
@@ -23,6 +24,7 @@ from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, r
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def agent_view(request):
     tenant = get_primary_tenant(request.user)
@@ -42,6 +44,7 @@ def agent_view(request):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def agent_download_view(request):
     tenant = get_primary_tenant(request.user)
@@ -67,6 +70,8 @@ def agent_download_view(request):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['POST'])
 def agent_pair_code_view(request):
     tenant = get_primary_tenant(request.user)
@@ -90,6 +95,8 @@ def agent_pair_code_view(request):
 
 
 @login_required
+@primary_tenant_required
+@tenant_owner_required
 @require_http_methods(['POST'])
 def agent_revoke_view(request, device_id):
     tenant = get_primary_tenant(request.user)
@@ -100,6 +107,7 @@ def agent_revoke_view(request, device_id):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET', 'POST'])
 def sign_usb_view(request):
     from .forms import UsbSignForm
@@ -147,6 +155,7 @@ def sign_usb_view(request):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def sign_usb_pending_view(request, job_id):
     job = get_object_or_404(UsbSignJob, pk=job_id, user=request.user)
@@ -167,6 +176,7 @@ def sign_usb_pending_view(request, job_id):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def sign_usb_status_view(request, job_id):
     job = get_object_or_404(UsbSignJob, pk=job_id, user=request.user)
@@ -181,6 +191,7 @@ def sign_usb_status_view(request, job_id):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def sign_usb_done_view(request, job_id):
     job = get_object_or_404(
@@ -205,8 +216,11 @@ def sign_usb_done_view(request, job_id):
 
 
 @login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def sign_usb_download_view(request):
+    from signPdf.validation import safe_attachment_filename
+
     job_id = request.session.get('usb_sign_download', {}).get('job_id')
     if not job_id:
         messages.error(request, 'Download expired. Please sign again.')
@@ -225,7 +239,10 @@ def sign_usb_download_view(request):
         messages.error(request, 'Signed file is no longer available.')
         return redirect('usb_sign')
 
-    stem = request.session.get('usb_sign_filename', 'document.pdf').rsplit('.', 1)[0]
+    stem = safe_attachment_filename(
+        request.session.get('usb_sign_filename', 'document.pdf'),
+        default='document.pdf',
+    ).rsplit('.', 1)[0]
     response = HttpResponse(pdf_data, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{stem}-signed.pdf"'
     return response

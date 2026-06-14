@@ -12,7 +12,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from signPdf.visual_stamp import VisualStampError, stamp_pdf_with_signatures
-from signPdf.validation import PdfValidationError, validate_pdf_bytes
+from signPdf.validation import PdfValidationError, safe_attachment_filename, validate_pdf_bytes
 
 from .forms import PublicSignForm
 from .ratelimit import RATE_LIMIT_MESSAGE, is_rate_limited, record_rate_limit_hit
@@ -53,7 +53,7 @@ def public_sign_view(request):
                 else:
                     record_rate_limit_hit(request, 'public_sign')
                     original_name = form.cleaned_data['pdf_file'].name
-                    stem = original_name.rsplit('.', 1)[0] if '.' in original_name else original_name
+                    stem = safe_attachment_filename(original_name, default='document.pdf').rsplit('.', 1)[0]
                     signer_label = form.cleaned_data.get('signer_name', '').strip()
                     artifact = store_public_sign_artifact(
                         session_key=_session_key(request),
@@ -146,5 +146,7 @@ def public_sign_download_view(request):
         return redirect('public_sign')
 
     response = HttpResponse(payload['data'], content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{payload["filename"]}"'
+    response['Content-Disposition'] = (
+        f'attachment; filename="{safe_attachment_filename(payload["filename"])}"'
+    )
     return response

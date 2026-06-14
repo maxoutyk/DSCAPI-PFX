@@ -77,6 +77,16 @@ class CertificateUploadForm(forms.Form):
         help_text='Used to validate the PFX now. Not stored — provide it on each sign request.',
     )
 
+    def clean_pfx_file(self):
+        uploaded = self.cleaned_data.get('pfx_file')
+        if not uploaded:
+            return uploaded
+        max_bytes = getattr(settings, 'PFX_MAX_UPLOAD_BYTES', 5 * 1024 * 1024)
+        if uploaded.size > max_bytes:
+            max_mb = max_bytes // (1024 * 1024)
+            raise forms.ValidationError(f'PFX file must be {max_mb} MB or smaller.')
+        return uploaded
+
     def clean(self):
         cleaned = super().clean()
         pfx_file = cleaned.get('pfx_file')
@@ -186,6 +196,8 @@ class PortalSignForm(forms.Form):
         return (self.cleaned_data.get('signature_style') or '').strip()
 
     def clean_pdf_file(self):
+        from signPdf.validation import PdfValidationError, validate_pdf_bytes
+
         uploaded = self.cleaned_data.get('pdf_file')
         if not uploaded:
             return uploaded
@@ -194,6 +206,13 @@ class PortalSignForm(forms.Form):
             raise forms.ValidationError(f'PDF must be {max_mb} MB or smaller.')
         if not uploaded.name.lower().endswith('.pdf'):
             raise forms.ValidationError('Upload a PDF file.')
+        uploaded.seek(0)
+        try:
+            validate_pdf_bytes(uploaded.read())
+        except PdfValidationError as exc:
+            raise forms.ValidationError(str(exc)) from exc
+        finally:
+            uploaded.seek(0)
         return uploaded
 
     def clean(self):

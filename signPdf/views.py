@@ -18,7 +18,7 @@ from .signing_service import (
     sign_pdf_for_tenant,
 )
 from .throttling import SignPdfBurstThrottle, SignPdfUserThrottle
-from .validation import PdfValidationError, decode_pdf_base64
+from .validation import PdfValidationError, PfxValidationError, decode_pdf_base64, decode_pfx_base64
 
 
 class PDFPfxSignSerializer(serializers.Serializer):
@@ -113,13 +113,13 @@ class PDFPfxSignAPIView(APIView):
         pfx_data = None
         if not cert_alias and not pfx_path and pfx_b64:
             try:
-                pfx_data = base64.b64decode(pfx_b64)
-            except Exception as exc:
+                pfx_data = decode_pfx_base64(pfx_b64)
+            except PfxValidationError as exc:
                 if saas_mode and audit:
                     audit.populate_from_pdf(pdf_data)
                     record_signing_failure(tenant, audit)
                 return Response(
-                    {'error': f'Failed to decode base64 PFX data: {exc}'},
+                    {'error': str(exc)},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -176,7 +176,7 @@ class PDFPfxSignAPIView(APIView):
             if pfx_path:
                 pfx_data = read_pfx_file(pfx_path)
             else:
-                pfx_data = base64.b64decode(pfx_b64)
+                pfx_data = decode_pfx_base64(pfx_b64)
             private_key, certificate, additional_certs = load_pfx_credentials(pfx_data, password)
         except (ValueError, Exception) as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)

@@ -454,10 +454,14 @@ class AgentHandler(BaseHTTPRequestHandler):
         sign_token = (body.get('sign_token') or '').strip()
         config = load_config()
         token = config.get('device_token', '')
-        api_base = (body.get('api_base') or config.get('api_base') or '').rstrip('/')
+        api_base = (config.get('api_base') or '').rstrip('/')
+        request_origin = self.headers.get('Origin')
+        if not request_origin:
+            self._json(403, {'error': 'Origin header is required for local signing.'}, None)
+            return
         allowed = self._resolve_cors_origin(api_base)
-        if self.headers.get('Origin') and not allowed:
-            self.send_error(403)
+        if not allowed:
+            self._json(403, {'error': 'Origin is not allowed for this agent.'}, None)
             return
         if not job_id or not token or not api_base or not sign_token:
             self._json(400, {'error': 'Agent is not paired or job_id/sign_token missing.'}, allowed)

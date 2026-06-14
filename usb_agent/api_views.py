@@ -5,6 +5,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from signPdf.validation import PdfValidationError, decode_signed_pdf_base64
+
 from .authentication import AgentDeviceAuthentication
 from .services import (
     PairingCodeInvalidError,
@@ -15,7 +17,7 @@ from .services import (
     pair_device,
     record_heartbeat,
 )
-from .throttling import AgentPairThrottle
+from .throttling import AgentHeartbeatThrottle, AgentJobThrottle, AgentPairThrottle
 
 
 class AgentPairView(APIView):
@@ -49,6 +51,7 @@ class AgentPairView(APIView):
 
 class AgentHeartbeatView(APIView):
     authentication_classes = [AgentDeviceAuthentication]
+    throttle_classes = [AgentHeartbeatThrottle]
 
     def post(self, request):
         device = request.auth
@@ -68,6 +71,7 @@ class AgentHeartbeatView(APIView):
 
 class AgentSignJobDetailView(APIView):
     authentication_classes = [AgentDeviceAuthentication]
+    throttle_classes = [AgentJobThrottle]
 
     def get(self, request, job_id):
         device = request.auth
@@ -81,6 +85,7 @@ class AgentSignJobDetailView(APIView):
 
 class AgentSignJobCompleteView(APIView):
     authentication_classes = [AgentDeviceAuthentication]
+    throttle_classes = [AgentJobThrottle]
 
     def post(self, request, job_id):
         device = request.auth
@@ -89,9 +94,9 @@ class AgentSignJobCompleteView(APIView):
         if not signed_b64:
             return Response({'error': 'signed_pdf_base64 is required.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            signed_pdf_data = base64.b64decode(signed_b64)
-        except Exception as exc:
-            return Response({'error': f'Invalid signed PDF data: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+            signed_pdf_data = decode_signed_pdf_base64(signed_b64)
+        except PdfValidationError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         try:
             job = complete_usb_sign_job(device, job_id, signed_pdf_data, sign_token=sign_token)
         except SignJobError as exc:
