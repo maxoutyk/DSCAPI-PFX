@@ -7,7 +7,9 @@ from django.conf import settings
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 
-from .models import Tenant, TenantSignatureStyle, TenantStatus
+import re
+
+from .models import CompanyProfile, IndianState, Tenant, TenantSignatureStyle, TenantStatus
 from .services import get_primary_tenant, register_tenant, store_certificate
 
 
@@ -349,3 +351,106 @@ class PublicSignForm(forms.Form):
                 raise forms.ValidationError(str(exc)) from exc
             return png_bytes
         return None
+
+
+from gst.validation import GSTIN_RE, normalize_gstin
+
+_PAN_RE = re.compile(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
+_PINCODE_RE = re.compile(r'^[1-9][0-9]{5}$')
+_MOBILE_RE = re.compile(r'^[6-9][0-9]{9}$')
+
+
+class CompanyProfileForm(forms.ModelForm):
+    class Meta:
+        model = CompanyProfile
+        fields = [
+            'company_name',
+            'gstin',
+            'pan',
+            'address',
+            'city',
+            'state',
+            'pincode',
+            'primary_email',
+            'primary_name',
+            'primary_mobile',
+            'secondary_email',
+            'secondary_name',
+            'secondary_mobile',
+        ]
+        widgets = {
+            'company_name': forms.TextInput(attrs={'placeholder': 'Legal company name'}),
+            'gstin': forms.TextInput(attrs={'placeholder': '15-character GSTIN', 'class': 'mono'}),
+            'pan': forms.TextInput(attrs={'placeholder': '10-character PAN', 'class': 'mono'}),
+            'address': forms.TextInput(attrs={'placeholder': 'Registered address'}),
+            'city': forms.TextInput(attrs={'placeholder': 'City'}),
+            'state': forms.Select(),
+            'pincode': forms.TextInput(attrs={'placeholder': '6-digit pincode', 'class': 'mono'}),
+            'primary_email': forms.EmailInput(attrs={'placeholder': 'name@company.com'}),
+            'primary_name': forms.TextInput(attrs={'placeholder': 'Full name'}),
+            'primary_mobile': forms.TextInput(attrs={'placeholder': '10-digit mobile'}),
+            'secondary_email': forms.EmailInput(attrs={'placeholder': 'Optional'}),
+            'secondary_name': forms.TextInput(attrs={'placeholder': 'Optional'}),
+            'secondary_mobile': forms.TextInput(attrs={'placeholder': 'Optional'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in (
+            'company_name',
+            'gstin',
+            'pan',
+            'address',
+            'city',
+            'state',
+            'pincode',
+            'primary_email',
+            'primary_name',
+            'primary_mobile',
+        ):
+            self.fields[name].required = True
+        self.fields['state'].choices = [('', 'Select')] + list(IndianState.choices)
+
+    def clean_gstin(self):
+        gstin = normalize_gstin(self.cleaned_data.get('gstin') or '')
+        if not GSTIN_RE.match(gstin):
+            raise forms.ValidationError('Enter a valid 15-character GSTIN.')
+        return gstin
+
+    def clean_pan(self):
+        pan = (self.cleaned_data.get('pan') or '').strip().upper()
+        if not _PAN_RE.match(pan):
+            raise forms.ValidationError('Enter a valid PAN (e.g. ABCDE1234F).')
+        return pan
+
+    def clean_pincode(self):
+        pincode = (self.cleaned_data.get('pincode') or '').strip()
+        if not _PINCODE_RE.match(pincode):
+            raise forms.ValidationError('Enter a valid 6-digit pincode.')
+        return pincode
+
+    def clean_primary_mobile(self):
+        mobile = (self.cleaned_data.get('primary_mobile') or '').strip()
+        if not _MOBILE_RE.match(mobile):
+            raise forms.ValidationError('Enter a valid 10-digit Indian mobile number.')
+        return mobile
+
+    def clean_secondary_mobile(self):
+        mobile = (self.cleaned_data.get('secondary_mobile') or '').strip()
+        if not mobile:
+            return ''
+        if not _MOBILE_RE.match(mobile):
+            raise forms.ValidationError('Enter a valid 10-digit Indian mobile number.')
+        return mobile
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        if profile.is_complete:
+            from django.utils import timezone
+
+            profile.completed_at = timezone.now()
+        else:
+            profile.completed_at = None
+        if commit:
+            profile.save()
+        return profile

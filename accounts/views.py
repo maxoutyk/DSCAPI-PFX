@@ -10,6 +10,7 @@ from .emailing import EmailDeliveryError, resend_verification_email
 from .forms import (
     APIKeyForm,
     CertificateUploadForm,
+    CompanyProfileForm,
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
@@ -24,6 +25,7 @@ from .services import (
     PasswordResetTokenExpiredError,
     VerificationTokenExpiredError,
     create_api_key,
+    get_company_profile,
     get_portal_sign_artifact,
     get_primary_tenant,
     request_password_reset,
@@ -38,6 +40,19 @@ def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
     return render(request, 'accounts/landing.html')
+
+
+@require_http_methods(['GET'])
+def public_api_docs_view(request):
+    from .api_docs_catalog import build_api_docs_catalog
+
+    base_url = request.build_absolute_uri('/').rstrip('/')
+    catalog = build_api_docs_catalog(base_url)
+    return render(
+        request,
+        'accounts/public_api_docs.html',
+        {'catalog': catalog},
+    )
 
 
 @require_http_methods(['GET', 'POST'])
@@ -328,6 +343,34 @@ def certs_view(request):
 
 @login_required
 @primary_tenant_required
+@tenant_owner_required
+@require_http_methods(['GET', 'POST'])
+def company_profile_view(request):
+    tenant = get_primary_tenant(request.user)
+    profile = get_company_profile(tenant)
+
+    if request.method == 'POST':
+        form = CompanyProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Company profile saved.')
+            return redirect('company_profile')
+    else:
+        form = CompanyProfileForm(instance=profile)
+
+    return render(
+        request,
+        'accounts/company_profile.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'profile': profile,
+        },
+    )
+
+
+@login_required
+@primary_tenant_required
 @require_http_methods(['GET'])
 def signature_style_view(request):
     from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
@@ -438,8 +481,7 @@ def signature_style_default_view(request, style_id):
 @login_required
 @primary_tenant_required
 def docs_view(request):
-    tenant = get_primary_tenant(request.user)
-    return render(request, 'accounts/docs.html', {'tenant': tenant})
+    return redirect('public_api_docs')
 
 
 @login_required

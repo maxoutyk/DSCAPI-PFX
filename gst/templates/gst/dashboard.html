@@ -1,0 +1,139 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+{% block title %}GST Services — IG E-Sign{% endblock %}
+{% block page_title %}GST Services{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'gst/css/gst-console.css' %}">
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>GST Services</h1>
+  <p class="subtitle">Look up GSTIN details, filing preferences, and return status for any GSTIN within your monthly allowance.</p>
+</div>
+
+{% if not profile.is_complete %}
+<div class="status-banner" style="margin-bottom:24px;border-color:var(--ig-orange);">
+  <span class="badge badge-warning">Profile required</span>
+  <span style="margin-left:8px;color:var(--text-secondary);">
+    <a href="{% url 'company_profile' %}">Complete your company profile</a> to start using GST lookups.
+  </span>
+</div>
+{% endif %}
+
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="card card-flat">
+    <p style="margin:0;color:var(--text-secondary);font-size:0.8rem;">Lookups remaining</p>
+    <p style="margin:4px 0 0;font-size:1.5rem;font-weight:700;" id="gst-quota-remaining">{{ tenant.gst_quota_remaining }}</p>
+  </div>
+  <div class="card card-flat">
+    <p style="margin:0;color:var(--text-secondary);font-size:0.8rem;">Your GSTIN</p>
+    <p style="margin:4px 0 0;font-family:var(--font-mono);font-size:1rem;">{% if profile.gstin %}{{ profile.gstin }}{% else %}—{% endif %}</p>
+  </div>
+  <div class="card card-flat">
+    <p style="margin:0;color:var(--text-secondary);font-size:0.8rem;">GST network</p>
+    <p style="margin:4px 0 0;">{% if partner_ready %}<span class="badge badge-success">Connected</span>{% else %}<span class="badge badge-warning">Unavailable</span>{% endif %}</p>
+  </div>
+</div>
+
+{% if not partner_ready %}
+<div class="message error" role="alert" style="margin-bottom:24px;">{{ partner_error }}</div>
+{% endif %}
+
+<div
+  class="gst-console card"
+  id="gst-console"
+  data-try-url="{{ gst_try_url }}"
+  data-profile-complete="{% if profile.is_complete %}true{% else %}false{% endif %}"
+  data-partner-ready="{% if partner_ready %}true{% else %}false{% endif %}"
+>
+  {% csrf_token %}
+  {% if endpoints %}
+  <div class="gst-console-body">
+    <div class="tabs gst-console-tabs" role="tablist" aria-label="GST lookups">
+      {% for ep in endpoints %}
+      <button
+        type="button"
+        class="tab-btn gst-console-tab{% if forloop.first %} is-active{% endif %}"
+        role="tab"
+        id="gst-tab-{{ ep.id }}"
+        aria-controls="gst-panel-{{ ep.id }}"
+        aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+        data-tab="{{ ep.id }}"
+      >{{ ep.ui.tab|default:ep.title }}</button>
+      {% endfor %}
+    </div>
+
+    {% for ep in endpoints %}
+    <div
+      class="tab-panel gst-console-panel{% if forloop.first %} is-active{% endif %}"
+      role="tabpanel"
+      id="gst-panel-{{ ep.id }}"
+      aria-labelledby="gst-tab-{{ ep.id }}"
+      data-panel="{{ ep.id }}"
+    >
+      <div class="gst-console-intro">
+        <h2 class="gst-console-heading">{{ ep.ui.heading|default:ep.title }}</h2>
+        <p class="gst-console-lead">{{ ep.ui.lead }}</p>
+      </div>
+
+      <form class="gst-console-form" data-endpoint="{{ ep.id }}">
+        <div class="gst-console-fields">
+          {% if not ep.parameters %}
+          <p class="gst-console-note">We'll use the GSTIN on your company profile. Enter a GSTIN below to look up a different taxpayer.</p>
+          {% endif %}
+          {% for param in ep.parameters %}
+          <div class="form-group gst-console-field">
+            <label for="gst-{{ ep.id }}-{{ param.name }}">
+              {{ param.label }}{% if param.required %} <span class="required-mark">*</span>{% endif %}
+            </label>
+            {% if param.name == 'type' %}
+            <select id="gst-{{ ep.id }}-{{ param.name }}" name="{{ param.name }}" class="input"{% if param.required %} required{% endif %}>
+              {% for opt in param.options %}
+              <option value="{{ opt.value }}"{% if defaults.type == opt.value %} selected{% endif %}>{{ opt.label }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <input
+              type="text"
+              class="input"
+              id="gst-{{ ep.id }}-{{ param.name }}"
+              name="{{ param.name }}"
+              value="{% if param.name == 'gstin' %}{{ defaults.gstin }}{% elif param.name == 'fy' %}{{ defaults.fy }}{% endif %}"
+              placeholder="{{ param.placeholder }}"
+              {% if param.required %}required{% endif %}
+              autocomplete="off"
+              spellcheck="false"
+            >
+            {% endif %}
+            {% if param.hint %}
+            <p class="form-help">{{ param.hint }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="gst-console-actions">
+          <button type="submit" class="btn">{{ ep.ui.action|default:"Continue" }}</button>
+          <span class="gst-console-status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <div class="gst-console-results" hidden>
+        <div class="gst-console-results-header">
+          <h3>Lookup result</h3>
+        </div>
+        <div class="gst-console-results-summary" aria-live="polite"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="gst-console-footer">
+    Building an integration? See the <a href="{% url 'public_api_docs' %}#gst-gstin-search">developer API documentation</a>.
+  </p>
+  {% else %}
+  <p class="gst-console-empty">GST lookups are not available right now.</p>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'gst/js/gst-console.js' %}" defer></script>
+{% endblock %}

@@ -349,7 +349,14 @@ class ApiDocsDownloadTests(TestCase):
         self.assertIn('POST /api/sign/usb/', text)
         self.assertIn('sign_token', text)
         self.assertIn('250', text)
-        self.assertIn('Download API docs (PDF)', self.client.get('/dashboard/docs/').content.decode())
+
+    def test_dashboard_docs_redirects_to_public_catalog(self):
+        self.client.login(username='docs@example.com', password='docs-pass')
+        response = self.client.get('/dashboard/docs/', follow=True)
+        self.assertEqual(response.status_code, 200)
+        text = response.content.decode()
+        self.assertIn('Sign a PDF', text)
+        self.assertIn('Get GSTIN details', text)
 
 
 class PortalSecurityTests(TestCase):

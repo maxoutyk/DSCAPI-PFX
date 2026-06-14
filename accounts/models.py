@@ -27,6 +27,45 @@ def _next_month_start(now=None):
     return timezone.make_aware(datetime(year, month, 1))
 
 
+class IndianState(models.TextChoices):
+    ANDAMAN_NICOBAR = '35', 'Andaman and Nicobar Islands'
+    ANDHRA_PRADESH = '37', 'Andhra Pradesh'
+    ARUNACHAL_PRADESH = '12', 'Arunachal Pradesh'
+    ASSAM = '18', 'Assam'
+    BIHAR = '10', 'Bihar'
+    CHANDIGARH = '04', 'Chandigarh'
+    CHHATTISGARH = '22', 'Chhattisgarh'
+    DADRA_NAGAR_HAVELI = '26', 'Dadra and Nagar Haveli and Daman and Diu'
+    DELHI = '07', 'Delhi'
+    GOA = '30', 'Goa'
+    GUJARAT = '24', 'Gujarat'
+    HARYANA = '06', 'Haryana'
+    HIMACHAL_PRADESH = '02', 'Himachal Pradesh'
+    JAMMU_KASHMIR = '01', 'Jammu and Kashmir'
+    JHARKHAND = '20', 'Jharkhand'
+    KARNATAKA = '29', 'Karnataka'
+    KERALA = '32', 'Kerala'
+    LADAKH = '38', 'Ladakh'
+    LAKSHADWEEP = '31', 'Lakshadweep'
+    MADHYA_PRADESH = '23', 'Madhya Pradesh'
+    MAHARASHTRA = '27', 'Maharashtra'
+    MANIPUR = '14', 'Manipur'
+    MEGHALAYA = '17', 'Meghalaya'
+    MIZORAM = '15', 'Mizoram'
+    NAGALAND = '13', 'Nagaland'
+    ODISHA = '21', 'Odisha'
+    PUDUCHERRY = '34', 'Puducherry'
+    PUNJAB = '03', 'Punjab'
+    RAJASTHAN = '08', 'Rajasthan'
+    SIKKIM = '11', 'Sikkim'
+    TAMIL_NADU = '33', 'Tamil Nadu'
+    TELANGANA = '36', 'Telangana'
+    TRIPURA = '16', 'Tripura'
+    UTTAR_PRADESH = '09', 'Uttar Pradesh'
+    UTTARAKHAND = '05', 'Uttarakhand'
+    WEST_BENGAL = '19', 'West Bengal'
+
+
 class Tenant(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=80, unique=True)
@@ -37,6 +76,8 @@ class Tenant(models.Model):
     )
     monthly_quota = models.PositiveIntegerField(default=100)
     usage_this_month = models.PositiveIntegerField(default=0)
+    gst_monthly_quota = models.PositiveIntegerField(default=50)
+    gst_usage_this_month = models.PositiveIntegerField(default=0)
     quota_reset_at = models.DateTimeField()
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
@@ -64,8 +105,16 @@ class Tenant(models.Model):
         now = timezone.now()
         if now >= self.quota_reset_at:
             self.usage_this_month = 0
+            self.gst_usage_this_month = 0
             self.quota_reset_at = _next_month_start(now)
-            self.save(update_fields=['usage_this_month', 'quota_reset_at', 'updated_at'])
+            self.save(
+                update_fields=[
+                    'usage_this_month',
+                    'gst_usage_this_month',
+                    'quota_reset_at',
+                    'updated_at',
+                ]
+            )
 
     @property
     def can_sign(self):
@@ -75,6 +124,53 @@ class Tenant(models.Model):
     def quota_remaining(self):
         self.reset_quota_if_needed()
         return max(0, self.monthly_quota - self.usage_this_month)
+
+    @property
+    def gst_quota_remaining(self):
+        self.reset_quota_if_needed()
+        return max(0, self.gst_monthly_quota - self.gst_usage_this_month)
+
+
+class CompanyProfile(models.Model):
+    tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name='company_profile')
+    company_name = models.CharField(max_length=200, blank=True)
+    gstin = models.CharField(max_length=15, blank=True, db_index=True)
+    pan = models.CharField(max_length=10, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=2, choices=IndianState.choices, blank=True)
+    pincode = models.CharField(max_length=6, blank=True)
+    primary_email = models.EmailField(blank=True)
+    primary_name = models.CharField(max_length=120, blank=True)
+    primary_mobile = models.CharField(max_length=15, blank=True)
+    secondary_email = models.EmailField(blank=True)
+    secondary_name = models.CharField(max_length=120, blank=True)
+    secondary_mobile = models.CharField(max_length=15, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Company profile'
+
+    def __str__(self):
+        return f'{self.company_name or self.tenant.name} ({self.tenant.slug})'
+
+    @property
+    def is_complete(self) -> bool:
+        required = [
+            self.company_name,
+            self.gstin,
+            self.pan,
+            self.address,
+            self.city,
+            self.state,
+            self.pincode,
+            self.primary_email,
+            self.primary_name,
+            self.primary_mobile,
+        ]
+        return all(str(value).strip() for value in required)
 
 
 class TenantMembership(models.Model):

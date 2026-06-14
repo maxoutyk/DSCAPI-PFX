@@ -4,6 +4,7 @@ from . import public_sign_views, views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('api-docs/', views.public_api_docs_view, name='public_api_docs'),
     path('sign/free/', public_sign_views.public_sign_view, name='public_sign'),
     path('sign/free/preview/', public_sign_views.public_sign_preview_view, name='public_sign_preview'),
     path('sign/free/done/', public_sign_views.public_sign_done_view, name='public_sign_done'),
@@ -18,6 +19,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('dashboard/keys/', views.keys_view, name='keys'),
     path('dashboard/certs/', views.certs_view, name='certs'),
+    path('dashboard/profile/', views.company_profile_view, name='company_profile'),
     path('dashboard/docs/', views.docs_view, name='docs'),
     path('dashboard/docs/download/', views.docs_download_view, name='docs_download'),
     path('dashboard/signature/', views.signature_style_view, name='signature_style'),

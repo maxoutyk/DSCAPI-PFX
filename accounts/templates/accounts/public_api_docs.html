@@ -1,0 +1,82 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Documentation — IG E-Sign</title>
+  <link rel="stylesheet" href="{% static 'accounts/css/design-tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'accounts/css/components.css' %}">
+  <link rel="stylesheet" href="{% static 'accounts/css/api-docs.css' %}">
+</head>
+<body class="api-docs-page" id="api-docs-app" data-api-docs-root data-catalog-id="api-docs-catalog" data-page-title="API Docs">
+  <header class="api-docs-header">
+    <div class="api-docs-header-left">
+      <button type="button" class="api-docs-menu-btn" id="api-docs-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="api-docs-sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <a href="{% url 'home' %}" class="api-docs-header-brand">
+        <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="Incite Gravity" class="brand-logo brand-logo-sm brand-logo--dark" width="28" height="28">
+        <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="Incite Gravity" class="brand-logo brand-logo-sm brand-logo--light" width="28" height="28">
+        <span>IG E-Sign API</span>
+      </a>
+    </div>
+    <div class="api-docs-header-actions">
+      <button type="button" class="btn btn-ghost btn-sm api-docs-export-all-label" id="api-docs-export-all-postman">Export Postman</button>
+      <button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
+      <a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
+      <a href="{% url 'register' %}" class="btn btn-sm">Get API key</a>
+    </div>
+  </header>
+
+  <div class="api-docs-backdrop" id="api-docs-backdrop" hidden></div>
+
+  <div class="api-docs-layout" id="api-docs-layout">
+    <aside class="api-docs-sidebar" id="api-docs-sidebar" aria-label="API navigation">
+      <div class="api-docs-search">
+        <input type="search" id="api-docs-search" placeholder="Jump to…" aria-label="Search API docs">
+      </div>
+      <nav id="api-docs-nav"></nav>
+    </aside>
+
+    <div class="api-docs-center" id="api-docs-center">
+      <main class="api-docs-main" id="api-docs-main" aria-live="polite"></main>
+
+      <aside class="api-docs-code-panel" id="api-docs-code-panel" aria-label="Code samples">
+        <div class="api-docs-code-block">
+          <div class="api-docs-code-block-header">
+            <span class="api-docs-code-block-title" id="api-docs-code-request-title">Sample request</span>
+            <div class="api-docs-code-actions">
+              <button type="button" class="api-docs-code-copy" id="api-docs-export-postman" title="Download Postman collection for this request">Postman</button>
+              <button type="button" class="api-docs-code-copy" id="api-docs-copy-request">Copy</button>
+            </div>
+          </div>
+          <div class="api-docs-lang-tabs" id="api-docs-lang-tabs" role="tablist" aria-label="Code language"></div>
+          <pre class="api-docs-code-pre api-docs-code-pre--request api-docs-code-pre--lang-curl" id="api-docs-code-request"><code></code></pre>
+        </div>
+
+        <div class="api-docs-code-block">
+          <div class="api-docs-code-block-header">
+            <span class="api-docs-code-block-title">Sample response</span>
+            <button type="button" class="api-docs-code-copy" id="api-docs-copy-response">Copy</button>
+          </div>
+          <div class="api-docs-response-tabs">
+            <button type="button" class="api-docs-response-tab is-active" data-response-tab="success">Success</button>
+            <button type="button" class="api-docs-response-tab" data-response-tab="error">Failure</button>
+          </div>
+          <pre class="api-docs-code-pre api-docs-code-pre--success" id="api-docs-code-response"><code></code></pre>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  {{ catalog|json_script:"api-docs-catalog" }}
+  <script src="{% static 'accounts/js/shell.js' %}" defer></script>
+  <script src="{% static 'accounts/js/api-docs-highlight.js' %}" defer></script>
+  <script src="{% static 'accounts/js/api-docs-lang-icons.js' %}" defer></script>
+  <script src="{% static 'accounts/js/api-docs-snippets.js' %}" defer></script>
+  <script src="{% static 'accounts/js/api-docs.js' %}" defer></script>
+</body>
+</html>

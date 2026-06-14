@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'accounts',
     'signPdf',
     'usb_agent',
+    'gst',
 ]
 
 _allow_basic = os.environ.get('ALLOW_BASIC_AUTH', 'false').strip().lower()
@@ -88,6 +89,8 @@ REST_FRAMEWORK = {
         'agent_pair': os.environ.get('THROTTLE_AGENT_PAIR', '20/hour'),
         'agent_heartbeat': os.environ.get('THROTTLE_AGENT_HEARTBEAT', '120/hour'),
         'agent_job': os.environ.get('THROTTLE_AGENT_JOB', '120/hour'),
+        'gst_lookup': os.environ.get('THROTTLE_GST_LOOKUP', '120/hour'),
+        'gst_lookup_burst': os.environ.get('THROTTLE_GST_LOOKUP_BURST', '20/min'),
     },
 }
 if ALLOW_BASIC_AUTH:
@@ -290,6 +293,16 @@ else:
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# GST / MyGSTCafe partner (platform-held credentials — never exposed to tenants)
+GST_MYGSTCAFE_CUSTOMER_ID = os.environ.get('GST_MYGSTCAFE_CUSTOMER_ID', '').strip()
+GST_MYGSTCAFE_API_ID = os.environ.get('GST_MYGSTCAFE_API_ID', '').strip()
+GST_MYGSTCAFE_API_SECRET = os.environ.get('GST_MYGSTCAFE_API_SECRET', '').strip()
+GST_MYGSTCAFE_ENVIRONMENT = os.environ.get('GST_MYGSTCAFE_ENVIRONMENT', 'Sandbox').strip() or 'Sandbox'
+GST_MYGSTCAFE_TIMEOUT_SECONDS = int(os.environ.get('GST_MYGSTCAFE_TIMEOUT_SECONDS', '30'))
+# Server-only partner base URL — must never appear in templates, JS, or tenant-facing docs.
+GST_PARTNER_BASE_URL = os.environ.get('GST_PARTNER_BASE_URL', 'https://gstapi.mygstcafe.com').strip().rstrip('/')
+DEFAULT_GST_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_GST_MONTHLY_QUOTA', '50'))
 
 if not DEBUG and not getattr(sys, 'frozen', False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

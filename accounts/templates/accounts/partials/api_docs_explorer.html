@@ -1,0 +1,61 @@
+{% load static %}
+<div
+  class="api-docs-embed{% if embed %} is-embedded{% endif %}"
+  id="{{ explorer_id|default:'api-docs-explorer' }}"
+  data-api-docs-root
+  data-embed="{% if embed %}true{% else %}false{% endif %}"
+  data-catalog-id="{{ catalog_id|default:'api-docs-catalog' }}"
+  data-page-title="{{ page_title|default:'API Docs' }}"
+  data-default-item="{{ default_item|default:'' }}"
+  {% if try_url %}data-try-url="{{ try_url }}"{% endif %}
+>
+  <button type="button" class="api-docs-menu-btn api-docs-embed-menu-btn" id="api-docs-menu-btn" aria-label="Open endpoint navigation" aria-expanded="false" aria-controls="api-docs-sidebar">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+    <span>Endpoints</span>
+  </button>
+
+  <div class="api-docs-backdrop" id="api-docs-backdrop" hidden></div>
+
+  <div class="api-docs-layout" id="api-docs-layout">
+    <aside class="api-docs-sidebar" id="api-docs-sidebar" aria-label="API navigation">
+      <div class="api-docs-search">
+        <input type="search" id="api-docs-search" placeholder="Jump to…" aria-label="Search endpoints">
+      </div>
+      <nav id="api-docs-nav"></nav>
+    </aside>
+
+    <div class="api-docs-center" id="api-docs-center">
+      <main class="api-docs-main" id="api-docs-main" aria-live="polite"></main>
+
+      <aside class="api-docs-code-panel" id="api-docs-code-panel" aria-label="Code samples">
+        <div class="api-docs-code-block">
+          <div class="api-docs-code-block-header">
+            <span class="api-docs-code-block-title" id="api-docs-code-request-title">Sample request</span>
+            <div class="api-docs-code-actions">
+              <button type="button" class="api-docs-code-copy" id="api-docs-export-postman" title="Download Postman collection for this request">Postman</button>
+              <button type="button" class="api-docs-code-copy" id="api-docs-copy-request">Copy</button>
+            </div>
+          </div>
+          <div class="api-docs-lang-tabs" id="api-docs-lang-tabs" role="tablist" aria-label="Code language"></div>
+          <pre class="api-docs-code-pre api-docs-code-pre--request api-docs-code-pre--lang-curl" id="api-docs-code-request"><code></code></pre>
+        </div>
+
+        <div class="api-docs-code-block">
+          <div class="api-docs-code-block-header">
+            <span class="api-docs-code-block-title">Sample response</span>
+            <button type="button" class="api-docs-code-copy" id="api-docs-copy-response">Copy</button>
+          </div>
+          <div class="api-docs-response-tabs">
+            <button type="button" class="api-docs-response-tab is-active" data-response-tab="success">Success</button>
+            <button type="button" class="api-docs-response-tab" data-response-tab="error">Failure</button>
+          </div>
+          <pre class="api-docs-code-pre api-docs-code-pre--success" id="api-docs-code-response"><code></code></pre>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+{{ catalog|json_script:catalog_id|default:"api-docs-catalog" }}

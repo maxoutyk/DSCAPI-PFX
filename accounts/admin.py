@@ -3,6 +3,7 @@ from django.utils import timezone
 
 from .models import (
     APIKey,
+    CompanyProfile,
     EmailVerificationToken,
     PasswordResetToken,
     StoredCertificate,
@@ -16,7 +17,16 @@ from .models import TenantStatus
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'status', 'usage_this_month', 'monthly_quota', 'created_at')
+    list_display = (
+        'name',
+        'slug',
+        'status',
+        'usage_this_month',
+        'monthly_quota',
+        'gst_usage_this_month',
+        'gst_monthly_quota',
+        'created_at',
+    )
     list_filter = ('status',)
     search_fields = ('name', 'slug')
     readonly_fields = ('created_at', 'updated_at', 'approved_at', 'approved_by')
@@ -35,6 +45,13 @@ class TenantAdmin(admin.ModelAdmin):
     def suspend_tenants(self, request, queryset):
         updated = queryset.exclude(status=TenantStatus.SUSPENDED).update(status=TenantStatus.SUSPENDED)
         self.message_user(request, f'Suspended {updated} tenant(s).', messages.WARNING)
+
+
+@admin.register(CompanyProfile)
+class CompanyProfileAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'company_name', 'gstin', 'state', 'completed_at', 'updated_at')
+    search_fields = ('company_name', 'gstin', 'tenant__name')
+    readonly_fields = ('completed_at', 'created_at', 'updated_at')
 
 
 @admin.register(TenantMembership)

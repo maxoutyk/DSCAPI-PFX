@@ -44,6 +44,8 @@ With this configuration, several findings below are **dev/misconfiguration risks
 
 **Fixed 2026-06-09:** C1, H2, H3b, H5b, H7, H8, H9, M5, M11, M12, M13, L4, L7 — see changelog.
 
+**GST module (2026-06-14):** See [GST-SECURITY-AUDIT.md](./GST-SECURITY-AUDIT.md) — portal CSRF, rate limits, quota ordering, partner URL isolation, and error sanitization remediated.
+
 ---
 
 ## Architecture & attack surface
@@ -51,7 +53,8 @@ With this configuration, several findings below are **dev/misconfiguration risks
 ```
 Public          →  /sign/free/, /api/agent/pair/
 Portal (session)→  /dashboard/*, certs, sign, USB agent
-API (API key)   →  /api/signpdf-pfx, /api/sign/usb/*
+API (API key)   →  /api/signpdf-pfx, /api/sign/usb/*, /api/gst/*
+Portal (session)→  /dashboard/*, certs, sign, USB agent, /dashboard/gst/try/ (POST)
 Agent (token)   →  /api/agent/heartbeat/, /api/agent/jobs/*
 Local agent     →  127.0.0.1:9765 (/health, /sign) — desktop bridge
 ```

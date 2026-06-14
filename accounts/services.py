@@ -10,6 +10,7 @@ from django.utils.text import slugify
 
 from .models import (
     APIKey,
+    CompanyProfile,
     EmailVerificationToken,
     MembershipRole,
     PasswordResetToken,
@@ -102,6 +103,7 @@ def register_tenant(*, email: str, password: str, organization_name: str) -> Ten
         slug=unique_tenant_slug(organization_name),
         status=TenantStatus.PENDING_EMAIL,
         monthly_quota=settings.DEFAULT_MONTHLY_QUOTA,
+        gst_monthly_quota=getattr(settings, 'DEFAULT_GST_MONTHLY_QUOTA', 50),
     )
     TenantMembership.objects.create(
         tenant=tenant,
@@ -191,6 +193,11 @@ def get_primary_tenant(user: User) -> Tenant | None:
         .first()
     )
     return membership.tenant if membership else None
+
+
+def get_company_profile(tenant: Tenant) -> CompanyProfile:
+    profile, _created = CompanyProfile.objects.get_or_create(tenant=tenant)
+    return profile
 
 
 def user_is_tenant_owner(user: User) -> bool:

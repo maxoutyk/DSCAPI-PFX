@@ -513,8 +513,8 @@
 
 .landing-hero-badge {
   position: absolute;
-  left: var(--space-4);
-  bottom: var(--space-4);
+  right: var(--space-4);
+  top: var(--space-4);
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -638,6 +638,69 @@
   flex-shrink: 0;
 }
 
+.landing-gst-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.landing-gst-figure {
+  margin: 0;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+}
+
+.landing-gst-figure-media {
+  flex: 1;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  min-height: 280px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0a0f2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.landing-gst-figure-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.landing-gst-figure figcaption {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.landing-gst-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  height: 100%;
+}
+
+.landing-gst-points {
+  margin-top: auto;
+}
+
+.landing-gst-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .landing-mock-topbar {
   display: flex;
   align-items: center;
@@ -712,7 +775,7 @@
 
 .landing-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-4);
   max-width: var(--content-max);
   margin: 0 auto;
@@ -1196,6 +1259,10 @@
     grid-template-columns: 1fr;
   }
 
+  .landing-gst-layout {
+    grid-template-columns: 1fr;
+  }
+
   .landing-usb-gallery {
     grid-template-columns: 1fr;
     padding-bottom: var(--space-5);
@@ -1225,6 +1292,10 @@
   }
 
   .landing-usb-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-gst-layout {
     grid-template-columns: 1fr;
   }
 
