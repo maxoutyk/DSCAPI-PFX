@@ -67,6 +67,44 @@ def _public_error_message(status_code: int) -> str:
     return 'GST network service is temporarily unavailable.'
 
 
+def _public_partner_status_error(*, error_cd: str, partner_message: str) -> str:
+    normalized_message = partner_message.lower()
+    if error_cd == 'GEN5008' or 'maintenance' in normalized_message:
+        return 'GST network is under maintenance. Please try again later.'
+    if 'not found' in normalized_message or error_cd.endswith('404'):
+        return 'GSTIN not found on the GST network.'
+    return 'GST network service is temporarily unavailable. Please try again later.'
+
+
+def _raise_for_partner_status(payload: Any) -> None:
+    """Partner HTTP 200 responses may still carry status_cd=0 business failures."""
+    if not isinstance(payload, dict):
+        return
+    status_cd = payload.get('status_cd')
+    if status_cd is None:
+        return
+    if str(status_cd).strip() != '0':
+        return
+
+    error = payload.get('error')
+    error_cd = ''
+    partner_message = ''
+    if isinstance(error, dict):
+        error_cd = str(error.get('error_cd', '')).strip()
+        partner_message = str(error.get('message', '')).strip()
+
+    logger.warning(
+        'GST partner business error status_cd=0 error_cd=%s message=%s',
+        error_cd,
+        partner_message,
+    )
+    raise MyGSTCafeAPIError(
+        _public_partner_status_error(error_cd=error_cd, partner_message=partner_message),
+        status_code=503,
+        payload={'error_cd': error_cd} if error_cd else None,
+    )
+
+
 class MyGSTCafeLookupClient:
     def __init__(self, credentials: MyGSTCafeCredentials | None = None):
         self.credentials = credentials or get_platform_credentials()
@@ -144,6 +182,7 @@ class MyGSTCafeLookupClient:
                 payload=payload if isinstance(payload, dict) else None,
             )
 
+        _raise_for_partner_status(payload)
         return payload
 
     def get_gstin_details(self, gstin: str) -> Any:

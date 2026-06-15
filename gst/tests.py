@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CompanyProfile, Tenant, TenantMembership, TenantStatus
 from accounts.services import create_api_key, get_company_profile
+from gst.client import MyGSTCafeAPIError, _raise_for_partner_status
 
 
 def _complete_profile(tenant: Tenant) -> CompanyProfile:
@@ -81,6 +82,21 @@ class GstLookupApiTests(TestCase):
         mock_lookup.assert_called_once_with('27AAAAA0000A1Z5')
 
     @patch('gst.lookup_handlers.MyGSTCafeLookupClient.get_gstin_details')
+    def test_partner_status_cd_zero_does_not_consume_quota(self, mock_lookup):
+        _complete_profile(self.tenant)
+        mock_lookup.side_effect = MyGSTCafeAPIError(
+            'GST network is under maintenance. Please try again later.',
+            status_code=503,
+            payload={'error_cd': 'GEN5008'},
+        )
+        self._auth()
+        response = self.client.get('/api/gst/gstin/search/')
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('maintenance', response.json()['error'].lower())
+        self.tenant.refresh_from_db()
+        self.assertEqual(self.tenant.gst_usage_this_month, 0)
+
+    @patch('gst.lookup_handlers.MyGSTCafeLookupClient.get_gstin_details')
     def test_rejects_when_quota_exhausted_before_partner(self, mock_lookup):
         _complete_profile(self.tenant)
         self.tenant.gst_monthly_quota = 1
@@ -99,3 +115,22 @@ class GstLookupApiTests(TestCase):
         response = self.client.get('/api/gst/returns/?fy=2024-25')
         self.assertEqual(response.status_code, 400)
         mock_lookup.assert_not_called()
+
+
+class GstPartnerResponseTests(TestCase):
+    def test_raise_for_status_cd_zero_maintenance(self):
+        with self.assertRaises(MyGSTCafeAPIError) as ctx:
+            _raise_for_partner_status(
+                {
+                    'status_cd': '0',
+                    'error': {
+                        'error_cd': 'GEN5008',
+                        'message': 'API Under Maintenance in DC2',
+                    },
+                }
+            )
+        self.assertEqual(ctx.exception.status_code, 503)
+        self.assertIn('maintenance', str(ctx.exception).lower())
+
+    def test_ignores_success_status_cd(self):
+        _raise_for_partner_status({'status_cd': '1', 'data': {'gstin': '08EGTPK8972G1ZH'}})

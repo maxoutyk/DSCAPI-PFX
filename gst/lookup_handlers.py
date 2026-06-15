@@ -72,6 +72,14 @@ def _resolve_gstin(tenant: Tenant, requested: str | None) -> tuple[str | None, t
         return None, (status.HTTP_400_BAD_REQUEST, {'error': str(exc)})
 
 
+def _partner_error_http_status(exc: MyGSTCafeAPIError) -> int:
+    if exc.status_code == 503:
+        return status.HTTP_503_SERVICE_UNAVAILABLE
+    if exc.status_code and 400 <= exc.status_code < 500:
+        return status.HTTP_400_BAD_REQUEST
+    return status.HTTP_502_BAD_GATEWAY
+
+
 def execute_gstin_search(
     *,
     tenant: Tenant,
@@ -106,12 +114,9 @@ def execute_gstin_search(
             api_key=api_key,
             client_ip=client_ip,
             gstin=gstin,
-            meta={'status_code': exc.status_code},
+            meta={'status_code': exc.status_code, 'partner_error': exc.payload or {}},
         )
-        code = status.HTTP_502_BAD_GATEWAY
-        if exc.status_code and 400 <= exc.status_code < 500:
-            code = status.HTTP_400_BAD_REQUEST
-        return code, {'error': str(exc)}
+        return _partner_error_http_status(exc), {'error': str(exc)}
 
     try:
         record_gst_api_call(
@@ -166,12 +171,9 @@ def execute_gst_preference(
             api_key=api_key,
             client_ip=client_ip,
             gstin=gstin,
-            meta={'fy': fy, 'status_code': exc.status_code},
+            meta={'fy': fy, 'status_code': exc.status_code, 'partner_error': exc.payload or {}},
         )
-        code = status.HTTP_502_BAD_GATEWAY
-        if exc.status_code and 400 <= exc.status_code < 500:
-            code = status.HTTP_400_BAD_REQUEST
-        return code, {'error': str(exc)}
+        return _partner_error_http_status(exc), {'error': str(exc)}
 
     try:
         record_gst_api_call(
@@ -238,12 +240,9 @@ def execute_gst_return_status(
             api_key=api_key,
             client_ip=client_ip,
             gstin=gstin,
-            meta={'fy': fy, 'type': return_type, 'status_code': exc.status_code},
+            meta={'fy': fy, 'type': return_type, 'status_code': exc.status_code, 'partner_error': exc.payload or {}},
         )
-        code = status.HTTP_502_BAD_GATEWAY
-        if exc.status_code and 400 <= exc.status_code < 500:
-            code = status.HTTP_400_BAD_REQUEST
-        return code, {'error': str(exc)}
+        return _partner_error_http_status(exc), {'error': str(exc)}
 
     try:
         record_gst_api_call(
