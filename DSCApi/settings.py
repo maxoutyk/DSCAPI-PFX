@@ -150,6 +150,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.google_ads',
             ],
         },
     },
@@ -303,6 +304,9 @@ GST_MYGSTCAFE_TIMEOUT_SECONDS = int(os.environ.get('GST_MYGSTCAFE_TIMEOUT_SECOND
 # Server-only partner base URL — must never appear in templates, JS, or tenant-facing docs.
 GST_PARTNER_BASE_URL = os.environ.get('GST_PARTNER_BASE_URL', 'https://gstapi.mygstcafe.com').strip().rstrip('/')
 DEFAULT_GST_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_GST_MONTHLY_QUOTA', '50'))
+
+# Google Ads conversion tag (gtag.js) — set on production, e.g. AW-123456789
+GOOGLE_ADS_ID = os.environ.get('GOOGLE_ADS_ID', '').strip()
 
 if not DEBUG and not getattr(sys, 'frozen', False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
