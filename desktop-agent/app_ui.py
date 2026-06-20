@@ -22,7 +22,7 @@ from agent import (
     try_pair_agent,
     normalize_origin,
 )
-from app_theme import ACCENT, BG, BORDER, SURFACE, TEXT_PRIMARY, configure_styles
+from app_theme import ACCENT, BORDER, SURFACE, TEXT_PRIMARY, configure_styles
 from tray import AgentRuntimeState
 
 
@@ -159,26 +159,8 @@ class AgentDashboard:
         body_host = ttk.Frame(main, padding=(24, 0, 24, 24))
         body_host.pack(fill='both', expand=True)
 
-        canvas = self._tk.Canvas(body_host, bg=BG, highlightthickness=0, borderwidth=0)
-        scrollbar = ttk.Scrollbar(body_host, orient='vertical', command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side='right', fill='y')
-        canvas.pack(side='left', fill='both', expand=True)
-
-        self.content = ttk.Frame(canvas)
-        canvas_window = canvas.create_window((0, 0), window=self.content, anchor='nw')
-
-        def _on_configure(_event=None):
-            canvas.configure(scrollregion=canvas.bbox('all'))
-            canvas.itemconfigure(canvas_window, width=canvas.winfo_width())
-
-        self.content.bind('<Configure>', _on_configure)
-        canvas.bind('<Configure>', _on_configure)
-
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
-
-        canvas.bind_all('<MouseWheel>', _on_mousewheel, add='+')
+        self.content = ttk.Frame(body_host)
+        self.content.pack(fill='both', expand=True)
 
         self.pages: dict[str, ttk.Frame] = {}
         self._build_status_page()
@@ -247,8 +229,13 @@ class AgentDashboard:
         self.pair_frame.pack(fill='x')
 
         self._ttk.Label(self.pair_frame, text='Portal URL', style='Card.TLabel').pack(anchor='w')
-        self.api_base_var = self._tk.StringVar(value=self._initial_api_base())
-        self._ttk.Entry(self.pair_frame, textvariable=self.api_base_var).pack(fill='x', pady=(6, 14))
+        self.portal_url_var = self._tk.StringVar(value=self._initial_api_base() or 'Not configured')
+        self._ttk.Label(
+            self.pair_frame,
+            textvariable=self.portal_url_var,
+            style='Card.TLabel',
+            wraplength=620,
+        ).pack(anchor='w', pady=(6, 14))
 
         self._ttk.Label(self.pair_frame, text='Pairing code', style='Card.TLabel').pack(anchor='w')
         self.code_var = self._tk.StringVar()
@@ -344,6 +331,10 @@ class AgentDashboard:
     def _initial_api_base(self) -> str:
         config = load_config()
         return config.get('api_base') or read_default_api_base()
+
+    def _refresh_portal_url_display(self) -> None:
+        api_base = self._initial_api_base()
+        self.portal_url_var.set(api_base or 'Not configured — reinstall from your IG E-Sign portal')
 
     def _refresh_usb_tokens(self, *, background: bool = True):
         if self._token_refresh_running:
@@ -467,6 +458,7 @@ class AgentDashboard:
             self.state.update(paired=False, portal_connected=False, last_error='')
 
         self._refresh_origins_view()
+        self._refresh_portal_url_display()
 
     def _refresh_origins_view(self):
         config = load_config()
@@ -505,10 +497,13 @@ class AgentDashboard:
         self._refresh_origins_view()
 
     def _pair(self):
-        api_base = self.api_base_var.get().strip()
+        api_base = self._initial_api_base().strip()
         code = self.code_var.get().strip()
         if not api_base:
-            self._messagebox.showerror('Pairing', 'Enter your portal URL.')
+            self._messagebox.showerror(
+                'Pairing',
+                'Portal URL is not configured. Download and install the agent from your IG E-Sign portal.',
+            )
             return
         if not code:
             self._messagebox.showerror('Pairing', 'Enter the pairing code from the USB Agent page.')
@@ -539,7 +534,7 @@ class AgentDashboard:
     def _unpair(self):
         clear_pairing()
         self.code_var.set('')
-        self.api_base_var.set(self._initial_api_base())
+        self._refresh_portal_url_display()
         self._messagebox.showinfo(
             'Re-pair',
             'Local pairing cleared. Generate a new code in the portal USB Agent page, then enter it on Pair portal.',
@@ -549,9 +544,9 @@ class AgentDashboard:
 
     def _open_portal_page(self):
         snap = self.state.snapshot()
-        base = snap['api_base'] or load_config().get('api_base') or self.api_base_var.get().strip()
+        base = snap['api_base'] or load_config().get('api_base') or self._initial_api_base()
         if not base:
-            self._messagebox.showinfo('Portal', 'Pair the agent first or enter a portal URL.')
+            self._messagebox.showinfo('Portal', 'Pair the agent first.')
             return
         webbrowser.open(f'{base.rstrip("/")}/dashboard/agent/')
 
