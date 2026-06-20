@@ -8,6 +8,9 @@ $AgentVersion = (Get-Content (Join-Path $Root "desktop-agent\VERSION") -Raw).Tri
 Set-Location $Root
 
 Write-Host "IG E-Sign Agent build v$AgentVersion"
+Write-Host "Regenerating branding icons..."
+python (Join-Path $Root "desktop-agent\build_icons.py")
+
 Write-Host "Installing dependencies..."
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt pyinstaller

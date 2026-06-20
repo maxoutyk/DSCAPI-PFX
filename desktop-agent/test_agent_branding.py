@@ -8,12 +8,18 @@ class AgentBrandingTests(unittest.TestCase):
         path = resolve_agent_icon_path()
         self.assertIsNotNone(path)
         self.assertTrue(path.is_file())
-        self.assertEqual(path.name, 'agent_icon.png')
+        self.assertIn(path.suffix.lower(), {'.png', '.ico'})
+
+    def test_resolve_agent_logo_path(self):
+        from agent_branding import resolve_agent_logo_path
+
+        path = resolve_agent_logo_path()
+        self.assertIsNotNone(path)
+        self.assertTrue(path.is_file())
 
     def test_load_agent_icon_image(self):
-        image = load_agent_icon_image()
-        self.assertLessEqual(max(image.size), 64)
-        self.assertGreater(min(image.size), 0)
+        image = load_agent_icon_image(size=256)
+        self.assertEqual(image.size, (256, 256))
 
     def test_load_agent_icon_image_alert_overlay(self):
         normal = load_agent_icon_image(alert=False)

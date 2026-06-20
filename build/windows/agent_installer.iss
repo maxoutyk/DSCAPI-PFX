@@ -25,6 +25,8 @@ SolidCompression=yes
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
+SetupIconFile=..\..\desktop-agent\assets\agent_icon.ico
+UninstallDisplayIcon={app}\{#AppExeName}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

@@ -9,6 +9,11 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(agent_dir))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agent_settings')
 
+# Regenerate multi-size ICO from portal logo before packaging.
+import build_icons  # noqa: E402
+
+build_icons.main()
+
 from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_submodules
 
 

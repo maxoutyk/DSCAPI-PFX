@@ -31,7 +31,13 @@ Or copy the file into `desktop-agent/releases/` on the app host — the portal s
 
 GitHub Actions: **Build IG E-Sign Agent (Windows)** workflow (manual dispatch).
 
-Branding assets live in `desktop-agent/assets/` (`agent_icon.png` / `agent_icon.ico`) and are used for the system tray, dashboard window, and Windows `.exe` icon when built with PyInstaller.
+Branding assets live in `desktop-agent/assets/` (`agent_icon.png`, `agent_icon.ico`, `ig-logo-light.png`). Regenerate icons from the portal logo with:
+
+```bash
+python desktop-agent/build_icons.py
+```
+
+The build script and PyInstaller spec run this automatically before packaging.
 
 ## Windows Defender / SmartScreen
 

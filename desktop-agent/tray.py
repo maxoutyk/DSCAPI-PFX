@@ -38,7 +38,7 @@ class AgentRuntimeState:
 
 
 def _load_icon_image(*, alert: bool = False):
-    return load_agent_icon_image(alert=alert)
+    return load_agent_icon_image(alert=alert, size=256)
 
 
 def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
