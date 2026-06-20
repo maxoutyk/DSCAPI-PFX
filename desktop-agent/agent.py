@@ -88,11 +88,85 @@ def save_config(data: dict):
     CONFIG_PATH.write_text(json.dumps(data, indent=2))
 
 
-def api_request(method: str, url: str, payload: dict | None = None, token: str = '') -> dict:
+class OriginValidationError(ValueError):
+    pass
+
+
+def normalize_origin(origin: str) -> str:
+    """Normalize and validate a browser Origin URL (scheme + host only)."""
+    raw = (origin or '').strip()
+    if not raw:
+        raise OriginValidationError('Origin URL is required.')
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ('http', 'https'):
+        raise OriginValidationError('Origin must start with http:// or https://')
+    if not parsed.netloc:
+        raise OriginValidationError('Origin must include a host name.')
+    if parsed.path not in ('', '/'):
+        raise OriginValidationError('Origin must not include a path — use only scheme and host.')
+    if parsed.query or parsed.fragment:
+        raise OriginValidationError('Origin must not include a query string or fragment.')
+    if parsed.username or parsed.password:
+        raise OriginValidationError('Origin must not include user credentials.')
+    return f'{parsed.scheme}://{parsed.netloc}'.rstrip('/')
+
+
+def list_extra_allowed_origins(config: dict | None = None) -> list[str]:
+    config = config if config is not None else load_config()
+    origins: list[str] = []
+    for item in config.get('allowed_origins', []):
+        try:
+            origins.append(normalize_origin(str(item)))
+        except OriginValidationError:
+            continue
+    return sorted(set(origins))
+
+
+def portal_origin_from_config(config: dict | None = None) -> str:
+    config = config if config is not None else load_config()
+    return _origin_from_base(config.get('api_base', ''))
+
+
+def add_allowed_origin(origin: str) -> list[str]:
+    normalized = normalize_origin(origin)
+    config = load_config()
+    portal_origin = portal_origin_from_config(config)
+    if portal_origin and normalized == portal_origin:
+        raise OriginValidationError(
+            f'{normalized} is already allowed automatically from portal pairing.',
+        )
+    extras = list_extra_allowed_origins(config)
+    if normalized in extras:
+        return extras
+    extras.append(normalized)
+    extras.sort()
+    config['allowed_origins'] = extras
+    save_config(config)
+    return extras
+
+
+def remove_allowed_origin(origin: str) -> list[str]:
+    normalized = normalize_origin(origin)
+    config = load_config()
+    extras = [item for item in list_extra_allowed_origins(config) if item != normalized]
+    config['allowed_origins'] = extras
+    save_config(config)
+    return extras
+
+
+def api_request(
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    token: str = '',
+    extra_headers: dict | None = None,
+) -> dict:
     body = None
     headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
     if token:
         headers['Authorization'] = f'Bearer {token}'
+    if extra_headers:
+        headers.update(extra_headers)
     if payload is not None:
         body = json.dumps(payload).encode('utf-8')
     request = urllib.request.Request(url, data=body, headers=headers, method=method)
@@ -332,18 +406,69 @@ def _allowed_cors_origins(config: dict, api_base: str = '') -> set[str]:
         if origin:
             origins.add(origin)
     for item in config.get('allowed_origins', []):
-        normalized = str(item).strip().rstrip('/')
-        if normalized:
-            origins.add(normalized)
+        try:
+            origins.add(normalize_origin(str(item)))
+        except OriginValidationError:
+            continue
     return origins
 
 
 def sign_job(api_base: str, token: str, job_id: str, sign_token: str) -> dict:
-    token_qs = urllib.parse.quote(sign_token, safe='')
+    try:
+        return _sign_job_impl(api_base, token, job_id, sign_token)
+    except Exception as exc:
+        _report_usb_job_failure(api_base, token, job_id, sign_token, exc)
+        raise
+
+
+def _user_facing_sign_error(exc: Exception) -> str:
+    try:
+        from pkcs11_signing import PinCancelledError
+    except ImportError:
+        PinCancelledError = ()  # type: ignore[misc, assignment]
+
+    if isinstance(exc, PinCancelledError):
+        return str(exc) or 'Signing cancelled — token PIN was not entered.'
+    message = str(exc).strip()
+    if 'Token PIN is required' in message or 'Signing cancelled' in message:
+        return 'Signing cancelled — token PIN was not entered.'
+    if message.startswith('USB token signing failed:'):
+        return message
+    if message:
+        return f'USB token signing failed: {message}'
+    return 'USB token signing failed.'
+
+
+def _report_usb_job_failure(
+    api_base: str,
+    token: str,
+    job_id: str,
+    sign_token: str,
+    exc: Exception,
+) -> None:
+    if not (api_base and token and job_id and sign_token):
+        return
+    payload = {
+        'sign_token': sign_token,
+        'error': _user_facing_sign_error(exc)[:255],
+    }
+    try:
+        api_request(
+            'POST',
+            f'{api_base.rstrip("/")}/api/agent/jobs/{job_id}/fail/',
+            payload,
+            token=token,
+        )
+    except Exception:
+        pass
+
+
+def _sign_job_impl(api_base: str, token: str, job_id: str, sign_token: str) -> dict:
     job = api_request(
         'GET',
-        f'{api_base}/api/agent/jobs/{job_id}/?sign_token={token_qs}',
+        f'{api_base}/api/agent/jobs/{job_id}/',
         token=token,
+        extra_headers={'X-Sign-Token': sign_token},
     )
     pdf_data = base64.b64decode(job['pdf_base64'])
 
@@ -360,7 +485,7 @@ def sign_job(api_base: str, token: str, job_id: str, sign_token: str) -> dict:
         except Pkcs11NotAvailable as exc:
             sign_errors.append(str(exc))
         except Exception as exc:
-            sign_errors.append(f'USB token signing failed: {exc}')
+            sign_errors.append(str(exc) if str(exc) else repr(exc))
     if signed_pdf_data is None:
         if dev_pfx and dev_password:
             from signing import sign_pdf_with_pfx
@@ -371,10 +496,16 @@ def sign_job(api_base: str, token: str, job_id: str, sign_token: str) -> dict:
 
     try:
         signed_b64 = base64.b64encode(signed_pdf_data).decode('ascii')
+        from machine_info import get_primary_mac_address
+
+        payload = {'signed_pdf_base64': signed_b64, 'sign_token': sign_token}
+        client_mac = get_primary_mac_address()
+        if client_mac:
+            payload['client_mac'] = client_mac
         return api_request(
             'POST',
             f'{api_base}/api/agent/jobs/{job_id}/complete/',
-            {'signed_pdf_base64': signed_b64, 'sign_token': sign_token},
+            payload,
             token=token,
         )
     finally:
@@ -514,6 +645,50 @@ def _port_available(port: int) -> bool:
     return True
 
 
+def origins_list_command():
+    config = load_config()
+    portal = portal_origin_from_config(config)
+    extras = list_extra_allowed_origins(config)
+    if portal:
+        print(f'Portal (automatic): {portal}')
+    else:
+        print('Portal (automatic): — not paired')
+    if extras:
+        print('Extra allowed origins:')
+        for origin in extras:
+            print(f'  {origin}')
+    else:
+        print('Extra allowed origins: (none)')
+
+
+def origins_add_command(origin: str):
+    try:
+        extras = add_allowed_origin(origin)
+    except OriginValidationError as exc:
+        print(str(exc))
+        raise SystemExit(1) from exc
+    print(f'Added {normalize_origin(origin)}')
+    print('Extra allowed origins:')
+    for item in extras:
+        print(f'  {item}')
+
+
+def origins_remove_command(origin: str):
+    try:
+        normalized = normalize_origin(origin)
+    except OriginValidationError as exc:
+        print(str(exc))
+        raise SystemExit(1) from exc
+    extras = remove_allowed_origin(normalized)
+    print(f'Removed {normalized}')
+    print('Extra allowed origins:')
+    if extras:
+        for item in extras:
+            print(f'  {item}')
+    else:
+        print('  (none)')
+
+
 def main():
     if getattr(sys, 'frozen', False) and len(sys.argv) == 1:
         sys.argv.append('run')
@@ -533,11 +708,26 @@ def main():
         help='Run in the terminal instead of the Windows system tray.',
     )
 
+    origins_parser = sub.add_parser('origins', help='Manage extra browser Origin allowlist (ERP / web apps)')
+    origins_sub = origins_parser.add_subparsers(dest='origins_command', required=True)
+    origins_sub.add_parser('list', help='Show portal and extra allowed origins')
+    origins_add = origins_sub.add_parser('add', help='Allow a browser origin (https://host only)')
+    origins_add.add_argument('origin', help='e.g. https://businesscentral.dynamics.com')
+    origins_remove = origins_sub.add_parser('remove', help='Remove an extra allowed origin')
+    origins_remove.add_argument('origin')
+
     args = parser.parse_args()
     if args.command == 'pair':
         pair_agent(args.api_base, args.code)
     elif args.command == 'run':
         run_server(args.port, use_tray=False if args.console else None)
+    elif args.command == 'origins':
+        if args.origins_command == 'list':
+            origins_list_command()
+        elif args.origins_command == 'add':
+            origins_add_command(args.origin)
+        elif args.origins_command == 'remove':
+            origins_remove_command(args.origin)
 
 
 if __name__ == '__main__':

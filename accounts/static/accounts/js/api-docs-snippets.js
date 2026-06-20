@@ -80,6 +80,7 @@
       }
     } else {
       headers['Content-Type'] = 'application/json';
+      headers.Origin = baseUrl.replace(/\/$/, '');
     }
 
     (item.parameters || []).forEach((param) => {
@@ -164,6 +165,7 @@
     const headerLines = Object.entries(spec.headers)
       .map(([key, value]) => `    '${key}': '${value}',`)
       .join('\n');
+    const isLocalAgent = (spec.url || '').includes('127.0.0.1:9765');
     let bodyBlock = '';
     if (hasBody) {
       if (typeof spec.body === 'string') {
@@ -173,7 +175,7 @@
       }
     }
     return `const response = await fetch('${url}', {
-  method: '${spec.method}',
+  method: '${spec.method}',${isLocalAgent ? "\n  mode: 'cors'," : ''}
   headers: {
 ${headerLines}
   },

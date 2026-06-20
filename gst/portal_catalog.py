@@ -6,6 +6,16 @@ from typing import Any
 
 from accounts.api_docs_catalog import build_service_catalog, flatten_catalog_items, personalize_catalog_defaults
 
+GST_ENDPOINT_ORDER = [
+    'gst-gstin-search',
+    'gst-preference',
+    'gst-return-status',
+    'gst-eway-print',
+    'gst-irn-print',
+]
+
+GST_PRINT_ENDPOINTS = frozenset({'gst-eway-print', 'gst-irn-print'})
+
 PORTAL_UI: dict[str, dict[str, Any]] = {
     'gst-gstin-search': {
         'tab': 'GSTIN details',
@@ -66,6 +76,32 @@ PORTAL_UI: dict[str, dict[str, Any]] = {
             },
         },
     },
+    'gst-eway-print': {
+        'tab': 'E-WAY bill',
+        'heading': 'Print E-WAY bill',
+        'lead': 'Download the detailed E-WAY bill PDF using the GSTIN and NIC portal credentials on your company profile.',
+        'action': 'Download PDF',
+        'fields': {
+            'ewbNumber': {
+                'label': 'E-way bill number',
+                'hint': '12-digit E-WAY bill number.',
+                'placeholder': 'e.g. 123456789012',
+            },
+        },
+    },
+    'gst-irn-print': {
+        'tab': 'E-invoice IRN',
+        'heading': 'Print e-invoice (IRN)',
+        'lead': 'Download the e-invoice PDF using the GSTIN and NIC portal credentials on your company profile.',
+        'action': 'Download PDF',
+        'fields': {
+            'irn': {
+                'label': 'IRN',
+                'hint': '64-character hexadecimal Invoice Reference Number.',
+                'placeholder': '64-character IRN',
+            },
+        },
+    },
 }
 
 RETURN_TYPE_LABELS = {'R1': 'GSTR-1', 'R3B': 'GSTR-3B', 'R9': 'GSTR-9'}
@@ -79,15 +115,23 @@ def build_gst_portal_endpoints(
 ) -> dict[str, Any]:
     catalog = build_service_catalog(base_url, ['gst'])
     catalog = personalize_catalog_defaults(catalog, gstin=gstin, fy=fy)
+    items_by_id = {
+        item['id']: item
+        for item in flatten_catalog_items(catalog)
+        if item.get('kind') == 'endpoint'
+    }
     endpoints = []
-    for item in flatten_catalog_items(catalog):
-        if item.get('kind') != 'endpoint':
+    for endpoint_id in GST_ENDPOINT_ORDER:
+        item = items_by_id.get(endpoint_id)
+        if not item:
             continue
         ui = PORTAL_UI.get(item['id'], {})
         fields_ui = ui.get('fields', {})
         parameters = []
         for param in item.get('parameters', []):
-            meta = fields_ui.get(param['name'], {})
+            if param['name'] not in fields_ui:
+                continue
+            meta = fields_ui[param['name']]
             parameters.append(
                 {
                     **param,

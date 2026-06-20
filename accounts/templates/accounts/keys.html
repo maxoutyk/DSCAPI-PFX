@@ -20,16 +20,24 @@
         <label for="id_name">Key name</label>
         {{ form.name }}
       </div>
+      <div class="form-group">
+        <label for="id_customer_label">Customer label <span style="color:var(--text-secondary);font-weight:normal;">(optional)</span></label>
+        {{ form.customer_label }}
+        {% if form.customer_label.help_text %}
+        <p class="form-hint">{{ form.customer_label.help_text }}</p>
+        {% endif %}
+      </div>
       <button class="btn" type="submit">Create API key</button>
     </form>
     {% endif %}
   </div>
 
   <div class="card card-flat">
-    <h2>Usage</h2>
-    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0;">
+    <h2>Usage reports</h2>
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0 0 12px;">
       Keys are shown once at creation. Store them securely — we only keep a hash and prefix.
     </p>
+    <a class="btn btn-secondary" href="{% url 'usage_report' %}">View usage by customer</a>
   </div>
 </div>
 
@@ -44,6 +52,7 @@
       <thead>
         <tr>
           <th>Name</th>
+          <th>Customer</th>
           <th>Prefix</th>
           <th>Created (IST)</th>
           <th>Last used (IST)</th>
@@ -54,6 +63,22 @@
         {% for key in api_keys %}
         <tr>
           <td><strong>{{ key.name }}</strong></td>
+          <td>
+            <form method="post" class="inline-form" style="display:flex;gap:8px;align-items:center;">
+              {% csrf_token %}
+              <input type="hidden" name="update_customer_label" value="{{ key.pk }}">
+              <input
+                type="text"
+                name="customer_label"
+                value="{{ key.customer_label }}"
+                maxlength="120"
+                placeholder="Customer name"
+                class="form-control"
+                style="min-width:140px;"
+              >
+              <button class="btn btn-secondary btn-sm" type="submit">Save</button>
+            </form>
+          </td>
           <td><span class="mono">{{ key.prefix }}...</span></td>
           <td>{{ key.created_at|ist:"M j, Y" }}</td>
           <td>

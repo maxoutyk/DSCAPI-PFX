@@ -1,5 +1,15 @@
 /* GST portal lookup console — business-friendly UI */
 
+.gst-page-header .page-header-row {
+  align-items: center;
+}
+
+.gst-network-badge {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 .gst-console {
   padding: 0;
   overflow: hidden;

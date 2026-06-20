@@ -63,6 +63,33 @@ class CompanyProfileFormTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('gstin', form.errors)
 
+    def test_nic_credentials_saved_encrypted(self):
+        from accounts.services import get_nic_portal_credentials
+
+        form = CompanyProfileForm(
+            data={
+                'company_name': 'Acme Pvt Ltd',
+                'gstin': '33AAUPP8709M3ZS',
+                'pan': 'AAUPP8709M',
+                'address': '123 MG Road',
+                'city': 'Chennai',
+                'state': '33',
+                'pincode': '600001',
+                'primary_email': 'owner@acme.test',
+                'primary_name': 'Owner',
+                'primary_mobile': '9876543210',
+                'secondary_email': '',
+                'secondary_name': '',
+                'secondary_mobile': '',
+                'nic_portal_username': 'nic_user',
+                'nic_portal_password': 'nic_secret',
+            },
+            instance=self.profile,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save()
+        self.assertEqual(get_nic_portal_credentials(saved), ('nic_user', 'nic_secret'))
+
 
 class CompanyProfileViewTests(TestCase):
     def setUp(self):

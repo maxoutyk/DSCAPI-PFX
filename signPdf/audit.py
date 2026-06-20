@@ -1,9 +1,13 @@
 import hashlib
+import re
 from dataclasses import dataclass
 
 from django.contrib.auth.models import User
 
 from accounts.models import APIKey
+
+_MAC_RE = re.compile(r'^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$')
+_USER_AGENT_MAX_LEN = 512
 
 
 def sha256_hex(data: bytes) -> str:
@@ -49,6 +53,47 @@ def get_client_ip(request) -> str | None:
     return None
 
 
+def normalize_client_mac(value: str | None) -> str | None:
+    if not value:
+        return None
+    mac = value.strip().upper().replace('-', ':')
+    if not _MAC_RE.match(mac):
+        return None
+    return mac
+
+
+def get_client_user_agent(request) -> str | None:
+    raw = (request.META.get('HTTP_USER_AGENT') or '').strip()
+    if not raw:
+        return None
+    return raw[:_USER_AGENT_MAX_LEN]
+
+
+def _client_mac_from_request(request) -> str | None:
+    candidates: list[str] = []
+    header_mac = (request.META.get('HTTP_X_CLIENT_MAC') or '').strip()
+    if header_mac:
+        candidates.append(header_mac)
+    if hasattr(request, 'data'):
+        body_mac = (request.data.get('client_mac') or '').strip()
+        if body_mac:
+            candidates.append(body_mac)
+    post_mac = (getattr(request, 'POST', None) or {}).get('client_mac', '')
+    if post_mac:
+        candidates.append(str(post_mac).strip())
+    for candidate in candidates:
+        normalized = normalize_client_mac(candidate)
+        if normalized:
+            return normalized
+    return None
+
+
+def apply_request_client_context(audit: 'SigningAuditMeta', request) -> None:
+    audit.client_ip = get_client_ip(request)
+    audit.user_agent = get_client_user_agent(request)
+    audit.client_mac = _client_mac_from_request(request)
+
+
 @dataclass
 class SigningAuditMeta:
     hash_before: str | None = None
@@ -57,6 +102,8 @@ class SigningAuditMeta:
     detected_keyword: str | None = None
     detection_confidence: str = 'none'
     client_ip: str | None = None
+    user_agent: str | None = None
+    client_mac: str | None = None
     api_key: APIKey | None = None
     user: User | None = None
     endpoint: str = 'signpdf-pfx'

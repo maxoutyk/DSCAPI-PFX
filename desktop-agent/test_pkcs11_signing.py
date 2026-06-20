@@ -8,6 +8,7 @@ AGENT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(AGENT_DIR))
 
 from pkcs11_signing import (  # noqa: E402
+    PinCancelledError,
     TokenDescriptor,
     _pkcs11_bytes,
     _pkcs11_text,
@@ -87,6 +88,31 @@ class TokenSelectionTests(unittest.TestCase):
         tokens = _sample_tokens()
         with self.assertRaises(RuntimeError):
             resolve_signing_slot_from_tokens(tokens, allow_prompt=False)
+
+
+class PinPromptTests(unittest.TestCase):
+    def test_prompt_token_pin_raises_when_user_cancels_on_main_thread(self):
+        import threading
+
+        import pkcs11_signing as module
+
+        class FakeRoot:
+            def after(self, _delay, callback):
+                callback()
+
+        done = threading.Event()
+
+        def fake_prompt(*_args, **_kwargs):
+            done.set()
+            return ''
+
+        module.clear_session_pin()
+        with patch.object(module, '_main_ui_root', FakeRoot()):
+            with patch.object(module.sys, 'platform', 'win32'):
+                with patch('tkinter.simpledialog.askstring', fake_prompt):
+                    with self.assertRaises(PinCancelledError):
+                        module.prompt_token_pin()
+        self.assertTrue(done.is_set())
 
 
 if __name__ == '__main__':

@@ -1,14 +1,14 @@
 from django.db import transaction
 
 from accounts.models import APIKey, Tenant, TenantStatus
-from accounts.services import get_company_profile
+from accounts.quota import QuotaExceededError, consume_quota
+from accounts.services import ensure_tenant_quota_remaining, get_company_profile
 
 from .models import GstApiLog
 from .validation import is_valid_gstin, normalize_gstin
 
-
-class GstQuotaExceededError(Exception):
-    pass
+# GST uses the shared tenant monthly quota (same counter as signing/USB).
+GstQuotaExceededError = QuotaExceededError
 
 
 class GstProfileIncompleteError(Exception):
@@ -40,15 +40,9 @@ def ensure_tenant_can_use_gst(tenant: Tenant):
         )
 
 
-@transaction.atomic
 def ensure_gst_quota_remaining(tenant: Tenant) -> None:
-    """Reject before calling the partner when monthly quota is exhausted."""
-    tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
-    tenant.reset_quota_if_needed()
-    if tenant.gst_usage_this_month >= tenant.gst_monthly_quota:
-        raise GstQuotaExceededError(
-            f'Monthly GST quota exceeded ({tenant.gst_monthly_quota} calls/month).'
-        )
+    """Reject before calling the partner when the shared monthly quota is exhausted."""
+    ensure_tenant_quota_remaining(tenant)
 
 
 def resolve_tenant_gstin(tenant: Tenant, requested_gstin: str | None = None) -> str:
@@ -78,14 +72,8 @@ def record_gst_api_call(
     meta: dict | None = None,
 ) -> GstApiLog:
     tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
-    tenant.reset_quota_if_needed()
     if success:
-        if tenant.gst_usage_this_month >= tenant.gst_monthly_quota:
-            raise GstQuotaExceededError(
-                f'Monthly GST quota exceeded ({tenant.gst_monthly_quota} calls/month).'
-            )
-        tenant.gst_usage_this_month += 1
-        tenant.save(update_fields=['gst_usage_this_month', 'updated_at'])
+        consume_quota(tenant)
 
     return GstApiLog.objects.create(
         tenant=tenant,

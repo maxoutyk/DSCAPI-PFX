@@ -35,3 +35,16 @@ def tenant_owner_required(view_func):
         return view_func(request, *args, **kwargs)
 
     return _wrapped
+
+
+def tenant_owner_only(view_func):
+    """Restrict entire view (GET and POST) to organization owners."""
+
+    @functools.wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not user_is_tenant_owner(request.user):
+            messages.error(request, 'Only organization owners can access this page.')
+            return redirect('dashboard')
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped

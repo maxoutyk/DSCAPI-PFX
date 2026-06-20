@@ -1,7 +1,7 @@
-from accounts.safe_throttle import FailClosedSimpleRateThrottle, SafeSimpleRateThrottle
+from accounts.safe_throttle import FailClosedSimpleRateThrottle
 
 
-class AgentPairThrottle(SafeSimpleRateThrottle):
+class AgentPairThrottle(FailClosedSimpleRateThrottle):
     scope = 'agent_pair'
 
     def get_cache_key(self, request, view):

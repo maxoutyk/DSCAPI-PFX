@@ -20,10 +20,13 @@ from .models import (
     TenantStatus,
     UsageLog,
 )
+from .quota import QuotaExceededError, consume_quota, ensure_quota_remaining, resolve_quota_state
 
 
-class QuotaExceededError(Exception):
-    pass
+@transaction.atomic
+def ensure_tenant_quota_remaining(tenant: Tenant) -> None:
+    """Reject before a billable API call when the tenant quota pool is exhausted."""
+    ensure_quota_remaining(tenant)
 
 
 class TenantNotActiveError(Exception):
@@ -103,7 +106,6 @@ def register_tenant(*, email: str, password: str, organization_name: str) -> Ten
         slug=unique_tenant_slug(organization_name),
         status=TenantStatus.PENDING_EMAIL,
         monthly_quota=settings.DEFAULT_MONTHLY_QUOTA,
-        gst_monthly_quota=getattr(settings, 'DEFAULT_GST_MONTHLY_QUOTA', 50),
     )
     TenantMembership.objects.create(
         tenant=tenant,
@@ -200,6 +202,35 @@ def get_company_profile(tenant: Tenant) -> CompanyProfile:
     return profile
 
 
+class NicPortalCredentialsMissingError(Exception):
+    pass
+
+
+def nic_portal_credentials_configured(profile: CompanyProfile) -> bool:
+    return bool((profile.nic_portal_username or '').strip() and profile.encrypted_nic_portal_password)
+
+
+def set_nic_portal_credentials(profile: CompanyProfile, *, username: str, password: str) -> None:
+    profile.nic_portal_username = username.strip()
+    profile.encrypted_nic_portal_password = encrypt_pfx(password.encode('utf-8'))
+
+
+def get_nic_portal_credentials(profile: CompanyProfile) -> tuple[str, str]:
+    username = (profile.nic_portal_username or '').strip()
+    if not username or not profile.encrypted_nic_portal_password:
+        raise NicPortalCredentialsMissingError(
+            'NIC portal credentials are not configured. Add them on your company profile '
+            'to download E-way bills and e-invoice PDFs.',
+        )
+    password = decrypt_pfx(profile.encrypted_nic_portal_password).decode('utf-8')
+    if not password:
+        raise NicPortalCredentialsMissingError(
+            'NIC portal credentials are not configured. Add them on your company profile '
+            'to download E-way bills and e-invoice PDFs.',
+        )
+    return username, password
+
+
 def user_is_tenant_owner(user: User) -> bool:
     membership = (
         TenantMembership.objects.filter(user=user, is_primary=True)
@@ -209,15 +240,21 @@ def user_is_tenant_owner(user: User) -> bool:
     return membership == MembershipRole.OWNER
 
 
-def create_api_key(tenant: Tenant, name: str) -> tuple[APIKey, str]:
+def create_api_key(tenant: Tenant, name: str, *, customer_label: str = '') -> tuple[APIKey, str]:
     full_key, prefix, key_hash = generate_api_key()
     api_key = APIKey.objects.create(
         tenant=tenant,
         name=name.strip() or 'Default',
+        customer_label=(customer_label or '').strip(),
         prefix=prefix,
         key_hash=key_hash,
     )
     return api_key, full_key
+
+
+def update_api_key_customer_label(api_key: APIKey, customer_label: str) -> None:
+    api_key.customer_label = (customer_label or '').strip()
+    api_key.save(update_fields=['customer_label'])
 
 
 def revoke_api_key(api_key: APIKey):
@@ -272,14 +309,8 @@ def record_signing_event(tenant: Tenant, *, success: bool = True, audit=None) ->
     from signPdf.audit import SigningAuditMeta
 
     tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
-    tenant.reset_quota_if_needed()
     if success:
-        if tenant.usage_this_month >= tenant.monthly_quota:
-            raise QuotaExceededError(
-                f'Monthly quota exceeded ({tenant.monthly_quota} signs/month).'
-            )
-        tenant.usage_this_month += 1
-        tenant.save(update_fields=['usage_this_month', 'updated_at'])
+        consume_quota(tenant)
 
     audit = audit or SigningAuditMeta()
     return UsageLog.objects.create(
@@ -292,6 +323,8 @@ def record_signing_event(tenant: Tenant, *, success: bool = True, audit=None) ->
         hash_before=audit.hash_before,
         hash_after=audit.hash_after,
         client_ip=audit.client_ip,
+        user_agent=audit.user_agent,
+        client_mac=audit.client_mac,
         api_key=audit.api_key,
         user=audit.user,
     )
@@ -407,3 +440,394 @@ def get_public_sign_artifact_metadata(*, session_key: str, artifact_id) -> dict 
         'signer_name': artifact.signer_name,
         'expires_at': artifact.expires_at.isoformat(),
     }
+
+
+def quota_period_start(tenant: Tenant):
+    tenant.reset_quota_if_needed()
+    reset_at = tenant.quota_reset_at
+    if reset_at.month == 1:
+        return reset_at.replace(
+            year=reset_at.year - 1,
+            month=12,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    return reset_at.replace(
+        month=reset_at.month - 1,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+
+def parse_usage_period_param(period: str | None) -> tuple[int, int] | None:
+    if not period or not str(period).strip():
+        return None
+    try:
+        year_s, month_s = str(period).strip().split('-', 1)
+        year, month = int(year_s), int(month_s)
+    except (ValueError, AttributeError):
+        return None
+    if month < 1 or month > 12 or year < 2000 or year > 2100:
+        return None
+    return year, month
+
+
+def resolve_usage_report_period(
+    tenant: Tenant,
+    *,
+    year: int | None = None,
+    month: int | None = None,
+) -> dict:
+    from calendar import monthrange
+    from datetime import date, datetime
+
+    from django.utils import timezone
+
+    from .templatetags.display_tz import DISPLAY_TZ
+
+    now = timezone.localtime(timezone.now(), DISPLAY_TZ)
+    if year is None or month is None:
+        year, month = now.year, now.month
+
+    period_start_display = date(year, month, 1)
+    last_day = monthrange(year, month)[1]
+    period_end_display = date(year, month, last_day)
+
+    period_start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0), DISPLAY_TZ)
+    if month == 12:
+        period_end_exclusive = timezone.make_aware(datetime(year + 1, 1, 1, 0, 0, 0), DISPLAY_TZ)
+    else:
+        period_end_exclusive = timezone.make_aware(datetime(year, month + 1, 1, 0, 0, 0), DISPLAY_TZ)
+
+    return {
+        'year': year,
+        'month': month,
+        'period_key': f'{year:04d}-{month:02d}',
+        'period_start': period_start,
+        'period_end_exclusive': period_end_exclusive,
+        'period_start_display': period_start_display,
+        'period_end_display': period_end_display,
+        'is_current_period': year == now.year and month == now.month,
+    }
+
+
+def list_available_usage_periods(tenant: Tenant) -> list[dict]:
+    from django.db.models import Min
+    from django.utils import timezone
+
+    from gst.models import GstApiLog
+
+    from .models import UsageLog
+    from .templatetags.display_tz import DISPLAY_TZ
+
+    now = timezone.localtime(timezone.now(), DISPLAY_TZ)
+    end_year, end_month = now.year, now.month
+
+    earliest = None
+    for qs in (
+        UsageLog.objects.filter(tenant=tenant, success=True),
+        GstApiLog.objects.filter(tenant=tenant, success=True),
+    ):
+        created = qs.aggregate(value=Min('created_at'))['value']
+        if created:
+            earliest = min(earliest, created) if earliest else created
+
+    if earliest is None:
+        earliest = tenant.created_at
+
+    start = timezone.localtime(earliest, DISPLAY_TZ)
+    year, month = start.year, start.month
+
+    periods = []
+    while (year, month) <= (end_year, end_month):
+        meta = resolve_usage_report_period(tenant, year=year, month=month)
+        periods.append({
+            'year': year,
+            'month': month,
+            'value': meta['period_key'],
+            'label': meta['period_start_display'].strftime('%B %Y'),
+        })
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+
+    periods.reverse()
+    return periods
+
+
+def _iter_period_days(period_start_display, period_end_display):
+    day = period_start_display
+    end = period_end_display
+    while day <= end:
+        yield day
+        day += timedelta(days=1)
+
+
+def _empty_daily_map(period_start_display, period_end_display) -> dict:
+    return {
+        day: {'signing': 0, 'gst': 0, 'total': 0}
+        for day in _iter_period_days(period_start_display, period_end_display)
+    }
+
+
+def _serialize_daily_map(daily_map: dict) -> list[dict]:
+    return [
+        {
+            'date': day.isoformat(),
+            'signing': daily_map[day]['signing'],
+            'gst': daily_map[day]['gst'],
+            'total': daily_map[day]['total'],
+        }
+        for day in sorted(daily_map)
+    ]
+
+
+def _customer_bucket_for_api_key(api_key: APIKey | None) -> tuple[str, str, bool]:
+    if api_key is None:
+        return 'portal', 'Portal', True
+    label = (api_key.customer_label or '').strip() or '—'
+    bucket = slugify(label) or f'key-{api_key.pk}'
+    return bucket, label, False
+
+
+def _add_daily_count(daily_map: dict, day, *, signing: int = 0, gst: int = 0) -> None:
+    if day not in daily_map:
+        return
+    daily_map[day]['signing'] += signing
+    daily_map[day]['gst'] += gst
+    daily_map[day]['total'] += signing + gst
+
+
+def build_monthly_usage_report(
+    tenant: Tenant,
+    *,
+    year: int | None = None,
+    month: int | None = None,
+) -> dict:
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate
+
+    from gst.models import GstApiLog
+
+    from .models import UsageLog
+    from .templatetags.display_tz import DISPLAY_TZ
+
+    period = resolve_usage_report_period(tenant, year=year, month=month)
+    period_start = period['period_start']
+    period_end_exclusive = period['period_end_exclusive']
+    period_start_display = period['period_start_display']
+    period_end_display = period['period_end_display']
+    base_filter = {
+        'tenant': tenant,
+        'success': True,
+        'created_at__gte': period_start,
+        'created_at__lt': period_end_exclusive,
+    }
+
+    api_keys = {key.pk: key for key in tenant.api_keys.all()}
+    key_to_bucket = {None: 'portal'}
+    bucket_labels: dict[str, str] = {'portal': 'Portal'}
+    for key in api_keys.values():
+        bucket, label, _is_portal = _customer_bucket_for_api_key(key)
+        key_to_bucket[key.pk] = bucket
+        bucket_labels.setdefault(bucket, label)
+
+    signing_by_key = {
+        item['api_key_id']: item['count']
+        for item in UsageLog.objects.filter(**base_filter)
+        .values('api_key_id')
+        .annotate(count=Count('id'))
+    }
+    gst_by_key = {
+        item['api_key_id']: item['count']
+        for item in GstApiLog.objects.filter(**base_filter)
+        .values('api_key_id')
+        .annotate(count=Count('id'))
+    }
+
+    daily_overall = _empty_daily_map(period_start_display, period_end_display)
+    daily_by_bucket = {
+        bucket: _empty_daily_map(period_start_display, period_end_display)
+        for bucket in bucket_labels
+    }
+
+    signing_daily = (
+        UsageLog.objects.filter(**base_filter)
+        .annotate(day=TruncDate('created_at', tzinfo=DISPLAY_TZ))
+        .values('day', 'api_key_id')
+        .annotate(count=Count('id'))
+    )
+    for item in signing_daily:
+        day = item['day']
+        count = item['count']
+        bucket = key_to_bucket.get(item['api_key_id'], 'portal')
+        _add_daily_count(daily_overall, day, signing=count)
+        _add_daily_count(daily_by_bucket.setdefault(bucket, _empty_daily_map(period_start_display, period_end_display)), day, signing=count)
+
+    gst_daily = (
+        GstApiLog.objects.filter(**base_filter)
+        .annotate(day=TruncDate('created_at', tzinfo=DISPLAY_TZ))
+        .values('day', 'api_key_id')
+        .annotate(count=Count('id'))
+    )
+    for item in gst_daily:
+        day = item['day']
+        count = item['count']
+        bucket = key_to_bucket.get(item['api_key_id'], 'portal')
+        _add_daily_count(daily_overall, day, gst=count)
+        _add_daily_count(daily_by_bucket.setdefault(bucket, _empty_daily_map(period_start_display, period_end_display)), day, gst=count)
+
+    rows = {}
+
+    def ensure_row(api_key=None):
+        if api_key is None:
+            key = 'portal'
+            if key not in rows:
+                rows[key] = {
+                    'customer_label': 'Portal',
+                    'key_name': '—',
+                    'key_prefix': '',
+                    'signing_count': 0,
+                    'gst_count': 0,
+                    'total': 0,
+                    'is_portal': True,
+                    'revoked': False,
+                    'api_key_id': None,
+                    'bucket': 'portal',
+                }
+            return rows[key]
+        if api_key.pk not in rows:
+            bucket, label, _is_portal = _customer_bucket_for_api_key(api_key)
+            rows[api_key.pk] = {
+                'customer_label': label,
+                'key_name': api_key.name,
+                'key_prefix': api_key.prefix,
+                'signing_count': 0,
+                'gst_count': 0,
+                'total': 0,
+                'is_portal': False,
+                'revoked': api_key.revoked_at is not None,
+                'api_key_id': api_key.pk,
+                'bucket': bucket,
+            }
+        return rows[api_key.pk]
+
+    ensure_row(None)
+    for api_key in api_keys.values():
+        ensure_row(api_key)
+
+    for api_key_id, count in signing_by_key.items():
+        if api_key_id is None:
+            row = ensure_row(None)
+        else:
+            api_key = api_keys.get(api_key_id)
+            row = ensure_row(api_key) if api_key else ensure_row(None)
+        row['signing_count'] += count
+
+    for api_key_id, count in gst_by_key.items():
+        if api_key_id is None:
+            row = ensure_row(None)
+        else:
+            api_key = api_keys.get(api_key_id)
+            row = ensure_row(api_key) if api_key else ensure_row(None)
+        row['gst_count'] += count
+
+    report_rows = []
+    for row in rows.values():
+        row['total'] = row['signing_count'] + row['gst_count']
+        report_rows.append(row)
+
+    report_rows.sort(key=lambda row: (-row['total'], row['customer_label'], row['key_name']))
+
+    customer_groups_map: dict[str, dict] = {}
+    for row in report_rows:
+        bucket = row['bucket']
+        group = customer_groups_map.setdefault(
+            bucket,
+            {
+                'bucket': bucket,
+                'customer_label': bucket_labels.get(bucket, row['customer_label']),
+                'signing_count': 0,
+                'gst_count': 0,
+                'total': 0,
+                'key_names': [],
+            },
+        )
+        group['signing_count'] += row['signing_count']
+        group['gst_count'] += row['gst_count']
+        group['total'] += row['total']
+        if not row['is_portal']:
+            group['key_names'].append(row['key_name'])
+
+    customer_groups = []
+    for bucket, group in customer_groups_map.items():
+        daily = daily_by_bucket.get(bucket, _empty_daily_map(period_start_display, period_end_display))
+        group['daily'] = _serialize_daily_map(daily)
+        customer_groups.append(group)
+
+    customer_groups.sort(key=lambda group: (-group['total'], group['customer_label']))
+
+    daily_overall_series = _serialize_daily_map(daily_overall)
+    total_usage = sum(row['total'] for row in report_rows)
+
+    tenant.reset_quota_if_needed()
+    show_quota = period['is_current_period']
+    quota_state = resolve_quota_state(tenant) if show_quota else None
+
+    return {
+        'period_start': period_start,
+        'period_start_display': period_start_display,
+        'period_end_display': period_end_display,
+        'period_key': period['period_key'],
+        'year': period['year'],
+        'month': period['month'],
+        'is_current_period': show_quota,
+        'rows': report_rows,
+        'customer_groups': customer_groups,
+        'daily_overall': daily_overall_series,
+        'total_usage': total_usage,
+        'quota_used': quota_state.used if quota_state else None,
+        'monthly_quota': quota_state.limit if quota_state else None,
+        'quota_plan': quota_state.plan if quota_state else None,
+        'quota_period_label': quota_state.period_label if quota_state else None,
+        'quota_resets_or_expires_at': quota_state.resets_or_expires_at if quota_state else None,
+        'show_quota': show_quota,
+        'total_signing': sum(point['signing'] for point in daily_overall_series),
+        'total_gst': sum(point['gst'] for point in daily_overall_series),
+    }
+
+
+def get_usage_customer_group(report: dict, bucket: str) -> dict | None:
+    for group in report['customer_groups']:
+        if group['bucket'] == bucket:
+            return group
+    return None
+
+
+def resolve_usage_customer_group(
+    report: dict,
+    *,
+    bucket: str = '',
+    customer_label: str = '',
+) -> dict | None:
+    bucket = (bucket or '').strip()
+    customer_label = (customer_label or '').strip()
+    if bucket:
+        group = get_usage_customer_group(report, bucket)
+        if group:
+            return group
+    if customer_label:
+        slug = slugify(customer_label)
+        for group in report['customer_groups']:
+            if group['bucket'] == slug:
+                return group
+            if group['customer_label'].strip().lower() == customer_label.lower():
+                return group
+    return None

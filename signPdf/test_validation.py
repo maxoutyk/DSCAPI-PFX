@@ -32,3 +32,23 @@ class ValidationHelperTests(SimpleTestCase):
         huge = 'A' * 200
         with self.assertRaises(PdfValidationError):
             decode_signed_pdf_base64(huge)
+
+    @override_settings(PDF_MAX_PAGE_COUNT=1)
+    def test_validate_pdf_bytes_rejects_too_many_pages(self):
+        import fitz
+
+        doc = fitz.open()
+        doc.new_page()
+        doc.new_page()
+        payload = doc.tobytes()
+        doc.close()
+        with self.assertRaises(PdfValidationError):
+            validate_pdf_bytes(payload)
+
+    @override_settings(SIGNATURE_MAX_SLOTS=2)
+    def test_enforce_signature_slot_limit(self):
+        from signPdf.validation import enforce_signature_slot_limit
+
+        enforce_signature_slot_limit(2)
+        with self.assertRaises(PdfValidationError):
+            enforce_signature_slot_limit(3)

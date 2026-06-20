@@ -20,43 +20,13 @@
 {% endblock %}
 {% block extra_js %}
 <script src="{% static 'usb_agent/js/agent-bridge.js' %}" defer></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  var jobId = '{{ job.id }}';
-  var statusUrl = '{% url "usb_sign_status" job.id %}';
-  var doneUrl = '{% url "usb_sign_done" job.id %}';
-  var port = {{ agent_local_port }};
-  var statusEl = document.getElementById('usb-sign-status');
-
-  function pollStatus() {
-    return fetch(statusUrl, {credentials: 'same-origin'}).then(function (r) { return r.json(); });
-  }
-
-  function run() {
-  window.IGAgentBridge.signJob(port, jobId, '{{ site_url }}', '{{ sign_token }}').then(function () {
-    statusEl.textContent = 'Agent reported success. Finalizing…';
-    return pollStatus();
-  }).then(function (data) {
-    if (data.status === 'completed') {
-      window.location.href = doneUrl;
-      return;
-    }
-    if (data.status === 'failed') {
-      statusEl.textContent = data.error || 'Signing failed.';
-      return;
-    }
-    statusEl.textContent = 'Waiting for agent to complete…';
-    setTimeout(function () {
-      pollStatus().then(function (d) {
-        if (d.status === 'completed') window.location.href = doneUrl;
-        else setTimeout(run, 2000);
-      });
-    }, 1500);
-  }).catch(function (err) {
-    statusEl.textContent = err.message || 'Could not reach local agent. Start IG E-Sign Agent and refresh.';
-  });
-  }
-  run();
-});
-</script>
+<div id="usb-sign-pending-config" hidden
+  data-job-id="{{ job.id }}"
+  data-token-url="{% url 'usb_sign_agent_token' job.id %}"
+  data-status-url="{% url 'usb_sign_status' job.id %}"
+  data-done-url="{% url 'usb_sign_done' job.id %}"
+  data-agent-port="{{ agent_local_port }}"
+  data-site-url="{{ site_url }}"
+  data-csrf-token="{{ csrf_token }}"></div>
+<script src="{% static 'usb_agent/js/usb-agent-pages.js' %}" defer></script>
 {% endblock %}

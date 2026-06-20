@@ -72,8 +72,11 @@ class UsbAgentFlowTests(TestCase):
         self.assertEqual(heartbeat.status_code, 200)
 
         pdf = _pdf_with_anchor()
-        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=pdf)
-        fetch = self.api.get(f'/api/agent/jobs/{job.id}/?sign_token={job.sign_token}')
+        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=pdf, device=device)
+        fetch = self.api.get(
+            f'/api/agent/jobs/{job.id}/',
+            HTTP_X_SIGN_TOKEN=job.sign_token,
+        )
         self.assertEqual(fetch.status_code, 200)
         self.assertIn('pdf_base64', fetch.json())
 
@@ -90,8 +93,10 @@ class UsbAgentFlowTests(TestCase):
             {
                 'signed_pdf_base64': base64.b64encode(signed.signed_pdf_data).decode('ascii'),
                 'sign_token': job.sign_token,
+                'client_mac': 'aa-bb-cc-dd-ee-ff',
             },
             format='json',
+            HTTP_USER_AGENT='IG-E-Sign-Agent/0.1',
         )
         self.assertEqual(complete.status_code, 200)
 
@@ -101,13 +106,15 @@ class UsbAgentFlowTests(TestCase):
         self.assertTrue(log.success)
         self.assertEqual(log.signing_source, 'usb')
         self.assertEqual(log.user, self.user)
+        self.assertEqual(log.client_mac, 'AA:BB:CC:DD:EE:FF')
+        self.assertEqual(log.user_agent, 'IG-E-Sign-Agent/0.1')
 
     def test_complete_rejects_unrelated_signed_pdf(self):
         if not self.has_pfx:
             self.skipTest('PFX cert not available locally')
 
         pairing = create_pairing_code(tenant=self.tenant, user=self.user)
-        _device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
+        device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
         self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
 
         original = _pdf_with_anchor()
@@ -118,7 +125,7 @@ class UsbAgentFlowTests(TestCase):
         other = doc.tobytes()
         doc.close()
 
-        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=original)
+        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=original, device=device)
         audit = SigningAuditMeta(endpoint='signpdf-pfx', user=self.user)
         signed_other = sign_pdf_for_tenant(
             tenant=self.tenant,
@@ -142,11 +149,46 @@ class UsbAgentFlowTests(TestCase):
 
     def test_agent_job_requires_sign_token(self):
         pairing = create_pairing_code(tenant=self.tenant, user=self.user)
-        _device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
+        device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
         self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
-        job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=_pdf_with_anchor())
+        job = prepare_usb_sign_job(
+            tenant=self.tenant,
+            user=self.user,
+            pdf_data=_pdf_with_anchor(),
+            device=device,
+        )
         denied = self.api.get(f'/api/agent/jobs/{job.id}/')
         self.assertEqual(denied.status_code, 400)
+
+    def test_agent_fail_marks_job_failed(self):
+        pairing = create_pairing_code(tenant=self.tenant, user=self.user)
+        device, token = pair_device(code=pairing.code, machine_name='test-pc', agent_version='0.1.0')
+        self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        job = prepare_usb_sign_job(
+            tenant=self.tenant,
+            user=self.user,
+            pdf_data=_pdf_with_anchor(),
+            device=device,
+        )
+        response = self.api.post(
+            f'/api/agent/jobs/{job.id}/fail/',
+            {
+                'sign_token': job.sign_token,
+                'error': 'Signing cancelled — token PIN was not entered.',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], UsbSignJobStatus.FAILED)
+        job.refresh_from_db()
+        self.assertEqual(job.status, UsbSignJobStatus.FAILED)
+        self.assertEqual(job.error_message, 'Signing cancelled — token PIN was not entered.')
+        self.assertEqual(job.sign_token, '')
+
+        status = self.client.get(f'/dashboard/sign/usb/{job.id}/status/')
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json()['status'], UsbSignJobStatus.FAILED)
+        self.assertIn('Signing cancelled', status.json()['error'])
 
     def test_agent_page_requires_login(self):
         anon = Client()
@@ -221,6 +263,11 @@ class TenantUsbSignApiTests(TestCase):
         detail = self.api.get(f'/api/sign/usb/{job_id}/')
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()['status'], UsbSignJobStatus.PREPARED)
+        self.assertNotIn('sign_token', detail.json())
+
+        token_response = self.api.post(f'/api/sign/usb/{job_id}/agent-token/')
+        self.assertEqual(token_response.status_code, 200)
+        self.assertIn('sign_token', token_response.json())
 
     def test_create_requires_api_key(self):
         client = APIClient()
@@ -238,8 +285,15 @@ class TenantUsbSignApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_download_completed_job(self):
+        pairing = create_pairing_code(tenant=self.tenant, user=self.user)
+        device, _token = pair_device(code=pairing.code, machine_name='api-pc', agent_version='0.1.0')
         pdf = _pdf_with_anchor()
-        job = prepare_usb_sign_job(tenant=self.tenant, pdf_data=pdf, api_key=self.api_key)
+        job = prepare_usb_sign_job(
+            tenant=self.tenant,
+            pdf_data=pdf,
+            api_key=self.api_key,
+            device=device,
+        )
         job.status = UsbSignJobStatus.COMPLETED
         job.hash_after = 'abc123'
         from accounts.services import encrypt_pfx

@@ -5,9 +5,10 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
-from .decorators import primary_tenant_required, tenant_owner_required
+from .decorators import primary_tenant_required, tenant_owner_only, tenant_owner_required
 from .emailing import EmailDeliveryError, resend_verification_email
 from .forms import (
+    APIKeyCustomerLabelForm,
     APIKeyForm,
     CertificateUploadForm,
     CompanyProfileForm,
@@ -28,10 +29,14 @@ from .services import (
     get_company_profile,
     get_portal_sign_artifact,
     get_primary_tenant,
+    build_monthly_usage_report,
+    list_available_usage_periods,
+    parse_usage_period_param,
     request_password_reset,
     reset_password_with_token,
     revoke_api_key,
     store_portal_sign_artifact,
+    update_api_key_customer_label,
     verify_email,
 )
 
@@ -232,9 +237,20 @@ def dashboard_view(request):
     from django.db.models import Count
     from django.utils import timezone
 
+    from gst.client import MyGSTCafeConfigError, get_platform_credentials
+
     from .models import DocumentType
 
     tenant = get_primary_tenant(request.user)
+    profile = get_company_profile(tenant)
+    partner_ready = True
+    partner_error = ''
+    try:
+        get_platform_credentials()
+    except MyGSTCafeConfigError as exc:
+        partner_ready = False
+        partner_error = str(exc)
+
     month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     type_labels = dict(DocumentType.choices)
     document_type_stats = [
@@ -258,6 +274,10 @@ def dashboard_view(request):
         'accounts/dashboard.html',
         {
             'tenant': tenant,
+            'quota': tenant.quota_state,
+            'profile': profile,
+            'partner_ready': partner_ready,
+            'partner_error': partner_error,
             'usage_logs': tenant.usage_logs.all()[:20],
             'document_type_stats': document_type_stats,
             'active_keys': tenant.api_keys.filter(revoked_at__isnull=True).count(),
@@ -282,10 +302,21 @@ def keys_view(request):
             revoke_api_key(api_key)
             messages.success(request, f'Revoked API key "{api_key.name}".')
             return redirect('keys')
+        elif 'update_customer_label' in request.POST:
+            api_key = get_object_or_404(tenant.api_keys, pk=request.POST['update_customer_label'])
+            form = APIKeyCustomerLabelForm(request.POST)
+            if form.is_valid():
+                update_api_key_customer_label(api_key, form.cleaned_data['customer_label'])
+                messages.success(request, f'Updated customer label for "{api_key.name}".')
+            return redirect('keys')
         else:
             form = APIKeyForm(request.POST)
             if form.is_valid():
-                _api_key, created_key = create_api_key(tenant, form.cleaned_data['name'])
+                _api_key, created_key = create_api_key(
+                    tenant,
+                    form.cleaned_data['name'],
+                    customer_label=form.cleaned_data.get('customer_label', ''),
+                )
                 return render(
                     request,
                     'accounts/key_created.html',
@@ -306,9 +337,73 @@ def keys_view(request):
     )
 
 
+def _usage_report_for_request(tenant, request):
+    parsed = parse_usage_period_param(request.GET.get('period'))
+    if parsed:
+        year, month = parsed
+        return build_monthly_usage_report(tenant, year=year, month=month)
+    return build_monthly_usage_report(tenant)
+
+
 @login_required
 @primary_tenant_required
 @tenant_owner_required
+@require_http_methods(['GET'])
+def usage_report_view(request):
+    tenant = get_primary_tenant(request.user)
+    report = _usage_report_for_request(tenant, request)
+    chart_payload = {
+        'daily_overall': report['daily_overall'],
+        'customer_groups': report['customer_groups'],
+    }
+    return render(
+        request,
+        'accounts/usage_report.html',
+        {
+            'tenant': tenant,
+            'report': report,
+            'chart_payload': chart_payload,
+            'period_options': list_available_usage_periods(tenant),
+            'selected_period': report['period_key'],
+        },
+    )
+
+
+@login_required
+@primary_tenant_required
+@tenant_owner_required
+@require_http_methods(['GET'])
+def usage_report_download_view(request):
+    from django.http import HttpResponse
+
+    from .usage_report_export import UsageReportDownloadError, build_usage_report_download
+
+    tenant = get_primary_tenant(request.user)
+    scope = request.GET.get('scope', 'overall')
+    fmt = request.GET.get('format', 'csv').lower()
+
+    try:
+        payload, content_type, filename = build_usage_report_download(
+            tenant,
+            period=request.GET.get('period'),
+            scope=scope,
+            bucket=request.GET.get('bucket', '').strip(),
+            customer_label=request.GET.get('customer', '').strip(),
+            fmt=fmt,
+        )
+    except UsageReportDownloadError as exc:
+        from django.http import Http404
+
+        raise Http404(str(exc)) from exc
+
+    response = HttpResponse(payload, content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@primary_tenant_required
+@tenant_owner_only
 @require_http_methods(['GET', 'POST'])
 def certs_view(request):
     tenant = get_primary_tenant(request.user)
@@ -495,7 +590,7 @@ def docs_download_view(request):
     tenant = get_primary_tenant(request.user)
     content = render_to_string(
         'accounts/api-docs.md',
-        {'tenant': tenant, 'request': request},
+        {'tenant': tenant, 'quota': tenant.quota_state, 'request': request},
         request=request,
     )
     pdf_bytes = markdown_to_pdf_bytes(content)

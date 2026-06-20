@@ -71,6 +71,6 @@
 {% block extra_js %}
 {% load static %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script>window.PORTAL_SIGN_PREVIEW_URL = "{% url 'sign_preview' %}";</script>
+<div id="portal-sign-config" data-preview-url="{% url 'sign_preview' %}" hidden></div>
 <script src="{% static 'accounts/js/portal-sign.js' %}" defer></script>
 {% endblock %}

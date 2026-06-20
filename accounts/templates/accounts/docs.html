@@ -130,27 +130,49 @@
 
   <h3>Step 2 — Trigger signing on the Windows PC</h3>
   <p style="color:var(--text-secondary);font-size:0.875rem;">
-    Signing happens on the PC with the USB token. From that machine (or a local bridge service), POST to the agent:
+    Signing happens on the PC with the USB token. POST to the agent with <span class="inline-code">Content-Type: application/json</span>
+    and a required <span class="inline-code">Origin</span> header (paired portal URL or <span class="inline-code">allowed_origins</span> in agent config).
+    The call is synchronous — often 10–30+ seconds while the user enters the token PIN.
   </p>
   <p><strong>POST</strong> <span class="inline-code">http://127.0.0.1:9765/sign</span></p>
   <pre><code>{
   "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
-  "api_base": "{{ request.scheme }}://{{ request.get_host }}",
   "sign_token": "xY7…"
 }</code></pre>
   <p style="color:var(--text-secondary);font-size:0.875rem;">
-    The agent shows a PIN dialog, signs via PKCS#11, and uploads the result to the cloud.
-    <span class="inline-code">api_base</span> must match the portal URL the agent was paired with.
-    For ERP automation, run a small local service on the signing PC that receives
-    <span class="inline-code">job_id</span> + <span class="inline-code">sign_token</span> from your backend and calls this endpoint.
+    Do not send <span class="inline-code">api_base</span> in the body — the agent uses the URL from pairing.
+    Optional: <span class="inline-code">GET http://127.0.0.1:9765/health</span> to verify the agent is running.
   </p>
+
+  <h4>Success (200)</h4>
+  <pre><code>{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "signing_id": 42,
+  "hash_after": "e5f6g7h8a1b2c3d4…"
+}</code></pre>
+
+  <h4>Errors</h4>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="Local agent errors">
+      <thead>
+        <tr><th>HTTP</th><th>Example <span class="inline-code">error</span></th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="badge badge-error">400</span></td><td class="mono" style="font-size:0.8rem;">Agent is not paired or job_id/sign_token missing.</td></tr>
+        <tr><td><span class="badge badge-error">403</span></td><td class="mono" style="font-size:0.8rem;">Origin header is required for local signing.</td></tr>
+        <tr><td><span class="badge badge-error">403</span></td><td class="mono" style="font-size:0.8rem;">Origin is not allowed for this agent.</td></tr>
+        <tr><td><span class="badge badge-error">500</span></td><td class="mono" style="font-size:0.8rem;">USB token signing failed: …</td></tr>
+        <tr><td><span class="badge badge-error">500</span></td><td class="mono" style="font-size:0.8rem;">Signing job not found. / Invalid or missing sign token…</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <h4>Local trigger curl (run on signing PC)</h4>
   <pre><code>curl -X POST "http://127.0.0.1:9765/sign" \
   -H "Content-Type: application/json" \
+  -H "Origin: {{ request.scheme }}://{{ request.get_host }}" \
   -d '{
     "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
-    "api_base": "{{ request.scheme }}://{{ request.get_host }}",
     "sign_token": "xY7…"
   }'</code></pre>
 

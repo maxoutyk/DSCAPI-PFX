@@ -43,24 +43,11 @@
 {% endblock %}
 {% block extra_js %}
 <script src="{% static 'usb_agent/js/agent-bridge.js' %}" defer></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  window.IGAgentBridge.checkLocal({{ agent_local_port }}).then(function (status) {
-    var el = document.getElementById('usb-agent-status');
-    if (!el) return;
-    if (!status.running) {
-      el.textContent = 'Start IG E-Sign Agent on this computer before signing.';
-      el.style.color = 'var(--warning)';
-      return;
-    }
-    if (!status.portal_paired || !status.portal_connected) {
-      el.textContent = 'Local agent is running but not connected to the portal. Re-pair in the agent window first.';
-      el.style.color = 'var(--warning)';
-      return;
-    }
-    el.textContent = 'Local agent ready.';
-    el.style.color = 'var(--success)';
-  });
-});
-</script>
+<div id="usb-agent-status-config" hidden
+  data-agent-port="{{ agent_local_port }}"
+  data-status-target="usb-agent-status"
+  data-message-offline="Start IG E-Sign Agent on this computer before signing."
+  data-message-unpaired="Local agent is running but not connected to the portal. Re-pair in the agent window first."
+  data-message-ready="Local agent ready."></div>
+<script src="{% static 'usb_agent/js/usb-agent-pages.js' %}" defer></script>
 {% endblock %}

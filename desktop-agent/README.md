@@ -31,6 +31,8 @@ Or copy the file into `desktop-agent/releases/` on the app host — the portal s
 
 GitHub Actions: **Build IG E-Sign Agent (Windows)** workflow (manual dispatch).
 
+Branding assets live in `desktop-agent/assets/` (`agent_icon.png` / `agent_icon.ico`) and are used for the system tray, dashboard window, and Windows `.exe` icon when built with PyInstaller.
+
 ## Windows Defender / SmartScreen
 
 The agent is a **PyInstaller** bundle and is **not code-signed yet**, so Windows Defender or SmartScreen may flag it as an unknown app. This is a common false positive for new internal tools.
@@ -64,6 +66,21 @@ python desktop-agent/agent.py run --port 9765 --console  # terminal mode
 ```
 
 Until PKCS#11 is implemented, dev signing uses the PFX env vars above (same placement as cloud prepare).
+
+## Allowed browser origins (ERP integrations)
+
+When signing is triggered from a web app (e.g. Microsoft Dynamics Business Central), the browser sends an `Origin` header. The agent allows:
+
+- Your paired portal URL automatically
+- Extra origins you add in the agent UI (**Allowed browser origins**) or via CLI:
+
+```bash
+python desktop-agent/agent.py origins list
+python desktop-agent/agent.py origins add https://businesscentral.dynamics.com
+python desktop-agent/agent.py origins remove https://businesscentral.dynamics.com
+```
+
+Origins must be full scheme + host only (`https://host`), no path. Changes apply immediately — no restart required.
 
 ## Portal flow
 

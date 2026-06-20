@@ -11,7 +11,7 @@ from accounts.services import (
     record_signing_event,
 )
 
-from .audit import SigningAuditMeta, get_client_ip, sha256_hex
+from .audit import SigningAuditMeta, apply_request_client_context, sha256_hex
 from .document_detection import detect_document_type
 from .pdf_signing import (
     build_signing_dict,
@@ -23,6 +23,11 @@ from .pdf_signing import (
     sign_pdf_at_positions,
 )
 from .signature_style import SignatureStyleLookupError, resolve_signature_style
+from .validation import (
+    GENERIC_SIGNING_FAILURE_MESSAGE,
+    PdfValidationError,
+    enforce_signature_slot_limit,
+)
 
 
 class SigningFailure(Exception):
@@ -48,7 +53,8 @@ class PdfAnalysis:
 
 
 def build_audit_for_http_request(request, *, endpoint: str = 'signpdf-pfx', user=None, api_key=None) -> SigningAuditMeta:
-    audit = SigningAuditMeta(client_ip=get_client_ip(request), endpoint=endpoint)
+    audit = SigningAuditMeta(endpoint=endpoint)
+    apply_request_client_context(audit, request)
     if api_key is not None:
         audit.api_key = api_key
     if user is not None:
@@ -62,6 +68,10 @@ def analyze_pdf_for_signing(pdf_data: bytes, tenant, *, signature_style_name: st
     except SignatureStyleLookupError as exc:
         raise SigningFailure(str(exc), record_failure=False) from exc
     positions = find_text_in_pdf(pdf_data, style=style)
+    try:
+        enforce_signature_slot_limit(len(positions))
+    except PdfValidationError as exc:
+        raise SigningFailure(str(exc), record_failure=False) from exc
     detection = detect_document_type(pdf_data)
     from accounts.models import DocumentType
 
@@ -113,8 +123,8 @@ def sign_pdf_for_tenant(
         raise
     except Exception as exc:
         if cert_alias:
-            raise SigningFailure(f'Certificate not found: {cert_alias}') from exc
-        raise SigningFailure(str(exc)) from exc
+            raise SigningFailure(f'Certificate not found: {cert_alias}', record_failure=False) from exc
+        raise SigningFailure(GENERIC_SIGNING_FAILURE_MESSAGE, record_failure=False) from exc
 
     try:
         private_key, certificate, additional_certs = load_pfx_credentials(pfx_data, password)
@@ -125,7 +135,12 @@ def sign_pdf_for_tenant(
     if not text_positions:
         raise SigningFailure(
             f"No position found for anchor text: {signature_style.anchor_text!r}",
+            record_failure=False,
         )
+    try:
+        enforce_signature_slot_limit(len(text_positions))
+    except PdfValidationError as exc:
+        raise SigningFailure(str(exc), record_failure=False) from exc
 
     indian_time_str, indian_time = get_indian_time_str()
     cn = get_cn_from_certificate(certificate)
@@ -147,7 +162,7 @@ def sign_pdf_for_tenant(
             style=signature_style,
         )
     except Exception as exc:
-        raise SigningFailure(f'Failed to sign PDF: {exc}', record_failure=True) from exc
+        raise SigningFailure(GENERIC_SIGNING_FAILURE_MESSAGE, record_failure=True) from exc
 
     audit.hash_after = sha256_hex(signed_pdf_data)
     try:

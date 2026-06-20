@@ -1,7 +1,8 @@
 (function () {
   'use strict';
 
-  var previewUrl = window.PUBLIC_SIGN_PREVIEW_URL;
+  var config = document.getElementById('public-sign-config');
+  var previewUrl = config && config.dataset.previewUrl;
   var form = document.getElementById('public-sign-form');
   if (!form || !previewUrl) return;
 

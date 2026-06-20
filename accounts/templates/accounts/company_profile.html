@@ -107,6 +107,26 @@
       </div>
     </div>
 
+    <h2 style="margin:32px 0 8px;font-size:1rem;">3. NIC portal credentials</h2>
+    <p class="form-help" style="margin:0 0 20px;">
+      Required for E-way bill and e-invoice PDF downloads. These are your GST NIC portal login details — stored encrypted and never sent to the browser after save.
+    </p>
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="id_nic_portal_username">NIC portal username</label>
+        {{ form.nic_portal_username }}
+        {% if form.nic_portal_username.errors %}<div class="message error" role="alert">{{ form.nic_portal_username.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_nic_portal_password">NIC portal password</label>
+        {{ form.nic_portal_password }}
+        {% if profile.encrypted_nic_portal_password %}
+        <p class="form-help">A password is saved. Leave blank to keep the current one.</p>
+        {% endif %}
+        {% if form.nic_portal_password.errors %}<div class="message error" role="alert">{{ form.nic_portal_password.errors|striptags }}</div>{% endif %}
+      </div>
+    </div>
+
     {% if form.non_field_errors %}
     <div class="message error" role="alert">{{ form.non_field_errors|striptags }}</div>
     {% endif %}

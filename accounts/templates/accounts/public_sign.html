@@ -114,6 +114,6 @@
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script>window.PUBLIC_SIGN_PREVIEW_URL = "{% url 'public_sign_preview' %}";</script>
+<div id="public-sign-config" data-preview-url="{% url 'public_sign_preview' %}" hidden></div>
 <script src="{% static 'accounts/js/public-sign.js' %}" defer></script>
 {% endblock %}

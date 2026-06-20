@@ -1,0 +1,196 @@
+{% extends "accounts/base.html" %}
+{% load display_tz static %}
+{% block title %}Usage Report — IG E-Sign{% endblock %}
+{% block page_title %}Usage Report{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'accounts/css/usage-report.css' %}">
+{% endblock %}
+{% block content %}
+<div class="page-header usage-report-header">
+  <div>
+    <h1>Usage analytics</h1>
+    <p class="subtitle">
+      Successful API and portal calls for
+      {{ report.period_start_display|date:"M j" }} – {{ report.period_end_display|date:"M j, Y" }}
+      {% if not report.is_current_period %}(archived){% endif %}
+    </p>
+  </div>
+  <div class="usage-report-toolbar">
+    <form method="get" class="usage-period-form" id="usage-period-form">
+      <label for="usage-period-select" class="usage-select-label">Period</label>
+      <div class="select-field usage-period-select">
+        <select name="period" id="usage-period-select" class="form-control form-control-btn">
+          {% for option in period_options %}
+          <option value="{{ option.value }}" {% if option.value == selected_period %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+    <a class="btn btn-secondary btn-sm" href="{% url 'usage_report_download' %}?scope=overall&amp;format=csv&amp;period={{ selected_period }}">Download overall (CSV)</a>
+    <a class="btn btn-secondary btn-sm" href="{% url 'usage_report_download' %}?scope=overall&amp;format=pdf&amp;period={{ selected_period }}">Download overall (PDF)</a>
+  </div>
+</div>
+
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi-card">
+    <div class="kpi-value">{{ report.total_usage }}</div>
+    <div class="kpi-label">Period usage</div>
+    <div class="kpi-meta">signing, USB &amp; GST</div>
+  </div>
+  {% if report.show_quota %}
+  <div class="kpi-card">
+    <div class="kpi-value">{{ report.quota_used }}</div>
+    <div class="kpi-label">Quota consumed</div>
+    <div class="kpi-meta">of {{ report.monthly_quota }}{% if report.quota_plan == 'pro' or report.quota_plan == 'pro_plus' %} this term{% else %} this month{% endif %}</div>
+  </div>
+  {% endif %}
+  <div class="kpi-card">
+    <div class="kpi-value">{{ report.total_signing }}</div>
+    <div class="kpi-label">Signing / USB</div>
+    <div class="kpi-meta">in selected period</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value">{{ report.total_gst }}</div>
+    <div class="kpi-label">GST calls</div>
+    <div class="kpi-meta">in selected period</div>
+  </div>
+</div>
+
+<div class="usage-chart-grid">
+  <div class="card usage-chart-card usage-chart-card--wide">
+    <div class="card-header">
+      <h2>Daily usage trend</h2>
+      <span class="badge badge-neutral">Overall</span>
+    </div>
+    <div class="usage-chart-wrap">
+      <canvas id="usage-daily-chart" aria-label="Daily usage trend chart"></canvas>
+    </div>
+  </div>
+
+  <div class="card usage-chart-card">
+    <div class="card-header">
+      <h2>By customer</h2>
+      <span class="badge badge-neutral">Share of total</span>
+    </div>
+    <div class="usage-chart-wrap usage-chart-wrap--donut">
+      <canvas id="usage-customer-chart" aria-label="Usage share by customer chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <div class="card-header usage-customer-header">
+    <h2>Customer daily usage</h2>
+    <div class="usage-customer-select">
+      <label for="usage-customer-select" class="usage-select-label">Customer</label>
+      <div class="select-field">
+        <select id="usage-customer-select" class="form-control form-control-btn">
+          {% for group in report.customer_groups %}
+          {% if group.total > 0 %}
+          <option value="{{ group.bucket }}">{{ group.customer_label }} ({{ group.total }})</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="usage-chart-wrap">
+    <canvas id="usage-customer-daily-chart" aria-label="Selected customer daily usage chart"></canvas>
+  </div>
+  <div class="usage-customer-downloads" id="usage-customer-downloads"></div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <div class="card-header">
+    <h2>By customer</h2>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="Usage by customer">
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>API keys</th>
+          <th>Signing / USB</th>
+          <th>GST</th>
+          <th>Total</th>
+          <th>Download</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in report.customer_groups %}
+        {% if group.total > 0 %}
+        <tr>
+          <td><strong>{{ group.customer_label }}</strong></td>
+          <td>{% if group.key_names %}{{ group.key_names|join:", " }}{% else %}Portal{% endif %}</td>
+          <td>{{ group.signing_count }}</td>
+          <td>{{ group.gst_count }}</td>
+          <td><strong>{{ group.total }}</strong></td>
+          <td>
+            <div class="table-actions">
+              <a class="btn btn-ghost btn-sm" href="{% url 'usage_report_download' %}?scope=customer&amp;bucket={{ group.bucket }}&amp;format=csv&amp;period={{ selected_period }}">CSV</a>
+              <a class="btn btn-ghost btn-sm" href="{% url 'usage_report_download' %}?scope=customer&amp;bucket={{ group.bucket }}&amp;format=pdf&amp;period={{ selected_period }}">PDF</a>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <div class="card-header">
+    <h2>Breakdown by API key</h2>
+    <a class="btn btn-secondary btn-sm" href="{% url 'keys' %}">Manage API keys</a>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" aria-label="Monthly usage by customer">
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>API key</th>
+          <th>Signing / USB</th>
+          <th>GST</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.rows %}
+        {% if row.total > 0 or not row.is_portal %}
+        <tr>
+          <td>
+            <strong>{{ row.customer_label }}</strong>
+            {% if row.revoked %}<span class="badge badge-neutral">Revoked</span>{% endif %}
+          </td>
+          <td>
+            {% if row.is_portal %}
+            <span style="color:var(--text-secondary);">Portal (no API key)</span>
+            {% else %}
+            {{ row.key_name }} <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ row.key_prefix }}...</span>
+            {% endif %}
+          </td>
+          <td>{{ row.signing_count }}</td>
+          <td>{{ row.gst_count }}</td>
+          <td><strong>{{ row.total }}</strong></td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="margin:16px 0 0;color:var(--text-secondary);font-size:0.8rem;">
+    Choose a month from the period selector to view or download past reports.
+    Customer downloads aggregate all API keys with the same customer label.
+  </p>
+</div>
+
+<div id="usage-report-meta" data-download-url="{% url 'usage_report_download' %}" data-period="{{ selected_period }}" hidden></div>
+
+{{ chart_payload|json_script:"usage-report-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+<script src="{% static 'accounts/js/usage-report.js' %}" defer></script>
+{% endblock %}

@@ -5,7 +5,7 @@ from django.test import RequestFactory, TestCase, override_settings
 
 from accounts.models import DocumentType, Tenant, TenantStatus, UsageLog
 from accounts.services import create_api_key
-from signPdf.audit import get_client_ip, sha256_hex
+from signPdf.audit import get_client_ip, normalize_client_mac, sha256_hex
 from signPdf.document_detection import detect_document_type, normalize_pdf_text
 
 
@@ -73,6 +73,31 @@ class ClientIpTests(TestCase):
         self.assertEqual(get_client_ip(request), '127.0.0.1')
 
 
+class ClientContextTests(TestCase):
+    def test_normalize_client_mac_accepts_colons(self):
+        self.assertEqual(normalize_client_mac('aa:bb:cc:dd:ee:ff'), 'AA:BB:CC:DD:EE:FF')
+
+    def test_normalize_client_mac_accepts_hyphens(self):
+        self.assertEqual(normalize_client_mac('aa-bb-cc-dd-ee-ff'), 'AA:BB:CC:DD:EE:FF')
+
+    def test_normalize_client_mac_rejects_invalid(self):
+        self.assertIsNone(normalize_client_mac('not-a-mac'))
+
+    def test_build_audit_captures_user_agent_and_mac(self):
+        from signPdf.signing_service import build_audit_for_http_request
+
+        request = RequestFactory().post(
+            '/api/signpdf-pfx',
+            {'client_mac': 'aa-bb-cc-dd-ee-ff'},
+            HTTP_USER_AGENT='IG-E-Sign-Test/1.0',
+            REMOTE_ADDR='203.0.113.9',
+        )
+        audit = build_audit_for_http_request(request)
+        self.assertEqual(audit.client_ip, '203.0.113.9')
+        self.assertEqual(audit.user_agent, 'IG-E-Sign-Test/1.0')
+        self.assertEqual(audit.client_mac, 'AA:BB:CC:DD:EE:FF')
+
+
 class DocumentDetectionTests(TestCase):
     def test_detects_tax_invoice(self):
         pdf_data = _pdf_with_text('TAX INVOICE', 'Authorised Signatory')
@@ -126,6 +151,7 @@ class SigningAuditIntegrationTests(TestCase):
             {'pdf_base64': pdf_b64, 'pfx_base64': 'not-valid-pfx', 'password': 'x'},
             format='json',
             HTTP_X_FORWARDED_FOR='203.0.113.50',
+            HTTP_USER_AGENT='python-requests/2.32.0',
         )
         self.assertEqual(response.status_code, 400)
 
@@ -135,6 +161,7 @@ class SigningAuditIntegrationTests(TestCase):
         self.assertEqual(log.signing_source, 'api')
         self.assertEqual(log.document_type, DocumentType.DELIVERY_CHALLAN)
         self.assertEqual(log.client_ip, '203.0.113.50')
+        self.assertIn('python-requests', (log.user_agent or '').lower())
         self.assertIsNotNone(log.hash_before)
         self.assertEqual(len(log.hash_before), 64)
         self.assertIsNone(log.hash_after)

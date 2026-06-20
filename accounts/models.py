@@ -15,6 +15,19 @@ class TenantStatus(models.TextChoices):
     SUSPENDED = 'suspended', 'Suspended'
 
 
+class QuotaPlan(models.TextChoices):
+    FREE = 'free', 'Free'
+    PRO = 'pro', 'Pro'
+    PRO_PLUS = 'pro_plus', 'Pro+'
+
+
+class QuotaEntitlementStatus(models.TextChoices):
+    ACTIVE = 'active', 'Active'
+    EXPIRED = 'expired', 'Expired'
+    SUPERSEDED = 'superseded', 'Superseded'
+    CANCELLED = 'cancelled', 'Cancelled'
+
+
 class MembershipRole(models.TextChoices):
     OWNER = 'owner', 'Owner'
     MEMBER = 'member', 'Member'
@@ -74,6 +87,11 @@ class Tenant(models.Model):
         choices=TenantStatus.choices,
         default=TenantStatus.PENDING_EMAIL,
     )
+    quota_plan = models.CharField(
+        max_length=20,
+        choices=QuotaPlan.choices,
+        default=QuotaPlan.FREE,
+    )
     monthly_quota = models.PositiveIntegerField(default=100)
     usage_this_month = models.PositiveIntegerField(default=0)
     gst_monthly_quota = models.PositiveIntegerField(default=50)
@@ -122,13 +140,72 @@ class Tenant(models.Model):
 
     @property
     def quota_remaining(self):
-        self.reset_quota_if_needed()
-        return max(0, self.monthly_quota - self.usage_this_month)
+        from .quota import resolve_quota_state
+
+        return resolve_quota_state(self).remaining
+
+    @property
+    def quota_state(self):
+        from .quota import resolve_quota_state
+
+        return resolve_quota_state(self)
 
     @property
     def gst_quota_remaining(self):
-        self.reset_quota_if_needed()
-        return max(0, self.gst_monthly_quota - self.gst_usage_this_month)
+        """GST shares the tenant-wide quota pool (same counter as signing/USB)."""
+        return self.quota_remaining
+
+
+class QuotaEntitlement(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='quota_entitlements')
+    plan_at_grant = models.CharField(max_length=20, choices=QuotaPlan.choices)
+    purchased_limit = models.PositiveIntegerField()
+    carry_forward = models.PositiveIntegerField(default=0)
+    quota_limit = models.PositiveIntegerField()
+    usage_count = models.PositiveIntegerField(default=0)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=20,
+        choices=QuotaEntitlementStatus.choices,
+        default=QuotaEntitlementStatus.ACTIVE,
+    )
+    renewed_from = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='renewals',
+    )
+    granted_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='granted_quota_entitlements',
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-starts_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant'],
+                condition=models.Q(status=QuotaEntitlementStatus.ACTIVE),
+                name='uniq_active_quota_entitlement_per_tenant',
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.tenant.name}: {self.quota_limit} ({self.plan_at_grant}, {self.status})'
+        )
+
+    @property
+    def remaining(self) -> int:
+        return max(0, self.quota_limit - self.usage_count)
 
 
 class CompanyProfile(models.Model):
@@ -146,6 +223,8 @@ class CompanyProfile(models.Model):
     secondary_email = models.EmailField(blank=True)
     secondary_name = models.CharField(max_length=120, blank=True)
     secondary_mobile = models.CharField(max_length=15, blank=True)
+    nic_portal_username = models.CharField(max_length=120, blank=True)
+    encrypted_nic_portal_password = models.BinaryField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -190,6 +269,11 @@ class TenantMembership(models.Model):
 class APIKey(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='api_keys')
     name = models.CharField(max_length=100)
+    customer_label = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text='Optional customer or integration name for usage reports.',
+    )
     prefix = models.CharField(max_length=20, db_index=True)
     key_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -319,6 +403,8 @@ class UsageLog(models.Model):
     hash_before = models.CharField(max_length=64, null=True, blank=True)
     hash_after = models.CharField(max_length=64, null=True, blank=True)
     client_ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, null=True, blank=True)
+    client_mac = models.CharField(max_length=17, null=True, blank=True)
     api_key = models.ForeignKey(
         'APIKey',
         null=True,

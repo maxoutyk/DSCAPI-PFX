@@ -45,17 +45,42 @@
     <div class="kpi-icon" aria-hidden="true">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
     </div>
-    <div class="kpi-value">{{ tenant.usage_this_month }}</div>
-    <div class="kpi-label">Signatures this month</div>
-    <div class="kpi-meta">of {{ tenant.monthly_quota }} quota</div>
+    <div class="kpi-value">{{ quota.used }}</div>
+    <div class="kpi-label">{% if quota.is_term_based %}Used this term{% else %}Used this month{% endif %}</div>
+    <div class="kpi-meta">signing, USB &amp; GST · of {{ quota.limit }}</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-icon" aria-hidden="true">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
     </div>
-    <div class="kpi-value">{{ tenant.quota_remaining }}</div>
+    <div class="kpi-value" id="dashboard-quota-remaining">{{ quota.remaining }}</div>
     <div class="kpi-label">Remaining quota</div>
-    <div class="kpi-meta">resets {{ tenant.quota_reset_at|ist:"M j, Y" }}</div>
+    <div class="kpi-meta">
+      {% if quota.is_term_based %}
+        expires {{ quota.resets_or_expires_at|ist:"M j, Y" }}
+        {% if quota.can_carry_on_renewal %} · renew before expiry to keep unused quota{% endif %}
+      {% else %}
+        resets {{ quota.resets_or_expires_at|ist:"M j, Y" }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+    </div>
+    <div class="kpi-value kpi-value-mono">{% if profile.gstin %}{{ profile.gstin }}{% else %}—{% endif %}</div>
+    <div class="kpi-label">Your GSTIN</div>
+    <div class="kpi-meta"><a href="{% url 'company_profile' %}">Update profile</a></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+    </div>
+    <div class="kpi-value kpi-value-badge">
+      {% if partner_ready %}<span class="badge badge-success">Connected</span>{% else %}<span class="badge badge-warning">Unavailable</span>{% endif %}
+    </div>
+    <div class="kpi-label">GST network</div>
+    <div class="kpi-meta"><a href="{% url 'gst_dashboard' %}">GST services</a></div>
   </div>
   <div class="kpi-card">
     <div class="kpi-icon" aria-hidden="true">
@@ -88,6 +113,10 @@
 </div>
 {% endif %}
 
+{% if not partner_ready and partner_error %}
+<div class="message error" role="alert" style="margin-bottom:24px;">{{ partner_error }}</div>
+{% endif %}
+
 <div class="grid-2">
   <div class="card card-flat">
     <div class="card-header">
@@ -101,7 +130,7 @@
             <th>Document</th>
             <th>Source</th>
             <th>Status</th>
-            <th>IP</th>
+            <th>Client</th>
             <th>Hash</th>
             <th>Time (IST)</th>
           </tr>
@@ -127,8 +156,18 @@
               {% endif %}
             </td>
             <td>
-              {% if log.client_ip %}
-              <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ log.client_ip }}</span>
+              {% if log.client_ip or log.client_mac or log.user_agent %}
+              <div class="sign-client-meta">
+                {% if log.client_ip %}
+                <span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ log.client_ip }}</span>
+                {% endif %}
+                {% if log.client_mac %}
+                <span class="mono" style="font-size:0.75rem;color:var(--text-secondary);">{{ log.client_mac }}</span>
+                {% endif %}
+                {% if log.user_agent %}
+                <span style="font-size:0.72rem;color:var(--text-secondary);" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:48 }}</span>
+                {% endif %}
+              </div>
               {% else %}
               <span style="color:var(--text-secondary);">—</span>
               {% endif %}

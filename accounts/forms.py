@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 import re
 
 from .models import CompanyProfile, IndianState, Tenant, TenantSignatureStyle, TenantStatus
+from .services import nic_portal_credentials_configured
 from .services import get_primary_tenant, register_tenant, store_certificate
 
 
@@ -69,6 +70,15 @@ class PasswordResetConfirmForm(forms.Form):
 
 class APIKeyForm(forms.Form):
     name = forms.CharField(max_length=100, initial='Production')
+    customer_label = forms.CharField(
+        max_length=120,
+        required=False,
+        help_text='Optional customer name for quota usage reports.',
+    )
+
+
+class APIKeyCustomerLabelForm(forms.Form):
+    customer_label = forms.CharField(max_length=120, required=False)
 
 
 class CertificateUploadForm(forms.Form):
@@ -248,6 +258,8 @@ class PublicSignForm(forms.Form):
     signature_width_ratio = forms.CharField(widget=forms.HiddenInput, required=False)
 
     def clean_pdf_file(self):
+        from signPdf.validation import PdfValidationError, validate_pdf_bytes
+
         uploaded = self.cleaned_data.get('pdf_file')
         if not uploaded:
             return uploaded
@@ -256,6 +268,13 @@ class PublicSignForm(forms.Form):
             raise forms.ValidationError(f'PDF must be {max_mb} MB or smaller.')
         if not uploaded.name.lower().endswith('.pdf'):
             raise forms.ValidationError('Upload a PDF file.')
+        uploaded.seek(0)
+        try:
+            validate_pdf_bytes(uploaded.read())
+        except PdfValidationError as exc:
+            raise forms.ValidationError(str(exc)) from exc
+        finally:
+            uploaded.seek(0)
         return uploaded
 
     def clean_signer_name(self):
@@ -361,6 +380,17 @@ _MOBILE_RE = re.compile(r'^[6-9][0-9]{9}$')
 
 
 class CompanyProfileForm(forms.ModelForm):
+    nic_portal_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                'placeholder': 'Leave blank to keep current password',
+                'autocomplete': 'new-password',
+            },
+        ),
+        label='NIC portal password',
+    )
+
     class Meta:
         model = CompanyProfile
         fields = [
@@ -377,6 +407,7 @@ class CompanyProfileForm(forms.ModelForm):
             'secondary_email',
             'secondary_name',
             'secondary_mobile',
+            'nic_portal_username',
         ]
         widgets = {
             'company_name': forms.TextInput(attrs={'placeholder': 'Legal company name'}),
@@ -392,6 +423,9 @@ class CompanyProfileForm(forms.ModelForm):
             'secondary_email': forms.EmailInput(attrs={'placeholder': 'Optional'}),
             'secondary_name': forms.TextInput(attrs={'placeholder': 'Optional'}),
             'secondary_mobile': forms.TextInput(attrs={'placeholder': 'Optional'}),
+            'nic_portal_username': forms.TextInput(
+                attrs={'placeholder': 'NIC portal username', 'autocomplete': 'username'},
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -443,8 +477,29 @@ class CompanyProfileForm(forms.ModelForm):
             raise forms.ValidationError('Enter a valid 10-digit Indian mobile number.')
         return mobile
 
+    def clean(self):
+        cleaned = super().clean()
+        username = (cleaned.get('nic_portal_username') or '').strip()
+        password = cleaned.get('nic_portal_password') or ''
+        has_existing = (
+            self.instance.pk
+            and nic_portal_credentials_configured(self.instance)
+        )
+        if password and not username:
+            self.add_error('nic_portal_username', 'Enter a NIC portal username when setting a password.')
+        if username and not password and not has_existing:
+            self.add_error('nic_portal_password', 'Enter the NIC portal password.')
+        return cleaned
+
     def save(self, commit=True):
         profile = super().save(commit=False)
+        password = self.cleaned_data.get('nic_portal_password') or ''
+        if password:
+            from accounts.services import encrypt_pfx
+
+            profile.encrypted_nic_portal_password = encrypt_pfx(password.encode('utf-8'))
+        elif not (profile.nic_portal_username or '').strip():
+            profile.encrypted_nic_portal_password = None
         if profile.is_complete:
             from django.utils import timezone
 

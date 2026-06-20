@@ -6,11 +6,23 @@ import base64
 import binascii
 import re
 
+import fitz
 from django.conf import settings
 
 
 class PdfValidationError(ValueError):
     pass
+
+
+def max_pdf_page_count() -> int:
+    return int(getattr(settings, 'PDF_MAX_PAGE_COUNT', 200))
+
+
+def max_signature_slots() -> int:
+    return int(getattr(settings, 'SIGNATURE_MAX_SLOTS', 20))
+
+
+GENERIC_SIGNING_FAILURE_MESSAGE = 'Failed to sign PDF. Check the document and certificate, then try again.'
 
 
 class PfxValidationError(ValueError):
@@ -62,6 +74,25 @@ def validate_pdf_bytes(pdf_data: bytes) -> None:
         raise PdfValidationError('PDF data is empty.')
     if not pdf_data.startswith(b'%PDF'):
         raise PdfValidationError('File is not a valid PDF.')
+    try:
+        doc = fitz.open(stream=pdf_data, filetype='pdf')
+        page_count = len(doc)
+        doc.close()
+    except Exception as exc:
+        raise PdfValidationError('PDF could not be opened.') from exc
+    if page_count == 0:
+        raise PdfValidationError('PDF has no pages.')
+    max_pages = max_pdf_page_count()
+    if page_count > max_pages:
+        raise PdfValidationError(f'PDF exceeds the maximum of {max_pages} pages.')
+
+
+def enforce_signature_slot_limit(position_count: int) -> None:
+    limit = max_signature_slots()
+    if position_count > limit:
+        raise PdfValidationError(
+            f'Too many signature positions ({position_count}). Maximum is {limit}.',
+        )
 
 
 def decode_pfx_base64(value: str, *, max_bytes: int | None = None) -> bytes:

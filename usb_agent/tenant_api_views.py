@@ -94,7 +94,7 @@ class UsbSignCreateView(TenantUsbSignMixin, APIView):
         except SignJobError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        payload = build_job_status_payload(job)
+        payload = build_job_status_payload(job, include_sign_token=True)
         payload.update(
             {
                 'message': (
@@ -115,7 +115,7 @@ class UsbSignDetailView(TenantUsbSignMixin, APIView):
         if not job:
             return Response({'error': 'Signing job not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        payload = build_job_status_payload(job)
+        payload = build_job_status_payload(job, include_sign_token=False)
         if request.query_params.get('include_pdf') == '1' and job.status == UsbSignJobStatus.COMPLETED:
             signed_pdf = get_signed_pdf_from_job(job)
             if signed_pdf:
@@ -152,3 +152,19 @@ class UsbSignDownloadView(TenantUsbSignMixin, APIView):
         response = HttpResponse(signed_pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="signed-{job.id}.pdf"'
         return response
+
+
+class UsbSignAgentTokenView(TenantUsbSignMixin, APIView):
+    """Return the one-time sign token for triggering the local desktop agent."""
+
+    def post(self, request, job_id):
+        tenant, _api_key = self.get_tenant_and_api_key(request)
+        job = get_job_for_tenant(tenant, job_id)
+        if not job:
+            return Response({'error': 'Signing job not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if job.status != UsbSignJobStatus.PREPARED or not job.sign_token:
+            return Response(
+                {'error': 'Sign token is only available while the job is prepared.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response({'sign_token': job.sign_token, 'job_id': str(job.id)})

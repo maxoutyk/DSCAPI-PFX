@@ -29,6 +29,10 @@ _session_pin: str | None = None
 _session_slot_id: int | None = None
 _pin_ui_in: queue.Queue | None = None
 _pin_ui_out: queue.Queue | None = None
+
+
+class PinCancelledError(RuntimeError):
+    """Raised when the user dismisses the token PIN dialog."""
 _main_ui_root = None
 
 
@@ -454,6 +458,7 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
             if pin:
                 _session_pin = pin
                 return pin
+            raise PinCancelledError('Signing cancelled — token PIN was not entered.')
 
         ensure_pin_ui_thread()
         if _pin_ui_in is not None and _pin_ui_out is not None:
@@ -465,6 +470,7 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
             if pin:
                 _session_pin = pin
                 return pin
+            raise PinCancelledError('Signing cancelled — token PIN was not entered.')
 
         try:
             import tkinter as tk
@@ -480,13 +486,15 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
                 return pin
         except Exception:
             pass
+        raise PinCancelledError('Signing cancelled — token PIN was not entered.')
 
     import getpass
 
     pin = getpass.getpass(f'{title}: {message}\nPIN: ')
     if pin:
         _session_pin = pin
-    return pin
+        return pin
+    raise PinCancelledError('Signing cancelled — token PIN was not entered.')
 
 
 def clear_session_pin():
@@ -693,7 +701,7 @@ class TokenSigner:
         slot_id = self._resolve_signing_slot()
         pin = self._pin or prompt_token_pin()
         if not pin:
-            raise RuntimeError('Token PIN is required to sign.')
+            raise PinCancelledError('Signing cancelled — token PIN was not entered.')
         self._login_slot(slot_id, pin)
 
     def _find_signing_pairs(self) -> list[tuple[object, bytes, str]]:

@@ -1,7 +1,8 @@
 (function () {
   'use strict';
 
-  var previewUrl = window.PORTAL_SIGN_PREVIEW_URL;
+  var config = document.getElementById('portal-sign-config');
+  var previewUrl = config && config.dataset.previewUrl;
   var pdfInput = document.getElementById('id_pdf_file');
   var canvas = document.getElementById('pdf-preview-canvas');
   var wrap = document.getElementById('pdf-preview-wrap');

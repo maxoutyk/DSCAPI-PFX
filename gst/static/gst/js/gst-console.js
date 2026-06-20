@@ -7,7 +7,8 @@
   const tryUrl = root.dataset.tryUrl || '';
   const profileComplete = root.dataset.profileComplete === 'true';
   const partnerReady = root.dataset.partnerReady === 'true';
-  const quotaEl = document.getElementById('gst-quota-remaining');
+  const quotaEl = document.getElementById('gst-quota-remaining')
+    || document.getElementById('dashboard-quota-remaining');
 
   const RETURN_LABELS = { R1: 'GSTR-1', R3B: 'GSTR-3B', R9: 'GSTR-9' };
   const PREFERENCE_LABELS = {
@@ -31,8 +32,7 @@
     R9: 'GSTR-9',
   };
 
-  const tabButtons = root.querySelectorAll('[data-tab]');
-  const panels = root.querySelectorAll('[data-panel]');
+  const servicePrefix = root.dataset.gstServicePrefix || '/dashboard/gst/';
 
   function getCsrfToken() {
     const input = root.querySelector('[name=csrfmiddlewaretoken]');
@@ -158,12 +158,22 @@
     });
   }
 
+  function gstServiceUrl(endpointId, params) {
+    const base = servicePrefix.endsWith('/') ? servicePrefix : `${servicePrefix}/`;
+    const url = new URL(`${base}${endpointId}/`, window.location.origin);
+    Object.entries(params || {}).forEach(([key, value]) => {
+      const trimmed = String(value || '').trim();
+      if (trimmed) url.searchParams.set(key, trimmed);
+    });
+    return `${url.pathname}${url.search}`;
+  }
+
   function renderFollowup(gstin, actions, fy) {
     if (!gstin || !actions.length) return '';
     const buttons = actions
       .map(([tabId, label]) => {
-        const fyAttr = fy ? ` data-fy="${escapeHtml(fy)}"` : '';
-        return `<button type="button" class="btn btn-ghost btn-sm" data-gst-followup="${escapeHtml(tabId)}" data-gstin="${escapeHtml(gstin)}"${fyAttr}>${escapeHtml(label)}</button>`;
+        const href = gstServiceUrl(tabId, { gstin, fy });
+        return `<a href="${escapeHtml(href)}" class="btn btn-ghost btn-sm">${escapeHtml(label)}</a>`;
       })
       .join('');
     return `<div class="gst-gstin-followup">
@@ -456,6 +466,39 @@
     </div>`;
   }
 
+  function downloadPdfFromBase64(body) {
+    if (!body || !body.pdf_base64) return false;
+    try {
+      const binary = atob(body.pdf_base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: body.content_type || 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = body.filename || 'document.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function renderPdfPrintResult(body, label) {
+    const filename = escapeHtml(body.filename || 'document.pdf');
+    const gstin = body.gstin ? `<p class="gst-result-meta">GSTIN: ${escapeHtml(body.gstin)}</p>` : '';
+    return `<div class="gst-result-message is-success">
+      <p><strong>${escapeHtml(label)}</strong> downloaded as <code>${filename}</code>.</p>
+      ${gstin}
+      <button type="button" class="btn btn-sm gst-pdf-download" data-pdf-base64="${escapeHtml(body.pdf_base64)}" data-filename="${filename}">Download again</button>
+    </div>`;
+  }
+
   function renderSummary(body, endpointId) {
     if (body.error) {
       return `<div class="gst-result-message is-error">${escapeHtml(body.error)}</div>`;
@@ -474,6 +517,14 @@
     if (endpointId === 'gst-return-status') {
       const details = renderReturnStatusDetails(body);
       if (details) return details;
+    }
+
+    if (endpointId === 'gst-eway-print' && body.pdf_base64) {
+      return renderPdfPrintResult(body, 'E-WAY bill PDF');
+    }
+
+    if (endpointId === 'gst-irn-print' && body.pdf_base64) {
+      return renderPdfPrintResult(body, 'E-invoice PDF');
     }
 
     const rows = [];
@@ -517,50 +568,40 @@
     }
   }
 
-  function activateTab(tabId) {
-    tabButtons.forEach((btn) => {
-      const active = btn.dataset.tab === tabId;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    panels.forEach((panel) => {
-      panel.classList.toggle('is-active', panel.dataset.panel === tabId);
-    });
-  }
-
-  function prefillGstinOnTab(tabId, gstin, fy) {
-    const panel = root.querySelector(`[data-panel="${tabId}"]`);
+  function applyQueryPrefill() {
+    const params = new URLSearchParams(window.location.search);
+    const gstin = params.get('gstin');
+    const fy = params.get('fy');
+    if (!gstin && !fy) return;
+    const panel = root.querySelector('[data-panel]');
     if (!panel) return;
-    const gstinInput = panel.querySelector('input[name="gstin"]');
-    if (gstinInput) gstinInput.value = gstin;
-    const fyInput = panel.querySelector('input[name="fy"]');
-    if (fy && fyInput) fyInput.value = fy;
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    const focusTarget = gstinInput || panel.querySelector('input[name="fy"], select[name="type"], button[type="submit"]');
-    if (focusTarget && typeof focusTarget.focus === 'function') {
-      focusTarget.focus({ preventScroll: true });
+    if (gstin) {
+      const gstinInput = panel.querySelector('input[name="gstin"]');
+      if (gstinInput) gstinInput.value = gstin;
+    }
+    if (fy) {
+      const fyInput = panel.querySelector('input[name="fy"]');
+      if (fyInput) fyInput.value = fy;
     }
   }
 
-  function handleFollowupClick(event) {
-    const trigger = event.target.closest('[data-gst-followup]');
-    if (!trigger || !root.contains(trigger)) return;
-    const tabId = trigger.dataset.gstFollowup;
-    const gstin = trigger.dataset.gstin;
-    const fy = trigger.dataset.fy;
-    if (!tabId || !gstin) return;
-    activateTab(tabId);
-    prefillGstinOnTab(tabId, gstin, fy);
-  }
-
-  root.addEventListener('click', handleFollowupClick);
-
-  tabButtons.forEach((btn) => {
-    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+  root.addEventListener('click', (event) => {
+    const button = event.target.closest('.gst-pdf-download');
+    if (!button || !root.contains(button)) return;
+    const base64 = button.getAttribute('data-pdf-base64');
+    if (!base64) return;
+    downloadPdfFromBase64({
+      pdf_base64: base64,
+      filename: button.getAttribute('data-filename') || 'document.pdf',
+      content_type: 'application/pdf',
+    });
   });
 
-  root.querySelectorAll('.gst-console-form').forEach((form) => {
-    const panel = form.closest('[data-panel]');
+  applyQueryPrefill();
+
+  const panel = root.querySelector('[data-panel]');
+  const form = root.querySelector('.gst-console-form');
+  if (form && panel) {
     const statusEl = form.querySelector('.gst-console-status');
     const resultsWrap = panel.querySelector('.gst-console-results');
     const summaryEl = panel.querySelector('.gst-console-results-summary');
@@ -584,9 +625,10 @@
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      statusEl.textContent = 'Looking up…';
+      const isPrint = endpointId === 'gst-eway-print' || endpointId === 'gst-irn-print';
+      statusEl.textContent = isPrint ? 'Generating PDF…' : 'Looking up…';
       resultsWrap.hidden = false;
-      summaryEl.innerHTML = '<div class="gst-result-message">Fetching details…</div>';
+      summaryEl.innerHTML = `<div class="gst-result-message">${isPrint ? 'Fetching PDF…' : 'Fetching details…'}</div>`;
 
       try {
         const response = await fetch(tryUrl, {
@@ -599,9 +641,12 @@
           body,
         });
         const payload = await response.json();
+        if (response.ok && payload.pdf_base64) {
+          downloadPdfFromBase64(payload);
+        }
         summaryEl.innerHTML = renderSummary(payload, endpointId);
         statusEl.textContent = response.ok ? '' : 'Something went wrong';
-        updateQuota(response.headers.get('X-GST-Quota-Remaining'));
+        updateQuota(response.headers.get('X-Quota-Remaining') || response.headers.get('X-GST-Quota-Remaining'));
       } catch (err) {
         summaryEl.innerHTML = '<div class="gst-result-message is-error">We could not reach the GST service. Please try again.</div>';
         statusEl.textContent = '';
@@ -609,5 +654,5 @@
         submitBtn.disabled = false;
       }
     });
-  });
+  }
 })();

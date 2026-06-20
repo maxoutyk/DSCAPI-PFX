@@ -20,7 +20,7 @@ from .distribution import (
     windows_installer_filename,
 )
 from .models import AgentDevice, UsbSignJob, UsbSignJobStatus
-from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, resolve_portal_usb_device, revoke_device
+from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, revoke_device
 
 
 @login_required
@@ -113,22 +113,23 @@ def sign_usb_view(request):
     from .forms import UsbSignForm
 
     tenant = get_primary_tenant(request.user)
-    form = UsbSignForm()
+    form = UsbSignForm(tenant=tenant)
     active_job = None
 
     if request.method == 'POST':
         if not tenant or tenant.status != TenantStatus.ACTIVE:
             messages.error(request, 'Your account must be approved before signing documents.')
         else:
-            form = UsbSignForm(request.POST, request.FILES)
+            form = UsbSignForm(request.POST, request.FILES, tenant=tenant)
             if form.is_valid():
                 pdf_data = form.cleaned_data['pdf_file'].read()
+                device = form.resolve_device()
                 try:
                     job = prepare_usb_sign_job(
                         tenant=tenant,
                         user=request.user,
                         pdf_data=pdf_data,
-                        device=resolve_portal_usb_device(tenant),
+                        device=device,
                     )
                 except SignJobError as exc:
                     messages.error(request, str(exc))
@@ -170,9 +171,21 @@ def sign_usb_pending_view(request, job_id):
             'filename': request.session.get('usb_sign_filename', 'document.pdf'),
             'agent_local_port': settings.USB_AGENT_LOCAL_PORT,
             'site_url': request.build_absolute_uri('/').rstrip('/'),
-            'sign_token': job.sign_token,
         },
     )
+
+
+@login_required
+@primary_tenant_required
+@require_http_methods(['POST'])
+def sign_usb_agent_token_view(request, job_id):
+    job = get_object_or_404(UsbSignJob, pk=job_id, user=request.user)
+    if job.status != UsbSignJobStatus.PREPARED or not job.sign_token:
+        return JsonResponse(
+            {'error': 'Sign token is only available while the job is prepared.'},
+            status=409,
+        )
+    return JsonResponse({'sign_token': job.sign_token, 'job_id': str(job.id)})
 
 
 @login_required

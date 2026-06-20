@@ -86,15 +86,29 @@ class GstPortalDashboardTests(TestCase):
 
 
 
-    def test_gst_dashboard_renders_request_console(self):
+    def test_gst_dashboard_redirects_to_first_service(self):
+
+        _complete_profile(self.tenant)
 
         response = self.client.get('/dashboard/gst/')
+
+        self.assertEqual(response.status_code, 302)
+
+        self.assertEqual(response.url, '/dashboard/gst/gst-gstin-search/')
+
+
+
+    def test_gst_dashboard_renders_request_console(self):
+
+        _complete_profile(self.tenant)
+
+        response = self.client.get('/dashboard/gst/gst-gstin-search/')
 
         self.assertEqual(response.status_code, 200)
 
         self.assertContains(response, 'gst-console')
 
-        self.assertContains(response, 'gst-console-tabs')
+        self.assertNotContains(response, 'gst-console-tabs')
 
         self.assertContains(response, 'GSTIN details')
 
@@ -102,13 +116,31 @@ class GstPortalDashboardTests(TestCase):
 
         self.assertContains(response, 'Return status')
 
+        self.assertContains(response, 'E-WAY bill')
+
+        self.assertContains(response, 'E-invoice IRN')
+
         self.assertContains(response, 'Look up GSTIN')
 
-        self.assertContains(response, 'gst-gstin-search')
+        self.assertContains(response, 'gst-network-badge')
 
-        self.assertContains(response, 'gst-preference')
+        self.assertContains(response, 'GST network connected')
 
-        self.assertContains(response, 'gst-return-status')
+        self.assertNotContains(response, 'Requests remaining')
+
+        self.assertNotContains(response, 'name="nicUsername"')
+
+        self.assertNotContains(response, 'name="nicPassword"')
+
+        self.assertNotContains(response, 'kpi-grid')
+
+        self.assertContains(response, '/dashboard/gst/gst-preference/')
+
+        self.assertContains(response, '/dashboard/gst/gst-return-status/')
+
+        self.assertContains(response, 'gst-eway-print')
+
+        self.assertContains(response, 'gst-irn-print')
 
         self.assertNotContains(response, 'api-docs.js')
 
@@ -156,7 +188,7 @@ class GstPortalDashboardTests(TestCase):
 
         self.assertEqual(body['data']['tradeName'], 'Acme')
 
-        self.assertIn('X-GST-Quota-Remaining', response)
+        self.assertIn('X-Quota-Remaining', response)
 
 
 
@@ -232,15 +264,114 @@ class GstPortalDashboardTests(TestCase):
 
         _complete_profile(self.tenant)
 
-        self.tenant.gst_monthly_quota = 1
+        self.tenant.monthly_quota = 1
 
-        self.tenant.gst_usage_this_month = 1
+        self.tenant.usage_this_month = 1
 
-        self.tenant.save(update_fields=['gst_monthly_quota', 'gst_usage_this_month'])
+        self.tenant.save(update_fields=['monthly_quota', 'usage_this_month'])
 
         response = _portal_post(self.client, endpoint='gst-gstin-search')
 
         self.assertEqual(response.status_code, 429)
 
         mock_lookup.assert_not_called()
+
+
+
+    @patch('gst.lookup_handlers.MyGSTCafePrintClient.get_eway_detailed_print')
+
+    def test_portal_try_executes_eway_print(self, mock_print):
+
+        _complete_profile(self.tenant)
+
+        page = self.client.get('/dashboard/gst/gst-eway-print/')
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'id="gst-gst-eway-print-ewbNumber"')
+        self.assertNotContains(page, 'id="gst-gst-eway-print-gstin"')
+        self.assertNotContains(page, 'name="nicUsername"')
+        self.assertNotContains(page, 'name="nicPassword"')
+
+        mock_print.return_value = b'%PDF-1.4 eway'
+
+        response = _portal_post(self.client, endpoint='gst-eway-print', ewbNumber='123456789012')
+
+        self.assertEqual(response.status_code, 200)
+
+        body = response.json()
+
+        self.assertEqual(body['ewb_number'], '123456789012')
+
+        self.assertIn('pdf_base64', body)
+
+        mock_print.assert_called_once_with(
+            '123456789012',
+            get_company_profile(self.tenant).gstin,
+            nic_username='nic_user',
+            nic_password='nic_secret',
+        )
+
+
+
+    @patch('gst.lookup_handlers.MyGSTCafePrintClient.get_einvoice_pdf')
+
+    def test_portal_try_executes_irn_print(self, mock_print):
+
+        _complete_profile(self.tenant)
+
+        irn = '2d4cacc69309dcb5b07c064ba6f88237d3eab6f171e3e95da8d91a0e93702c2f'
+
+        mock_print.return_value = b'%PDF-1.4 irn'
+
+        response = _portal_post(self.client, endpoint='gst-irn-print', irn=irn)
+
+        self.assertEqual(response.status_code, 200)
+
+        body = response.json()
+
+        self.assertEqual(body['irn'], irn)
+
+        self.assertIn('pdf_base64', body)
+
+        mock_print.assert_called_once_with(
+            irn,
+            get_company_profile(self.tenant).gstin,
+            nic_username='nic_user',
+            nic_password='nic_secret',
+        )
+
+    @patch('gst.lookup_handlers.MyGSTCafePrintClient.get_eway_detailed_print')
+    def test_portal_try_ignores_api_nic_overrides(self, mock_print):
+        _complete_profile(self.tenant)
+        profile = get_company_profile(self.tenant)
+        profile.encrypted_nic_portal_password = None
+        profile.nic_portal_username = ''
+        profile.save(update_fields=['encrypted_nic_portal_password', 'nic_portal_username', 'updated_at'])
+        response = _portal_post(
+            self.client,
+            endpoint='gst-eway-print',
+            ewbNumber='123456789012',
+            nicUsername='api_nic_user',
+            nicPassword='api_nic_pass',
+            gstin='27AAAAA0000A1Z5',
+        )
+        self.assertEqual(response.status_code, 403)
+        mock_print.assert_not_called()
+
+    @patch('gst.lookup_handlers.MyGSTCafePrintClient.get_eway_detailed_print')
+    def test_portal_try_uses_profile_gstin_for_print(self, mock_print):
+        _complete_profile(self.tenant)
+        mock_print.return_value = b'%PDF-1.4 eway'
+        response = _portal_post(
+            self.client,
+            endpoint='gst-eway-print',
+            ewbNumber='123456789012',
+            gstin='27AAAAA0000A1Z5',
+        )
+        self.assertEqual(response.status_code, 200)
+        mock_print.assert_called_once_with(
+            '123456789012',
+            get_company_profile(self.tenant).gstin,
+            nic_username='nic_user',
+            nic_password='nic_secret',
+        )
 

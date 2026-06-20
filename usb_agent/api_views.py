@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from signPdf.audit import get_client_ip, get_client_user_agent, normalize_client_mac
 from signPdf.validation import PdfValidationError, decode_signed_pdf_base64
 
 from .authentication import AgentDeviceAuthentication
@@ -13,6 +14,7 @@ from .services import (
     SignJobError,
     build_job_payload,
     complete_usb_sign_job,
+    fail_usb_sign_job,
     get_job_for_device,
     pair_device,
     record_heartbeat,
@@ -75,7 +77,9 @@ class AgentSignJobDetailView(APIView):
 
     def get(self, request, job_id):
         device = request.auth
-        sign_token = (request.query_params.get('sign_token') or '').strip()
+        sign_token = (request.headers.get('X-Sign-Token') or '').strip()
+        if not sign_token:
+            sign_token = (request.data.get('sign_token') or '').strip()
         try:
             job = get_job_for_device(device, job_id, sign_token=sign_token)
         except SignJobError as exc:
@@ -98,7 +102,15 @@ class AgentSignJobCompleteView(APIView):
         except PdfValidationError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            job = complete_usb_sign_job(device, job_id, signed_pdf_data, sign_token=sign_token)
+            job = complete_usb_sign_job(
+                device,
+                job_id,
+                signed_pdf_data,
+                sign_token=sign_token,
+                client_ip=get_client_ip(request),
+                user_agent=get_client_user_agent(request),
+                client_mac=normalize_client_mac((request.data.get('client_mac') or '').strip()),
+            )
         except SignJobError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
@@ -106,5 +118,33 @@ class AgentSignJobCompleteView(APIView):
                 'job_id': str(job.id),
                 'signing_id': job.signing_event_id,
                 'hash_after': job.hash_after,
+            },
+        )
+
+
+class AgentSignJobFailView(APIView):
+    authentication_classes = [AgentDeviceAuthentication]
+    throttle_classes = [AgentJobThrottle]
+
+    def post(self, request, job_id):
+        device = request.auth
+        sign_token = (request.headers.get('X-Sign-Token') or '').strip()
+        if not sign_token:
+            sign_token = (request.data.get('sign_token') or '').strip()
+        error_message = (request.data.get('error') or request.data.get('error_message') or '').strip()
+        try:
+            job = fail_usb_sign_job(
+                device,
+                job_id,
+                sign_token=sign_token,
+                error_message=error_message,
+            )
+        except SignJobError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                'job_id': str(job.id),
+                'status': job.status,
+                'error': job.error_message,
             },
         )

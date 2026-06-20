@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/', include('signPdf.urls')),
     path('api/', include('usb_agent.urls')),
     path('api/', include('gst.urls')),
+    path('api/', include('accounts.api_urls')),
 ]
 
 if settings.DEBUG:

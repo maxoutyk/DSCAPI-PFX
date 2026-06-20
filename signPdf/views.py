@@ -18,7 +18,14 @@ from .signing_service import (
     sign_pdf_for_tenant,
 )
 from .throttling import SignPdfBurstThrottle, SignPdfUserThrottle
-from .validation import PdfValidationError, PfxValidationError, decode_pdf_base64, decode_pfx_base64
+from .validation import (
+    GENERIC_SIGNING_FAILURE_MESSAGE,
+    PdfValidationError,
+    PfxValidationError,
+    decode_pdf_base64,
+    decode_pfx_base64,
+    enforce_signature_slot_limit,
+)
 
 
 class PDFPfxSignSerializer(serializers.Serializer):
@@ -28,6 +35,7 @@ class PDFPfxSignSerializer(serializers.Serializer):
     pfx_path = serializers.CharField(required=False, allow_blank=True)
     cert_alias = serializers.CharField(required=False, allow_blank=True)
     signature_style = serializers.CharField(required=False, allow_blank=True)
+    client_mac = serializers.CharField(required=False, allow_blank=True, max_length=17)
 
     def __init__(self, *args, saas_mode=False, **kwargs):
         self.saas_mode = saas_mode
@@ -187,6 +195,10 @@ class PDFPfxSignAPIView(APIView):
                 {'error': f'No position found for anchor text: {signature_style.anchor_text!r}'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            enforce_signature_slot_limit(len(text_positions))
+        except PdfValidationError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         indian_time_str, indian_time = get_indian_time_str()
         cn = get_cn_from_certificate(certificate)
@@ -202,7 +214,7 @@ class PDFPfxSignAPIView(APIView):
                 style=signature_style,
             )
         except Exception as exc:
-            return Response({'error': f'Failed to sign PDF: {exc}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': GENERIC_SIGNING_FAILURE_MESSAGE}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(
             {

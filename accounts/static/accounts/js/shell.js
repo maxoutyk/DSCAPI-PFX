@@ -122,6 +122,11 @@
     items.forEach(function (item) {
       var href = item.getAttribute('href');
       if (!href) return;
+      try {
+        href = new URL(href, window.location.origin).pathname;
+      } catch (e) {
+        return;
+      }
       if (path === href || (path.startsWith(href) && href.length > 1)) {
         if (href.length > bestLen) {
           best = item;
@@ -129,7 +134,16 @@
         }
       }
     });
-    if (best) best.classList.add('is-active');
+    if (!best) return;
+    best.classList.add('is-active');
+    var group = best.closest('.nav-group');
+    if (group) {
+      group.classList.add('is-open');
+      var parent = group.querySelector('.nav-item-parent');
+      if (parent && parent !== best) {
+        parent.classList.add('is-parent-active');
+      }
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

@@ -78,22 +78,33 @@ curl -X POST "{{ request.scheme }}://{{ request.get_host }}/api/signpdf-pfx" \
 
 ## Sign with USB token (DSC)
 
-Use this flow when the private key stays on a USB DSC token. Your backend prepares the job via API; the **IG E-Sign Agent** on the same Windows PC as the token performs PKCS#11 signing. Poll until complete, then download the signed PDF.
+Use this flow when the private key stays on a USB DSC token. Your **server** prepares the job and polls for completion; the **IG E-Sign Agent** on the same Windows PC as the token performs PKCS#11 signing when triggered locally.
 
 ### How it works
 
-1. Your server calls `POST /api/sign/usb/` with the PDF and target `device_id`.
-2. On the signing PC, trigger the local agent at `http://127.0.0.1:9765/sign` (user PIN entry on that machine).
-3. Your server polls `GET /api/sign/usb/<job_id>/` until `status` is `completed`.
-4. Download the signed PDF with `GET /api/sign/usb/<job_id>/download/`.
+1. Your **server** calls `POST /api/sign/usb/` with the PDF and target `device_id`.
+2. On the signing PC, trigger the local agent at `http://127.0.0.1:9765/sign` with `job_id` and `sign_token` (user PIN entry on that machine).
+3. Your **server** polls `GET /api/sign/usb/<job_id>/` every 2–5 seconds until `status` is `completed`, `failed`, or `expired`.
+4. Your **server** downloads the signed PDF with `GET /api/sign/usb/<job_id>/download/` (or use `?include_pdf=1` on the poll endpoint).
+
+### ERP / browser integrations
+
+| Step | Where to run | Why |
+|------|----------------|-----|
+| Create job, poll, download | **Your backend server** | Cloud API does not send CORS headers for ERP origins (e.g. Business Central). Use `Authorization: Bearer dsc_live_…` server-side only. |
+| Trigger local agent | **Browser or script on signing PC** | Only `http://127.0.0.1:9765` can reach the agent. Add ERP origins to agent `allowed_origins` if calling from a web page. |
+
+Never embed API keys in frontend JavaScript.
 
 ### One-time setup
 
 1. Create an API key in the portal — use `Authorization: Bearer dsc_live_…` on all USB API calls.
 2. On the Windows PC with the USB token: portal → **USB Agent** → download and install the agent.
-3. Run `Pair Agent.bat` with a pairing code from the USB Agent page.
+3. Pair the agent with a pairing code from the USB Agent page.
 4. Start **IG E-Sign Agent** (system tray icon near the clock). Keep it running while signing.
 5. Note the `device_id` for that machine (listed on the USB Agent page).
+
+Jobs expire after **15 minutes** if not completed. `agents_online` counts agents that sent a heartbeat in the last **~90 seconds**.
 
 ### Step 1 — Create sign job
 
@@ -115,18 +126,21 @@ Use this flow when the private key stays on a USB DSC token. Your backend prepar
 {
   "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
   "status": "prepared",
-  "sign_token": "xY7…",
   "expires_at": "2026-06-13T12:30:00+00:00",
+  "signing_id": null,
+  "hash_before_prefix": "a1b2c3d4",
+  "hash_after_prefix": "",
+  "error": "",
   "device_id": 1,
   "document_type": "tax_invoice",
-  "hash_before_prefix": "a1b2c3d4",
-  "agents_online": 1,
+  "sign_token": "xY7…",
+  "message": "USB sign job prepared. Trigger the desktop agent…",
   "agent_sign_url": "http://127.0.0.1:9765/sign",
-  "message": "USB sign job prepared…"
+  "agents_online": 1
 }
 ```
 
-`sign_token` is a one-time secret for this job — pass it when triggering the local agent. `agents_online` counts agents that sent a heartbeat in the last ~90 seconds. Jobs expire after 15 minutes if not completed.
+`sign_token` is a one-time secret for this job — pass it when triggering the local agent (not your API key). It is included in poll responses while `status` is `prepared` and cleared after completion.
 
 #### curl example
 
@@ -142,49 +156,145 @@ curl -X POST "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/" \
 
 ### Step 2 — Trigger signing on the Windows PC
 
-Signing happens on the PC with the USB token. From that machine (or a local bridge service), POST to the agent:
+Signing happens on the PC with the USB token. From that machine (browser on an allowed origin, or curl), POST to the agent:
 
 **POST** `http://127.0.0.1:9765/sign`
+
+**Headers**
+
+| Header | Required | Value |
+|--------|----------|--------|
+| `Content-Type` | Yes | `application/json` |
+| `Origin` | Yes | Paired portal URL (e.g. `{{ request.scheme }}://{{ request.get_host }}`) or an ERP origin listed in agent `allowed_origins` |
+
+**Body**
 
 ```json
 {
   "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
-  "api_base": "{{ request.scheme }}://{{ request.get_host }}",
   "sign_token": "xY7…"
 }
 ```
 
-The agent shows a PIN dialog, signs via PKCS#11, and uploads the result to the cloud. `api_base` must match the portal URL the agent was paired with. For ERP automation, run a small local service on the signing PC that receives `job_id` + `sign_token` from your backend and calls this endpoint.
+The agent uses the portal URL from pairing (`api_base` in local config) — you do **not** send `api_base` in the request body. The call is **synchronous**: the response returns only after signing finishes or fails (often 10–30+ seconds). It prompts for the token PIN, signs via PKCS#11, and uploads the result to the cloud.
+
+**CORS:** In the IG E-Sign Agent window, open **Allowed browser origins (ERP / web apps)** and add your ERP URL (e.g. `https://businesscentral.dynamics.com`). Or run `agent.py origins add <url>` on the signing PC. Changes apply immediately. Browsers send an `OPTIONS` preflight first; a disallowed origin gets **403** on preflight.
+
+**Health check (optional):** `GET http://127.0.0.1:9765/health` — see [Local agent health](#local-agent-health) below.
 
 #### Local trigger curl (run on signing PC)
 
 ```bash
 curl -X POST "http://127.0.0.1:9765/sign" \
   -H "Content-Type: application/json" \
+  -H "Origin: {{ request.scheme }}://{{ request.get_host }}" \
   -d '{
     "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
-    "api_base": "{{ request.scheme }}://{{ request.get_host }}",
     "sign_token": "xY7…"
   }'
 ```
+
+#### Agent success response (200)
+
+Returned after the signed PDF is uploaded to the cloud (same shape as `POST /api/agent/jobs/{job_id}/complete/`):
+
+```json
+{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "signing_id": 42,
+  "hash_after": "e5f6g7h8a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef01234567"
+}
+```
+
+`hash_after` is the full SHA-256 hex digest of the signed PDF (not the 8-character prefix used on tenant poll/download APIs).
+
+#### Local agent errors (POST /sign)
+
+All error responses are JSON: `{"error": "<message>"}` unless noted.
+
+| HTTP | When | Example `error` |
+|------|------|-----------------|
+| **400** | Missing `job_id` / `sign_token`, or agent not paired | `Agent is not paired or job_id/sign_token missing.` |
+| **403** | No `Origin` header | `Origin header is required for local signing.` |
+| **403** | `Origin` not in allowlist | `Origin is not allowed for this agent.` |
+| **404** | Wrong URL path | HTML error page (not JSON) |
+| **500** | Job not found / bad token / expired | `{"error": "Signing job not found."}` (may be embedded in `error` string) |
+| **500** | Wrong device for job | `Signing job is assigned to another agent.` |
+| **500** | USB / PIN / PKCS#11 failure | `USB token signing failed: …` |
+| **500** | Signed PDF rejected by cloud | `Signed PDF is identical to the original — no signature was applied.` |
+| **500** | Device token revoked | Agent clears pairing; re-pair from the portal |
+
+After a **200** response, your server should poll `GET /api/sign/usb/<job_id>/` — status should already be `completed`.
+
+#### Local agent health
+
+**GET** `http://127.0.0.1:9765/health`
+
+`Origin` is optional for curl; include it for browser checks from an ERP page.
+
+```json
+{
+  "ok": true,
+  "version": "0.1.0",
+  "token_present": true,
+  "portal_paired": true,
+  "portal_connected": true,
+  "token_count": 1,
+  "selected_token_display": "eMudhra — DS Example"
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `token_present` | USB DSC token detected |
+| `portal_paired` | `device_token` exists in local config |
+| `portal_connected` | Recent successful heartbeat to the cloud |
+| `token_count` / `selected_token_display` | PKCS#11 token slot summary |
+
+---
 
 ### Step 3 — Poll job status
 
 **GET** `/api/sign/usb/<job_id>/`
 
+Call from your **server** (not from an ERP browser page).
+
+#### While waiting (`prepared`)
+
+```json
+{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "status": "prepared",
+  "expires_at": "2026-06-13T12:30:00+00:00",
+  "signing_id": null,
+  "hash_before_prefix": "a1b2c3d4",
+  "hash_after_prefix": "",
+  "error": "",
+  "device_id": 1,
+  "document_type": "tax_invoice",
+  "sign_token": "xY7…"
+}
+```
+
+There is no separate `signing` status — while the agent is working, status remains `prepared`.
+
+#### When complete
+
 ```json
 {
   "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
   "status": "completed",
+  "expires_at": "2026-06-13T12:30:00+00:00",
   "signing_id": 42,
   "hash_before_prefix": "a1b2c3d4",
   "hash_after_prefix": "e5f6g7h8",
-  "document_type": "tax_invoice",
-  "error": ""
+  "error": "",
+  "device_id": 1,
+  "document_type": "tax_invoice"
 }
 ```
 
-Poll every 2–5 seconds until `status` is terminal. While `prepared`, the response includes `sign_token` if you need to re-trigger the agent. Optional: `?include_pdf=1` returns `signed_pdf_base64` when complete.
+Poll every 2–5 seconds until `status` is terminal. Optional: `?include_pdf=1` adds `signed_pdf_base64` when `status` is `completed`.
 
 #### Status values
 
@@ -193,38 +303,60 @@ Poll every 2–5 seconds until `status` is terminal. While `prepared`, the respo
 | `prepared` | Job created; waiting for agent to sign on the Windows PC |
 | `completed` | Signed PDF ready — download or use `?include_pdf=1` |
 | `failed` | Signing or verification failed — see `error` |
-| `expired` | Job timed out before the agent completed signing |
+| `expired` | Job timed out (15 minutes) before the agent completed signing |
 
 ### Step 4 — Download signed PDF
 
 **GET** `/api/sign/usb/<job_id>/download/`
 
-Returns `application/pdf` when `status` is `completed`. Use `?format=json` for `signed_pdf_base64` instead of a file download.
+Call from your **server** when poll `status` is `completed`.
 
-#### curl examples
+#### Binary file (default)
+
+- **Content-Type:** `application/pdf`
+- **Content-Disposition:** `attachment; filename="signed-<job_id>.pdf"`
+- **Body:** raw PDF bytes
 
 ```bash
-# Poll status
-curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/" \
-  -H "Authorization: Bearer dsc_live_YOUR_KEY"
-
-# Download PDF file
 curl -o signed.pdf "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/download/" \
   -H "Authorization: Bearer dsc_live_YOUR_KEY"
+```
 
-# Download as JSON
+#### JSON (`?format=json`)
+
+```json
+{
+  "job_id": "a93e5d39-7f3e-44ba-a901-90f0cf1a4ea7",
+  "signed_pdf_base64": "JVBERi0xLjQKJ...",
+  "signing_id": 42,
+  "hash_after_prefix": "e5f6g7h8"
+}
+```
+
+```bash
 curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/download/?format=json" \
   -H "Authorization: Bearer dsc_live_YOUR_KEY"
 ```
+
+#### Poll shortcut
+
+```bash
+curl "{{ request.scheme }}://{{ request.get_host }}/api/sign/usb/JOB_ID/?include_pdf=1" \
+  -H "Authorization: Bearer dsc_live_YOUR_KEY"
+```
+
+Returns the usual poll fields plus `signed_pdf_base64` when `status` is `completed`.
 
 ### USB-specific errors
 
 | Status | When | Example |
 |--------|------|---------|
-| 400 | Unknown or disabled `signature_style` | Signature style not found: 'Invoice' |
-| 400 | Missing `device_id`, invalid PDF, anchor not found, or quota exceeded at job create | — |
-| 404 | Unknown `job_id` or signed PDF no longer available | Signing job not found. |
-| 409 | Download requested before `status` is `completed` | Job is not completed |
+| 400 | Unknown/disabled `signature_style`, invalid PDF, anchor not found, quota exceeded | `{"error": "No position found for anchor text: 'Authorised Signatory'"}` |
+| 400 | Invalid `device_id` at create | `{"device_id": ["Agent device not found for this tenant."]}` |
+| 403 | Account not active at create | `{"error": "Your account is awaiting admin approval."}` |
+| 404 | Unknown `job_id` | `{"error": "Signing job not found."}` |
+| 404 | Completed job but PDF missing | `{"error": "Signed PDF is not available."}` |
+| 409 | Download before `completed` | `{"error": "Job is not completed (status=prepared)."}` |
 
 ---
 
@@ -264,7 +396,7 @@ Failed attempts are logged in your dashboard (with hash and IP when the PDF was 
 ## Requirements
 
 - Account status must be **Active**
-- Monthly quota: **{{ tenant.monthly_quota }}** signatures ({{ tenant.usage_this_month }} used)
+- Quota: **{{ quota.limit }}** signatures ({{ quota.used }} used){% if quota.is_term_based %} — term plan, expires {{ quota.resets_or_expires_at|date:"M j, Y" }}{% else %} — resets monthly{% endif %}
 - PDF must contain the anchor text (default `Authorised Signatory`)
 - Rate limits apply per API key (burst and hourly limits)
 - `pfx_path` is not supported with API key auth — use `pfx_base64` or `cert_alias`

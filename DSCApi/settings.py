@@ -50,7 +50,7 @@ _allowed_hosts = os.environ.get('ALLOWED_HOSTS') or os.environ.get('DSCAPI_ALLOW
 if _allowed_hosts:
     ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts.split(',') if host.strip()]
 elif getattr(sys, 'frozen', False):
-    ALLOWED_HOSTS = ['*']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 else:
     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
@@ -75,6 +75,10 @@ INSTALLED_APPS = [
 
 _allow_basic = os.environ.get('ALLOW_BASIC_AUTH', 'false').strip().lower()
 ALLOW_BASIC_AUTH = _allow_basic == 'true'
+if not DEBUG and not getattr(sys, 'frozen', False) and ALLOW_BASIC_AUTH:
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured('ALLOW_BASIC_AUTH must be false when DEBUG is false.')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -128,6 +132,7 @@ PASSWORD_RESET_TOKEN_HOURS = int(os.environ.get('PASSWORD_RESET_TOKEN_HOURS', '2
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'DSCApi.middleware.ContentSecurityPolicyMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -151,6 +156,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'accounts.context_processors.google_ads',
+                'accounts.context_processors.csp_nonce',
+                'gst.context_processors.gst_sidebar',
             ],
         },
     },
@@ -241,7 +248,9 @@ SIGNATURE_ICON_PADDING = 2
 PORTAL_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('PORTAL_SIGN_MAX_UPLOAD_MB', '10')) * 1024 * 1024
 API_SIGN_MAX_UPLOAD_BYTES = int(os.environ.get('API_SIGN_MAX_UPLOAD_MB', '10')) * 1024 * 1024
 PFX_MAX_UPLOAD_BYTES = int(os.environ.get('PFX_MAX_UPLOAD_MB', '5')) * 1024 * 1024
-TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '0'))
+PDF_MAX_PAGE_COUNT = int(os.environ.get('PDF_MAX_PAGE_COUNT', '200'))
+SIGNATURE_MAX_SLOTS = int(os.environ.get('SIGNATURE_MAX_SLOTS', '20'))
+TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '0' if DEBUG else '1'))
 
 # SaaS settings
 DEFAULT_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_MONTHLY_QUOTA', '100'))
@@ -283,7 +292,7 @@ if os.environ.get('EMAIL_HOST'):
 _encryption_key = os.environ.get('ENCRYPTION_KEY', '').strip()
 if _encryption_key:
     ENCRYPTION_KEY = _encryption_key.encode() if isinstance(_encryption_key, str) else _encryption_key
-elif DEBUG or getattr(sys, 'frozen', False):
+elif DEBUG and not getattr(sys, 'frozen', False):
     # Stable dev key — set ENCRYPTION_KEY in .env for persistent local data.
     ENCRYPTION_KEY = base64.urlsafe_b64encode(b'ig-esign-dev-fernet-key-32bytes!')
 else:
@@ -303,8 +312,13 @@ GST_MYGSTCAFE_ENVIRONMENT = os.environ.get('GST_MYGSTCAFE_ENVIRONMENT', 'Sandbox
 GST_MYGSTCAFE_TIMEOUT_SECONDS = int(os.environ.get('GST_MYGSTCAFE_TIMEOUT_SECONDS', '30'))
 # Server-only partner base URL — must never appear in templates, JS, or tenant-facing docs.
 GST_PARTNER_BASE_URL = os.environ.get('GST_PARTNER_BASE_URL', 'https://gstapi.mygstcafe.com').strip().rstrip('/')
-DEFAULT_GST_MONTHLY_QUOTA = int(os.environ.get('DEFAULT_GST_MONTHLY_QUOTA', '50'))
-
+GST_EWAY_BASE_URL = os.environ.get('GST_EWAY_BASE_URL', 'https://ewayapi.mygstcafe.com').strip().rstrip('/')
+GST_EINVOICE_BASE_URL = os.environ.get('GST_EINVOICE_BASE_URL', 'https://api.mygstcafe.com').strip().rstrip('/')
+GST_EINVOICE_BASE_URL_SANDBOX = os.environ.get(
+    'GST_EINVOICE_BASE_URL_SANDBOX',
+    'https://testapi.mygstcafe.com',
+).strip().rstrip('/')
+GST_ALLOW_NIC_API_OVERRIDES = os.environ.get('GST_ALLOW_NIC_API_OVERRIDES', 'false').lower() == 'true'
 # Google Ads conversion tag (gtag.js) — set on production, e.g. AW-123456789
 GOOGLE_ADS_ID = os.environ.get('GOOGLE_ADS_ID', '').strip()
 
@@ -313,6 +327,8 @@ if not DEBUG and not getattr(sys, 'frozen', False):
     _secure_cookies = os.environ.get('SECURE_COOKIES', 'true').lower() == 'true'
     SESSION_COOKIE_SECURE = _secure_cookies
     CSRF_COOKIE_SECURE = _secure_cookies
+    SESSION_COOKIE_SAMESITE = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+    CSRF_COOKIE_SAMESITE = os.environ.get('CSRF_COOKIE_SAMESITE', 'Lax')
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -320,3 +336,23 @@ if not DEBUG and not getattr(sys, 'frozen', False):
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', str(60 * 60 * 24 * 7)))
     SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'sensitive_data': {
+            '()': 'accounts.log_filters.SensitiveDataFilter',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['sensitive_data'],
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.environ.get('LOG_LEVEL', 'INFO'),
+    },
+}

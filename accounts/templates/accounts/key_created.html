@@ -17,6 +17,7 @@
   </div>
   <p style="margin-top:16px;color:var(--text-secondary);font-size:0.8rem;">
     <span class="mono">{{ api_key.name }}</span> · prefix <span class="mono">{{ api_key.prefix }}...</span>
+    {% if api_key.customer_label %} · customer <span class="mono">{{ api_key.customer_label }}</span>{% endif %}
   </p>
 </div>
 {% endblock %}

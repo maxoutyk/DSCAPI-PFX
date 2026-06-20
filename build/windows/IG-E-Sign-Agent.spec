@@ -24,6 +24,7 @@ block_cipher = None
 
 hiddenimports = collect_submodules('signPdf') + [
     'agent',
+    'agent_branding',
     'agent_settings',
     'signing',
     'pkcs11_signing',
@@ -45,8 +46,10 @@ hiddenimports = collect_submodules('signPdf') + [
 
 datas = [
     (str(project_root / 'signPdf' / 'assets'), 'signPdf/assets'),
+    (str(agent_dir / 'assets'), 'desktop-agent/assets'),
     (str(agent_dir / 'VERSION'), '.'),
 ]
+agent_icon = str(agent_dir / 'assets' / 'agent_icon.ico')
 binaries = normalize_binaries(collect_dynamic_libs('fitz'))
 
 for package in ('django', 'endesive'):
@@ -91,7 +94,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=agent_icon,
 )
 
 coll = COLLECT(

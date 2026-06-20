@@ -5,9 +5,9 @@ from __future__ import annotations
 import threading
 import webbrowser
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from agent import AGENT_VERSION, CONFIG_PATH, load_config, token_present
+from agent_branding import load_agent_icon_image
 
 
 @dataclass
@@ -37,39 +37,8 @@ class AgentRuntimeState:
                 setattr(self, key, value)
 
 
-def _bundle_dir() -> Path:
-    import sys
-
-    if getattr(sys, 'frozen', False):
-        return Path(getattr(sys, '_MEIPASS', Path(sys.executable).parent))
-    return Path(__file__).resolve().parent.parent
-
-
 def _load_icon_image(*, alert: bool = False):
-    from PIL import Image, ImageDraw
-
-    candidates = (
-        _bundle_dir() / 'signPdf' / 'assets' / 'green-tick.png',
-        Path(__file__).resolve().parent.parent / 'signPdf' / 'assets' / 'green-tick.png',
-    )
-    for path in candidates:
-        if path.is_file():
-            image = Image.open(path).convert('RGBA')
-            image.thumbnail((64, 64))
-            if alert:
-                overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
-                draw = ImageDraw.Draw(overlay)
-                draw.ellipse((2, 2, image.size[0] - 2, image.size[1] - 2), outline=(220, 60, 60, 255), width=4)
-                image = Image.alpha_composite(image, overlay)
-            return image
-
-    image = Image.new('RGBA', (64, 64), (37, 99, 235, 255))
-    draw = ImageDraw.Draw(image)
-    draw.rectangle((14, 14, 50, 50), fill=(255, 255, 255, 255))
-    draw.text((20, 22), 'IG', fill=(37, 99, 235, 255))
-    if alert:
-        draw.ellipse((2, 2, 62, 62), outline=(220, 60, 60, 255), width=4)
-    return image
+    return load_agent_icon_image(alert=alert)
 
 
 def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:

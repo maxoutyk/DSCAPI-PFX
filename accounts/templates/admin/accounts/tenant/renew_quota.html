@@ -1,0 +1,60 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:accounts_tenant_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; <a href="{% url 'admin:accounts_tenant_change' tenant.pk %}">{{ tenant }}</a>
+  &rsaquo; Renew quota entitlement
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Renew quota entitlement — {{ tenant.name }}</h1>
+
+{% if active_entitlement %}
+<p>
+  Active term: <strong>{{ active_entitlement.quota_limit }}</strong> limit,
+  <strong>{{ active_entitlement.usage_count }}</strong> used,
+  <strong>{{ active_entitlement.remaining }}</strong> remaining —
+  expires {{ active_entitlement.ends_at|date:"M j, Y, P" }}.
+</p>
+{% else %}
+<p>No active entitlement. Renewal will start a new term from today (no carry-forward).</p>
+{% endif %}
+
+{% if preview %}
+<div class="module" style="margin-bottom: 1.5rem; padding: 12px 16px;">
+  <h2 style="margin-top: 0;">Renewal preview</h2>
+  <ul style="margin: 0;">
+    <li>Purchased: <strong>{{ preview.purchased_limit }}</strong></li>
+    <li>Carry-forward: <strong>{{ preview.carry_forward }}</strong>
+      {% if preview.plan == 'pro_plus' and preview.renewed_before_expiry %}
+        (Pro+ before expiry)
+      {% elif preview.plan == 'pro' %}
+        (Pro never carries)
+      {% elif not preview.renewed_before_expiry %}
+        (too late — term expired or no active entitlement)
+      {% endif %}
+    </li>
+    <li>New term limit: <strong>{{ preview.total_limit }}</strong></li>
+    <li>Starts: {{ preview.starts_at|date:"M j, Y, P" }}</li>
+    <li>Ends: {{ preview.ends_at|date:"M j, Y, P" }}</li>
+  </ul>
+</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <fieldset class="module aligned">
+    {{ form.as_p }}
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" name="_preview" value="Update preview" class="button">
+    <input type="submit" value="Renew entitlement" class="default">
+    <a href="{% url 'admin:accounts_tenant_change' tenant.pk %}" class="button cancel-link">Cancel</a>
+  </div>
+</form>
+{% endblock %}

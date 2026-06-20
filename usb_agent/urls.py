@@ -6,6 +6,11 @@ urlpatterns = [
     path('sign/usb/', tenant_api_views.UsbSignCreateView.as_view(), name='api_sign_usb_create'),
     path('sign/usb/<uuid:job_id>/', tenant_api_views.UsbSignDetailView.as_view(), name='api_sign_usb_detail'),
     path(
+        'sign/usb/<uuid:job_id>/agent-token/',
+        tenant_api_views.UsbSignAgentTokenView.as_view(),
+        name='api_sign_usb_agent_token',
+    ),
+    path(
         'sign/usb/<uuid:job_id>/download/',
         tenant_api_views.UsbSignDownloadView.as_view(),
         name='api_sign_usb_download',
@@ -17,5 +22,10 @@ urlpatterns = [
         'agent/jobs/<uuid:job_id>/complete/',
         api_views.AgentSignJobCompleteView.as_view(),
         name='api_agent_job_complete',
+    ),
+    path(
+        'agent/jobs/<uuid:job_id>/fail/',
+        api_views.AgentSignJobFailView.as_view(),
+        name='api_agent_job_fail',
     ),
 ]

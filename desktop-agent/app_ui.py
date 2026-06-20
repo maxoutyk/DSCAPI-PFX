@@ -9,12 +9,18 @@ from typing import Callable
 from agent import (
     AGENT_VERSION,
     CONFIG_PATH,
+    OriginValidationError,
+    add_allowed_origin,
     clear_pairing,
     is_revoked_token_error,
+    list_extra_allowed_origins,
     load_config,
+    portal_origin_from_config,
     read_default_api_base,
+    remove_allowed_origin,
     token_present,
     try_pair_agent,
+    normalize_origin,
 )
 from tray import AgentRuntimeState
 
@@ -46,9 +52,13 @@ class AgentDashboard:
 
         self.root = tk.Tk()
         self.root.title('IG E-Sign Agent')
-        self.root.geometry('440x620')
-        self.root.minsize(400, 560)
+        self.root.geometry('440x700')
+        self.root.minsize(400, 640)
         self.root.protocol('WM_DELETE_WINDOW', self.hide_to_tray)
+
+        from agent_branding import apply_tk_window_icon
+
+        apply_tk_window_icon(self.root)
 
         from pkcs11_signing import register_main_ui_root
 
@@ -115,6 +125,52 @@ class AgentDashboard:
             wraplength=360,
         )
         self.paired_note.pack(anchor='w', pady=(8, 0))
+
+        self.origins_frame = ttk.LabelFrame(
+            container,
+            text='Allowed browser origins (ERP / web apps)',
+            padding=12,
+        )
+        self.origins_frame.pack(fill='x', pady=(0, 12))
+        self.portal_origin_var = tk.StringVar(value='Portal (automatic): —')
+        ttk.Label(
+            self.origins_frame,
+            textvariable=self.portal_origin_var,
+            wraplength=360,
+        ).pack(anchor='w')
+        ttk.Label(
+            self.origins_frame,
+            text='Add origins for pages that call this agent (e.g. Business Central).',
+            foreground='#666666',
+            wraplength=360,
+        ).pack(anchor='w', pady=(6, 8))
+        origins_list_frame = ttk.Frame(self.origins_frame)
+        origins_list_frame.pack(fill='x')
+        self.origins_listbox = tk.Listbox(origins_list_frame, height=4, exportselection=False)
+        self.origins_listbox.pack(side='left', fill='x', expand=True)
+        origins_scroll = ttk.Scrollbar(
+            origins_list_frame,
+            orient='vertical',
+            command=self.origins_listbox.yview,
+        )
+        origins_scroll.pack(side='right', fill='y')
+        self.origins_listbox.configure(yscrollcommand=origins_scroll.set)
+        origin_entry_row = ttk.Frame(self.origins_frame)
+        origin_entry_row.pack(fill='x', pady=(8, 0))
+        self.origin_entry_var = tk.StringVar()
+        ttk.Entry(origin_entry_row, textvariable=self.origin_entry_var).pack(
+            side='left',
+            fill='x',
+            expand=True,
+        )
+        ttk.Button(origin_entry_row, text='Add', command=self._add_allowed_origin).pack(
+            side='left',
+            padx=(8, 0),
+        )
+        ttk.Button(self.origins_frame, text='Remove selected', command=self._remove_allowed_origin).pack(
+            anchor='w',
+            pady=(8, 0),
+        )
 
         actions = ttk.LabelFrame(container, text='Actions', padding=12)
         self.actions_frame = actions
@@ -257,6 +313,44 @@ class AgentDashboard:
             self.state.update(paired=True, token_present=token_present())
         elif not has_token:
             self.state.update(paired=False, portal_connected=False, last_error='')
+
+        self._refresh_origins_view()
+
+    def _refresh_origins_view(self):
+        config = load_config()
+        portal = portal_origin_from_config(config)
+        if portal:
+            self.portal_origin_var.set(f'Portal (automatic): {portal}')
+        else:
+            self.portal_origin_var.set('Portal (automatic): — pair the agent first')
+
+        extras = list_extra_allowed_origins(config)
+        self.origins_listbox.delete(0, 'end')
+        for origin in extras:
+            self.origins_listbox.insert('end', origin)
+
+    def _add_allowed_origin(self):
+        origin = self.origin_entry_var.get().strip()
+        if not origin:
+            self._messagebox.showerror('Allowed origins', 'Enter an origin URL to add.')
+            return
+        try:
+            add_allowed_origin(origin)
+        except OriginValidationError as exc:
+            self._messagebox.showerror('Allowed origins', str(exc))
+            return
+        self.origin_entry_var.set('')
+        self._refresh_origins_view()
+        self._messagebox.showinfo('Allowed origins', f'Added {normalize_origin(origin)}')
+
+    def _remove_allowed_origin(self):
+        selection = self.origins_listbox.curselection()
+        if not selection:
+            self._messagebox.showerror('Allowed origins', 'Select an origin to remove.')
+            return
+        origin = self.origins_listbox.get(selection[0])
+        remove_allowed_origin(origin)
+        self._refresh_origins_view()
 
     def _pair(self):
         api_base = self.api_base_var.get().strip()
