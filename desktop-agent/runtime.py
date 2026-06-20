@@ -10,6 +10,13 @@ from pathlib import Path
 
 def prepare_windowed_runtime() -> None:
     """PyInstaller windowed builds set stdout/stderr to None; fix before signing."""
+    try:
+        from agent_branding import configure_windows_app_identity
+
+        configure_windows_app_identity()
+    except Exception:
+        pass
+
     if not getattr(sys, 'frozen', False):
         return
 

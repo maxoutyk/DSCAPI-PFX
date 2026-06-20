@@ -22,7 +22,7 @@ from agent import (
     try_pair_agent,
     normalize_origin,
 )
-from app_theme import BG, configure_styles
+from app_theme import ACCENT, BG, BORDER, SURFACE, TEXT_PRIMARY, configure_styles
 from tray import AgentRuntimeState
 
 
@@ -97,7 +97,7 @@ class AgentDashboard:
         brand = ttk.Frame(sidebar, style='SidebarBrand.TFrame', padding=(16, 18, 16, 12))
         brand.pack(fill='x')
 
-        logo_frame = tk.Frame(brand, bg='#0a0f2e', highlightthickness=0)
+        logo_frame = tk.Frame(brand, bg=SURFACE, highlightthickness=0)
         logo_frame.pack(anchor='w')
         self._set_header_logo(logo_frame)
 
@@ -130,7 +130,7 @@ class AgentDashboard:
 
             logo = load_header_logo_image()
             photo = ImageTk.PhotoImage(logo)
-            label = self._tk.Label(parent, image=photo, bg='#0a0f2e', borderwidth=0)
+            label = self._tk.Label(parent, image=photo, bg=SURFACE, borderwidth=0)
             label.image = photo
             label.pack(anchor='w')
             self._logo_ref = photo
@@ -138,8 +138,8 @@ class AgentDashboard:
             self._tk.Label(
                 parent,
                 text='IG E-Sign',
-                bg='#0a0f2e',
-                fg='#f0f1f5',
+                bg=SURFACE,
+                fg=TEXT_PRIMARY,
                 font=('Segoe UI', 14, 'bold'),
             ).pack(anchor='w')
 
@@ -287,12 +287,12 @@ class AgentDashboard:
             list_wrap,
             height=8,
             exportselection=False,
-            bg='#121a3d',
-            fg='#f0f1f5',
-            selectbackground='#ff6600',
+            bg=SURFACE,
+            fg=TEXT_PRIMARY,
+            selectbackground=ACCENT,
             selectforeground='#ffffff',
             highlightthickness=1,
-            highlightbackground='#1a2248',
+            highlightbackground=BORDER,
             borderwidth=0,
             activestyle='none',
         )

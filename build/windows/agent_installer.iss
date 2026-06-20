@@ -41,6 +41,7 @@ Source: "agent-scripts\Start Agent.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "agent-scripts\Pair Agent.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "agent-scripts\portal.url"; DestDir: "{app}"; Flags: ignoreversion
 Source: "agent-scripts\README.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\desktop-agent\assets\agent_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Start {#AppName}"; Filename: "{app}\{#AppExeName}"; Parameters: "run"; IconFilename: "{app}\{#AppExeName}"

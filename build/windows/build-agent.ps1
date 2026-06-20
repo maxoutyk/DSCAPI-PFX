@@ -18,6 +18,9 @@ python -m pip install -r requirements.txt pyinstaller
 Write-Host "Building IG-E-Sign-Agent.exe..."
 pyinstaller --noconfirm --clean (Join-Path $PSScriptRoot "IG-E-Sign-Agent.spec")
 
+$DistDir = Join-Path $Root "dist\IG-E-Sign-Agent"
+Copy-Item -Force (Join-Path $Root "desktop-agent\assets\agent_icon.ico") (Join-Path $DistDir "agent_icon.ico")
+
 $Inno = @(
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
@@ -48,6 +51,7 @@ Set-Location $PSScriptRoot
 $InstallerSrc = Join-Path $PSScriptRoot "installer-output\IG-E-Sign-Agent-Setup.exe"
 $InstallerDst = Join-Path $ReleaseDir "IG-E-Sign-Agent-Setup.exe"
 Copy-Item -Force $InstallerSrc $InstallerDst
+Copy-Item -Force (Join-Path $Root "desktop-agent\assets\agent_icon.ico") (Join-Path $ReleaseDir "agent_icon.ico")
 
 Write-Host "Done."
 Write-Host "Installer: $InstallerDst"

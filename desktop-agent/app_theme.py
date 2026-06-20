@@ -1,18 +1,19 @@
-"""Portal-aligned theme tokens and ttk styling for the desktop agent."""
+"""Portal-aligned theme tokens and ttk styling for the desktop agent (light mode)."""
 
 from __future__ import annotations
 
-# Incite Gravity / IG E-Sign (matches accounts/static/accounts/css/design-tokens.css)
-BG = '#020626'
-SURFACE = '#0a0f2e'
-SURFACE_RAISED = '#121a3d'
+# Incite Gravity / IG E-Sign light theme (matches portal data-theme='light')
+BG = '#f5f6fa'
+SURFACE = '#ffffff'
+SURFACE_RAISED = '#ffffff'
 ACCENT = '#ff6600'
 ACCENT_HOVER = '#e55a00'
-TEXT_PRIMARY = '#f0f1f5'
-TEXT_SECONDARY = '#8b8fa8'
-BORDER = '#1a2248'
-SUCCESS = '#22d3a5'
-WARNING = '#f59e0b'
+ACCENT_SOFT = '#fff4eb'
+TEXT_PRIMARY = '#020626'
+TEXT_SECONDARY = '#5c6078'
+BORDER = '#d8dbe8'
+SUCCESS = '#059669'
+WARNING = '#d97706'
 DANGER = '#da291c'
 
 SIDEBAR_WIDTH = 232
@@ -31,12 +32,7 @@ def configure_styles(root) -> None:
 
     root.configure(bg=BG)
 
-    common = {
-        'background': BG,
-        'foreground': TEXT_PRIMARY,
-        'font': (FONT, 10),
-    }
-    style.configure('.', **common)
+    style.configure('.', background=BG, foreground=TEXT_PRIMARY, font=(FONT, 10))
     style.configure('TFrame', background=BG)
     style.configure('Card.TFrame', background=SURFACE, relief='flat')
     style.configure('Sidebar.TFrame', background=SURFACE)
@@ -57,12 +53,7 @@ def configure_styles(root) -> None:
         font=(FONT, 10, 'bold'),
     )
 
-    style.configure(
-        'TLabel',
-        background=BG,
-        foreground=TEXT_PRIMARY,
-        font=(FONT, 10),
-    )
+    style.configure('TLabel', background=BG, foreground=TEXT_PRIMARY, font=(FONT, 10))
     style.configure('Muted.TLabel', foreground=TEXT_SECONDARY, background=BG)
     style.configure('Sidebar.TLabel', background=SURFACE, foreground=TEXT_PRIMARY)
     style.configure('SidebarMuted.TLabel', background=SURFACE, foreground=TEXT_SECONDARY)
@@ -73,16 +64,16 @@ def configure_styles(root) -> None:
 
     style.configure(
         'TEntry',
-        fieldbackground=SURFACE_RAISED,
+        fieldbackground=SURFACE,
         foreground=TEXT_PRIMARY,
         insertcolor=TEXT_PRIMARY,
         bordercolor=BORDER,
     )
     style.configure(
         'TCombobox',
-        fieldbackground=SURFACE_RAISED,
+        fieldbackground=SURFACE,
         foreground=TEXT_PRIMARY,
-        background=SURFACE_RAISED,
+        background=SURFACE,
         arrowcolor=TEXT_SECONDARY,
         bordercolor=BORDER,
     )
@@ -104,7 +95,7 @@ def configure_styles(root) -> None:
 
     style.configure(
         'Secondary.TButton',
-        background=SURFACE_RAISED,
+        background=SURFACE,
         foreground=TEXT_PRIMARY,
         bordercolor=BORDER,
         borderwidth=1,
@@ -114,7 +105,7 @@ def configure_styles(root) -> None:
     )
     style.map(
         'Secondary.TButton',
-        background=[('active', SURFACE), ('pressed', SURFACE)],
+        background=[('active', BG), ('pressed', BG)],
     )
 
     style.configure(
@@ -128,12 +119,12 @@ def configure_styles(root) -> None:
     )
     style.map(
         'Nav.TButton',
-        background=[('active', SURFACE_RAISED)],
+        background=[('active', BG)],
         foreground=[('active', TEXT_PRIMARY)],
     )
     style.configure(
         'NavActive.TButton',
-        background=SURFACE_RAISED,
+        background=ACCENT_SOFT,
         foreground=ACCENT,
         borderwidth=0,
         anchor='w',
