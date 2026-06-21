@@ -116,6 +116,7 @@ def configure_styles(root) -> None:
         anchor='w',
         padding=(14, 10),
         font=(FONT, 10, 'bold'),
+        focuscolor=SURFACE,
     )
     style.map(
         'Nav.TButton',
@@ -130,6 +131,12 @@ def configure_styles(root) -> None:
         anchor='w',
         padding=(14, 10),
         font=(FONT, 10, 'bold'),
+        focuscolor=ACCENT_SOFT,
     )
+
+    style.configure('ReadOnlyValue.TLabel', background=BG, foreground=TEXT_PRIMARY, font=(MONO, 10), padding=(10, 8))
+    style.configure('StatusOk.TLabel', background=SURFACE, foreground=SUCCESS, font=(FONT, 10, 'bold'))
+    style.configure('StatusWarn.TLabel', background=SURFACE, foreground=WARNING, font=(FONT, 10, 'bold'))
+    style.configure('StatusBad.TLabel', background=SURFACE, foreground=DANGER, font=(FONT, 10, 'bold'))
 
     style.configure('Vertical.TScrollbar', background=SURFACE, troughcolor=BG, bordercolor=BORDER)

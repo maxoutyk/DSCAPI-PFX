@@ -22,7 +22,7 @@ from agent import (
     try_pair_agent,
     normalize_origin,
 )
-from app_theme import ACCENT, BORDER, SURFACE, TEXT_PRIMARY, configure_styles
+from app_theme import ACCENT, BG, BORDER, SURFACE, TEXT_PRIMARY, TEXT_SECONDARY, configure_styles
 from tray import AgentRuntimeState
 
 
@@ -101,7 +101,11 @@ class AgentDashboard:
         logo_frame.pack(anchor='w')
         self._set_header_logo(logo_frame)
 
-        ttk.Label(brand, text='Desktop Agent', style='SidebarMuted.TLabel').pack(anchor='w', pady=(8, 0))
+        ttk.Label(brand, text='IG E-Sign Agent', style='Sidebar.TLabel', font=('Segoe UI', 11, 'bold')).pack(
+            anchor='w',
+            pady=(10, 0),
+        )
+        ttk.Label(brand, text='Desktop Agent', style='SidebarMuted.TLabel').pack(anchor='w', pady=(2, 0))
         ttk.Label(brand, text=f'v{AGENT_VERSION}', style='SidebarMuted.TLabel').pack(anchor='w', pady=(2, 0))
 
         nav = ttk.Frame(sidebar, style='Sidebar.TFrame', padding=(8, 12, 8, 8))
@@ -111,6 +115,7 @@ class AgentDashboard:
                 nav,
                 text=label,
                 style='Nav.TButton',
+                takefocus=False,
                 command=lambda pid=page_id: self._show_page(pid),
             )
             button.pack(fill='x', pady=2)
@@ -119,16 +124,21 @@ class AgentDashboard:
         footer = ttk.Frame(sidebar, style='Sidebar.TFrame', padding=(16, 8, 16, 16))
         footer.pack(fill='x', side='bottom')
         self.sidebar_status = tk.StringVar(value='Checking…')
-        status_label = ttk.Label(footer, textvariable=self.sidebar_status, style='SidebarMuted.TLabel', wraplength=190)
-        status_label.pack(anchor='w')
+        self.sidebar_status_label = ttk.Label(
+            footer,
+            textvariable=self.sidebar_status,
+            style='SidebarMuted.TLabel',
+            wraplength=190,
+        )
+        self.sidebar_status_label.pack(anchor='w')
 
     def _set_header_logo(self, parent) -> None:
-        from agent_branding import load_header_logo_image
+        from agent_branding import load_agent_icon_image
 
         try:
             from PIL import ImageTk
 
-            logo = load_header_logo_image()
+            logo = load_agent_icon_image(size=52)
             photo = ImageTk.PhotoImage(logo)
             label = self._tk.Label(parent, image=photo, bg=SURFACE, borderwidth=0)
             label.image = photo
@@ -137,10 +147,10 @@ class AgentDashboard:
         except Exception:
             self._tk.Label(
                 parent,
-                text='IG E-Sign',
+                text='IG',
                 bg=SURFACE,
                 fg=TEXT_PRIMARY,
-                font=('Segoe UI', 14, 'bold'),
+                font=('Segoe UI', 18, 'bold'),
             ).pack(anchor='w')
 
     def _build_main(self, parent) -> None:
@@ -230,12 +240,20 @@ class AgentDashboard:
 
         self._ttk.Label(self.pair_frame, text='Portal URL', style='Card.TLabel').pack(anchor='w')
         self.portal_url_var = self._tk.StringVar(value=self._initial_api_base() or 'Not configured')
-        self._ttk.Label(
+        readonly = self._tk.Frame(
             self.pair_frame,
+            bg=BG,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+            highlightcolor=BORDER,
+        )
+        readonly.pack(fill='x', pady=(6, 14))
+        self._ttk.Label(
+            readonly,
             textvariable=self.portal_url_var,
-            style='Card.TLabel',
-            wraplength=620,
-        ).pack(anchor='w', pady=(6, 14))
+            style='ReadOnlyValue.TLabel',
+            wraplength=580,
+        ).pack(anchor='w', fill='x', padx=10, pady=8)
 
         self._ttk.Label(self.pair_frame, text='Pairing code', style='Card.TLabel').pack(anchor='w')
         self.code_var = self._tk.StringVar()
@@ -269,10 +287,10 @@ class AgentDashboard:
         ).pack(anchor='w', pady=(8, 12))
 
         list_wrap = self._ttk.Frame(self.origins_frame, style='Card.TFrame')
-        list_wrap.pack(fill='both', expand=True)
+        list_wrap.pack(fill='x')
         self.origins_listbox = self._tk.Listbox(
             list_wrap,
-            height=8,
+            height=4,
             exportselection=False,
             bg=SURFACE,
             fg=TEXT_PRIMARY,
@@ -283,10 +301,9 @@ class AgentDashboard:
             borderwidth=0,
             activestyle='none',
         )
-        self.origins_listbox.pack(side='left', fill='both', expand=True)
-        origins_scroll = self._ttk.Scrollbar(list_wrap, orient='vertical', command=self.origins_listbox.yview)
-        origins_scroll.pack(side='right', fill='y')
-        self.origins_listbox.configure(yscrollcommand=origins_scroll.set)
+        self.origins_listbox.pack(side='left', fill='x', expand=True)
+        self._origins_scroll = self._ttk.Scrollbar(list_wrap, orient='vertical', command=self.origins_listbox.yview)
+        self.origins_listbox.configure(yscrollcommand=self._origins_scroll.set)
 
         origin_entry_row = self._ttk.Frame(self.origins_frame, style='Card.TFrame')
         origin_entry_row.pack(fill='x', pady=(12, 0))
@@ -429,23 +446,23 @@ class AgentDashboard:
             self.status_var.set('Not paired — enter a pairing code from the portal.')
             self.portal_var.set('Portal: not connected')
             self.token_var.set('USB token: —')
-            self.sidebar_status.set('Not paired')
+            self._set_sidebar_status('Not paired', tone='warn')
         elif show_pairing and revoked:
             self.status_var.set('This device was revoked. Generate a new pairing code and re-pair.')
             self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
             self.token_var.set('USB token: —')
-            self.sidebar_status.set('Revoked — re-pair')
+            self._set_sidebar_status('Revoked — re-pair', tone='bad')
         elif snap['portal_connected'] and has_token:
             self.status_var.set('Connected and ready to sign.')
             self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
             self.token_var.set(self._selected_token_line(snap))
-            self.sidebar_status.set('Connected')
+            self._set_sidebar_status('Connected', tone='ok')
         else:
             detail = snap['last_error'] or 'portal unreachable'
             self.status_var.set(f'Paired but offline ({detail}).')
             self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
             self.token_var.set(self._selected_token_line(snap))
-            self.sidebar_status.set('Offline')
+            self._set_sidebar_status('Offline', tone='warn')
 
         self.port_var.set(f"Local service: 127.0.0.1:{snap['port']}")
 
@@ -472,6 +489,23 @@ class AgentDashboard:
         self.origins_listbox.delete(0, 'end')
         for origin in extras:
             self.origins_listbox.insert('end', origin)
+
+        visible_rows = max(3, min(8, len(extras) if extras else 3))
+        self.origins_listbox.configure(height=visible_rows)
+        if len(extras) > visible_rows:
+            self._origins_scroll.pack(side='right', fill='y')
+        else:
+            self._origins_scroll.pack_forget()
+
+    def _set_sidebar_status(self, text: str, *, tone: str = 'muted') -> None:
+        styles = {
+            'ok': 'StatusOk.TLabel',
+            'warn': 'StatusWarn.TLabel',
+            'bad': 'StatusBad.TLabel',
+            'muted': 'SidebarMuted.TLabel',
+        }
+        self.sidebar_status.set(text)
+        self.sidebar_status_label.configure(style=styles.get(tone, 'SidebarMuted.TLabel'))
 
     def _add_allowed_origin(self):
         origin = self.origin_entry_var.get().strip()

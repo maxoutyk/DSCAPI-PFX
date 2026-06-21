@@ -52,7 +52,6 @@ def agent_icon_paths() -> tuple[Path, ...]:
                 exe_dir / '_internal' / 'desktop-agent' / 'assets' / 'agent_icon.ico',
             ],
         )
-    paths.append(agent_root.parent / 'agent_icon.png')
     return tuple(paths)
 
 
@@ -126,7 +125,7 @@ def load_agent_icon_image(*, alert: bool = False, size: int = 256):
             image = Image.alpha_composite(image, overlay)
         return image
 
-    image = Image.new('RGBA', (size, size), (255, 102, 0, 255))
+    image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((8, 8, size - 8, size - 8), radius=12, fill=(255, 102, 0, 255))
     draw.text((size // 3, size // 3), 'IG', fill=(255, 255, 255, 255))
