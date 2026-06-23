@@ -1,0 +1,16 @@
+Hello,
+
+Your organization {{ tenant_name }} quota entitlement on {{ site_name }} has been renewed.
+
+Plan: {{ plan_label }}
+Total quota this term: {{ quota_limit }} signatures
+{% if carry_forward %}Carry-forward from previous term: {{ carry_forward }}
+{% endif %}Valid from: {{ starts_at }}
+Expires: {{ ends_at }}
+Used so far this term: {{ quota_used }}
+Remaining: {{ quota_remaining }}
+
+View your dashboard:
+{{ dashboard_url }}
+
+— {{ site_name }}

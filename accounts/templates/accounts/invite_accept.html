@@ -1,0 +1,84 @@
+{% extends "accounts/base.html" %}
+{% block title %}Join {{ invite.tenant.name }} — IG E-Sign{% endblock %}
+{% block auth_nav %}
+<a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
+{% endblock %}
+{% block public_content %}
+<div class="auth-body">
+  <div class="glass-card" style="max-width:480px;width:100%;">
+    <h1>Join {{ invite.tenant.name }}</h1>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">
+      {% if accept_only %}
+      You are signed in as <strong>{{ invite.email }}</strong>. Accept the invitation to access signing in this organization.
+      {% elif wrong_account %}
+      This invite is for <strong>{{ invite.email }}</strong>, but you are signed in as <strong>{{ signed_in_email }}</strong>.
+      {% else %}
+      <strong>{{ invite.invited_by.get_full_name|default:invite.invited_by.email }}</strong> invited
+      <strong>{{ invite.email }}</strong> to join as a team member.
+      {% endif %}
+    </p>
+
+    {% if wrong_account %}
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:20px;">
+      Sign out and open the invite link again with the correct account, or ask the owner to invite {{ signed_in_email }} instead.
+    </p>
+    <a href="{% url 'logout' %}" class="btn" style="width:100%;text-align:center;">Sign out</a>
+    <p style="margin-top:16px;text-align:center;font-size:0.875rem;color:var(--text-secondary);">
+      Then open the invite link from your email again.
+    </p>
+    {% elif accept_only %}
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn" type="submit" style="width:100%;">Accept invitation</button>
+    </form>
+    {% else %}
+    <div style="margin-bottom:24px;">
+      <h2 style="font-size:1rem;margin:0 0 12px;">Already have an account?</h2>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="login">
+        <div class="form-group">
+          <label for="id_username">Email</label>
+          <input type="email" name="username" id="id_username" value="{{ invite.email }}" readonly class="form-control" style="opacity:0.85;">
+        </div>
+        <div class="form-group">
+          <label for="id_password">Password</label>
+          {{ login_form.password }}
+          {% if login_form.password.errors %}<div class="message error" role="alert">{{ login_form.password.errors|striptags }}</div>{% endif %}
+        </div>
+        {% if login_form.non_field_errors %}
+        <div class="message error" role="alert">{{ login_form.non_field_errors|striptags }}</div>
+        {% endif %}
+        <button class="btn" type="submit" style="width:100%;">Sign in and accept</button>
+      </form>
+    </div>
+
+    <div>
+      <h2 style="font-size:1rem;margin:0 0 12px;">New here?</h2>
+      <p style="color:var(--text-secondary);font-size:0.875rem;margin:0 0 12px;">
+        Create a password for <strong>{{ invite.email }}</strong>. No new organization will be created.
+      </p>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="register">
+        {{ register_form.email }}
+        <div class="form-group">
+          <label for="id_password">Password</label>
+          {{ register_form.password }}
+          {% if register_form.password.errors %}<div class="message error" role="alert">{{ register_form.password.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="id_password_confirm">Confirm password</label>
+          {{ register_form.password_confirm }}
+          {% if register_form.password_confirm.errors %}<div class="message error" role="alert">{{ register_form.password_confirm.errors|striptags }}</div>{% endif %}
+        </div>
+        {% if register_form.non_field_errors %}
+        <div class="message error" role="alert">{{ register_form.non_field_errors|striptags }}</div>
+        {% endif %}
+        <button class="btn btn-secondary" type="submit" style="width:100%;">Create account and accept</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

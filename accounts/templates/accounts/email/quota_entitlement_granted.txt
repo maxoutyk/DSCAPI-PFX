@@ -1,0 +1,16 @@
+Hello,
+
+Your organization {{ tenant_name }} now has an active {{ plan_label }} quota entitlement on {{ site_name }}.
+
+Plan: {{ plan_label }}
+Quota: {{ quota_limit }} signatures (signing, USB & GST)
+Valid from: {{ starts_at }}
+Expires: {{ ends_at }}
+
+View your dashboard:
+{{ dashboard_url }}
+
+Usage report (owners only):
+{{ usage_report_url }}
+
+— {{ site_name }}

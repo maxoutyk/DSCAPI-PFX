@@ -28,7 +28,7 @@ Recommended build order: **A → B → C** (each phase shippable independently).
 
 | # | Capability |
 |---|------------|
-| T | Team invites / multi-user orgs (see appendix below) |
+| T | Team invites / multi-user orgs — **[implementation spec](./2026-06-21-team-members-v3.md)** (live-safe rollout) |
 | — | Stripe / billing (when ready) |
 
 ---

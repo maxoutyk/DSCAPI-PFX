@@ -1,0 +1,16 @@
+{% extends "accounts/base.html" %}
+{% block title %}Teams not available — IG E-Sign{% endblock %}
+{% block auth_nav %}
+<a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
+{% endblock %}
+{% block public_content %}
+<div class="auth-body">
+  <div class="glass-card" style="max-width:420px;width:100%;">
+    <h1>Teams not available yet</h1>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">
+      Team invites are not enabled on this environment. Ask your organization owner to contact support if you need access.
+    </p>
+    <a href="{% url 'login' %}" class="btn" style="width:100%;text-align:center;">Go to sign in</a>
+  </div>
+</div>
+{% endblock %}

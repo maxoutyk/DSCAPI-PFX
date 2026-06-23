@@ -1,0 +1,1 @@
+Your {{ plan_label }} plan was renewed — {{ tenant_name }}

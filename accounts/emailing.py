@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
-from .models import EmailVerificationToken, PasswordResetToken, TenantStatus
+from .models import EmailVerificationToken, PasswordResetToken, TenantInvite, TenantStatus
 from .services import get_primary_tenant
 
 
@@ -98,3 +98,35 @@ def send_password_reset_email(user: User) -> None:
         message.send(fail_silently=False)
     except Exception as exc:
         raise EmailDeliveryError('Failed to send password reset email. Please try again later.') from exc
+
+
+def _build_team_invite_url(invite: TenantInvite) -> str:
+    return f'{settings.SITE_URL.rstrip("/")}/invite/{invite.token}/'
+
+
+def send_team_invite_email(invite: TenantInvite) -> None:
+    invited_by_name = invite.invited_by.get_full_name() or invite.invited_by.email
+    context = {
+        'tenant_name': invite.tenant.name,
+        'invited_by_name': invited_by_name,
+        'accept_url': _build_team_invite_url(invite),
+        'site_name': 'IG E-Sign',
+        'expiry_hours': settings.TEAM_INVITE_HOURS,
+    }
+
+    subject = render_to_string('accounts/email/team_invite_subject.txt', context).strip()
+    text_body = render_to_string('accounts/email/team_invite.txt', context)
+    html_body = render_to_string('accounts/email/team_invite.html', context)
+
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[invite.email],
+    )
+    message.attach_alternative(html_body, 'text/html')
+
+    try:
+        message.send(fail_silently=False)
+    except Exception as exc:
+        raise EmailDeliveryError('Failed to send team invite email. Please try again later.') from exc

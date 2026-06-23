@@ -64,6 +64,7 @@
       {% endif %}
     </div>
   </div>
+  {% if portal_is_owner %}
   <div class="kpi-card">
     <div class="kpi-icon" aria-hidden="true">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
@@ -98,7 +99,24 @@
     <div class="kpi-label">Saved certificates</div>
     <div class="kpi-meta"><a href="{% url 'certs' %}">Manage certs</a></div>
   </div>
+  {% endif %}
 </div>
+
+    {% if member_usage %}
+<div class="card card-flat" style="margin-bottom:24px;">
+  <div class="card-header">
+    <h2>Organization usage this month</h2>
+  </div>
+  <p style="color:var(--text-secondary);font-size:0.875rem;margin:0 0 16px;">
+    Read-only summary for your team. Detailed usage reports and exports are available to organization owners.
+  </p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    <span class="badge badge-neutral">PDF signing: {{ member_usage.signing_count }}</span>
+    <span class="badge badge-neutral">GST lookups: {{ member_usage.gst_count }}</span>
+    <span class="badge badge-neutral">Shared quota used: {{ quota.used }} / {{ quota.limit }}</span>
+  </div>
+</div>
+{% endif %}
 
 {% if document_type_stats %}
 <div class="card card-flat" style="margin-bottom:24px;">
@@ -129,6 +147,7 @@
           <tr>
             <th>Document</th>
             <th>Source</th>
+            <th>Signed by</th>
             <th>Status</th>
             <th>Client</th>
             <th>Hash</th>
@@ -147,6 +166,15 @@
             </td>
             <td>
               <span class="badge badge-neutral">{{ log.get_signing_source_display }}</span>
+            </td>
+            <td>
+              {% if log.user %}
+              <span style="font-size:0.8rem;color:var(--text-secondary);">{{ log.user.email }}</span>
+              {% elif log.api_key %}
+              <span style="font-size:0.8rem;color:var(--text-secondary);">API · {{ log.api_key.name }}</span>
+              {% else %}
+              <span style="color:var(--text-secondary);">—</span>
+              {% endif %}
             </td>
             <td>
               {% if log.success %}
@@ -191,9 +219,13 @@
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
       </div>
       <h3>No activity yet</h3>
-      <p>Make your first API call to see sign requests here.</p>
+      <p>{% if portal_is_owner %}Make your first API call or sign a PDF in the portal.{% else %}Sign a PDF from Sign PDF or USB Sign when your account is ready.{% endif %}</p>
       {% if tenant.status == 'active' %}
+      {% if portal_is_owner %}
       <a href="{% url 'keys' %}" class="btn btn-sm">Create API key</a>
+      {% else %}
+      <a href="{% url 'sign' %}" class="btn btn-sm">Sign a PDF</a>
+      {% endif %}
       {% endif %}
     </div>
     {% endif %}
@@ -205,9 +237,12 @@
       {% if tenant.status != 'active' %}
       <li>Wait for account approval</li>
       {% endif %}
+      {% if portal_is_owner %}
       <li><a href="{% url 'keys' %}">Create an API key</a></li>
       <li><a href="{% url 'certs' %}">Upload a saved PFX</a></li>
-      <li><a href="{% url 'sign' %}">Sign a PDF</a> in the browser <span class="muted">or</span> <a href="{% url 'docs' %}">use the API</a></li>
+      {% endif %}
+      <li><a href="{% url 'sign' %}">Sign a PDF</a> in the browser{% if portal_is_owner %} <span class="muted">or</span> <a href="{% url 'docs' %}">use the API</a>{% endif %}</li>
+      <li><a href="{% url 'usb_sign' %}">Sign with USB token</a> (requires paired agent)</li>
     </ol>
   </div>
 </div>

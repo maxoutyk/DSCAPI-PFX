@@ -11,7 +11,7 @@
   <div class="card card-flat">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
       <h2 style="margin:0;">Your styles</h2>
-      {% if tenant.status == 'active' %}
+      {% if portal_is_owner and tenant.status == 'active' %}
       <a href="{% url 'signature_style_create' %}" class="btn btn-sm">New style</a>
       {% endif %}
     </div>
@@ -43,6 +43,7 @@
               {% endif %}
             </td>
             <td style="white-space:nowrap;">
+              {% if portal_is_owner %}
               <a href="{% url 'signature_style_edit' style.id %}" class="btn btn-ghost btn-sm">Edit</a>
               {% if tenant.status == 'active' and not style.is_default %}
               <form method="post" action="{% url 'signature_style_default' style.id %}" style="display:inline;">
@@ -56,6 +57,9 @@
                 <button type="submit" class="btn btn-ghost btn-sm">Delete</button>
               </form>
               {% endif %}
+              {% else %}
+              <span style="color:var(--text-secondary);font-size:0.8rem;">View only</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -64,7 +68,7 @@
     </div>
     {% else %}
     <p style="color:var(--text-secondary);">No custom styles yet. API signing uses platform defaults until you create and enable one.</p>
-    {% if tenant.status == 'active' %}
+    {% if portal_is_owner and tenant.status == 'active' %}
     <a href="{% url 'signature_style_create' %}" class="btn btn-sm" style="margin-top:12px;">Create your first style</a>
     {% endif %}
     {% endif %}

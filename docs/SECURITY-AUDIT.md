@@ -242,23 +242,26 @@ Resolved by H1 (long URL-safe codes).
 
 ---
 
-### M11 — No RBAC enforcement *(OPEN)*
+### M11 — No RBAC enforcement *(REMEDIATED — 2026-06-21)*
 
-**Files:** `accounts/models.py` (`MembershipRole`), all portal views
+**Files:** `accounts/decorators.py`, `accounts/views.py`, `gst/portal_views.py`, `usb_agent/portal_views.py`
 
-`owner` / `member` roles exist but are never enforced. Any logged-in primary member can create/revoke API keys, upload certs, pair agents, and sign.
+**Fix:** Portal RBAC for `owner` vs `member` roles:
 
-**Recommended fix:** Enforce role checks on destructive operations, or document that all members are full administrators.
+- `tenant_owner_only` — blocks entire views (GET + POST): API keys, certs, company profile, usage report, team admin, signature style edit, GST portal
+- `tenant_owner_required` — blocks destructive POST only where members may view (e.g. agent pairing)
+- Members retain dashboard, portal/USB sign, read-only signature styles, API docs, agent download
+- Team invite flow (`TenantInvite`) is owner-only and gated by `TEAMS_ENABLED`
+
+**Tests:** `accounts.test_team_portal`, `accounts.tests.PortalSecurityTests`, `accounts.test_team_invites`
 
 ---
 
-### M12 — Null tenant causes 500 on portal views *(OPEN)*
+### M12 — Null tenant causes 500 on portal views *(REMEDIATED)*
 
-**File:** `accounts/views.py`
+**File:** `accounts/views.py`, `accounts/decorators.py`
 
-`get_primary_tenant()` can return `None`; views such as `dashboard_view` dereference `tenant` without guard.
-
-**Recommended fix:** Redirect users without membership to onboarding or return 403.
+**Fix:** `@primary_tenant_required` on portal views redirects users without a primary `TenantMembership` instead of dereferencing `None`.
 
 ---
 
@@ -364,7 +367,7 @@ python manage.py migrate
 | **P1** | H3b, H9 | Cap PFX and signed-PDF base64 sizes | Affects production |
 | **P1** | H8 | PFX upload size limit | Affects production |
 | **P1** | H2a, H2b | Pin agent `api_base`; harden local `/sign` | Desktop agent update |
-| **P2** | M11, M12 | RBAC or document; null-tenant guards | Affects production |
+| **P2** | M12 | ~~Null-tenant guards~~ remediated via `primary_tenant_required` | Done |
 | **P2** | M5, L4 | CSP and security headers in Caddy | Infrastructure |
 | **P2** | H5b | Alert on cache/throttle fail-open | Operations |
 | **P3** | M13 | Agent endpoint throttling | Low urgency |
@@ -386,3 +389,4 @@ python manage.py test usb_agent signPdf accounts
 | 2026-06-12 | Initial audit; remediated C2, C3, H1, H3–H5, M1–M4, M6–M8, M10 |
 | 2026-06-09 | Comprehensive review; confirmed production `.env` + `DEBUG=false` |
 | 2026-06-09 | Security remediation: C1, H2–H9 (except H6), M5/M11–M13, L4/L7; tests added |
+| 2026-06-21 | Team members v3: M11 RBAC enforced (owner/member); customer guide `docs/TEAM-MEMBERS.md` |

@@ -12,6 +12,7 @@ from .forms import (
     APIKeyForm,
     CertificateUploadForm,
     CompanyProfileForm,
+    InviteRegisterForm,
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
@@ -19,8 +20,20 @@ from .forms import (
     RegistrationForm,
     ResendVerificationForm,
     SignatureStyleForm,
+    TeamInviteForm,
+)
+from .invites import (
+    InviteError,
+    accept_tenant_invite,
+    create_tenant_invite,
+    get_invite_by_token,
+    list_pending_invites,
+    register_invite_user,
+    resend_tenant_invite,
+    revoke_tenant_invite,
 )
 from .models import TenantSignatureStyle, TenantStatus
+from .team import TeamError, list_tenant_memberships, remove_tenant_member
 from .ratelimit import RATE_LIMIT_MESSAGE, is_rate_limited, record_rate_limit_hit
 from .services import (
     PasswordResetTokenExpiredError,
@@ -37,6 +50,7 @@ from .services import (
     revoke_api_key,
     store_portal_sign_artifact,
     update_api_key_customer_label,
+    user_is_tenant_owner,
     verify_email,
 )
 
@@ -269,6 +283,23 @@ def dashboard_view(request):
             .order_by('-count')
         )
     ]
+
+    member_usage = None
+    if not user_is_tenant_owner(request.user):
+        from gst.models import GstApiLog
+
+        member_usage = {
+            'signing_count': tenant.usage_logs.filter(
+                success=True,
+                created_at__gte=month_start,
+            ).count(),
+            'gst_count': GstApiLog.objects.filter(
+                tenant=tenant,
+                success=True,
+                created_at__gte=month_start,
+            ).count(),
+        }
+
     return render(
         request,
         'accounts/dashboard.html',
@@ -278,10 +309,11 @@ def dashboard_view(request):
             'profile': profile,
             'partner_ready': partner_ready,
             'partner_error': partner_error,
-            'usage_logs': tenant.usage_logs.all()[:20],
+            'usage_logs': tenant.usage_logs.select_related('user', 'api_key').all()[:20],
             'document_type_stats': document_type_stats,
             'active_keys': tenant.api_keys.filter(revoked_at__isnull=True).count(),
             'cert_count': tenant.certificates.count(),
+            'member_usage': member_usage,
         },
     )
 
@@ -347,7 +379,7 @@ def _usage_report_for_request(tenant, request):
 
 @login_required
 @primary_tenant_required
-@tenant_owner_required
+@tenant_owner_only
 @require_http_methods(['GET'])
 def usage_report_view(request):
     tenant = get_primary_tenant(request.user)
@@ -371,7 +403,7 @@ def usage_report_view(request):
 
 @login_required
 @primary_tenant_required
-@tenant_owner_required
+@tenant_owner_only
 @require_http_methods(['GET'])
 def usage_report_download_view(request):
     from django.http import HttpResponse
@@ -438,7 +470,7 @@ def certs_view(request):
 
 @login_required
 @primary_tenant_required
-@tenant_owner_required
+@tenant_owner_only
 @require_http_methods(['GET', 'POST'])
 def company_profile_view(request):
     tenant = get_primary_tenant(request.user)
@@ -486,7 +518,7 @@ def signature_style_view(request):
 
 @login_required
 @primary_tenant_required
-@tenant_owner_required
+@tenant_owner_only
 @require_http_methods(['GET', 'POST'])
 def signature_style_edit_view(request, style_id=None):
     from signPdf.signature_style import SignatureStyleConfig, resolve_signature_style
@@ -571,6 +603,226 @@ def signature_style_default_view(request, style_id):
     style_obj.save(update_fields=['is_default'])
     messages.success(request, f'“{style_obj.name}” is now the default signature style.')
     return redirect('signature_style')
+
+
+@login_required
+@primary_tenant_required
+@tenant_owner_only
+@require_http_methods(['GET', 'POST'])
+def team_view(request):
+    tenant = get_primary_tenant(request.user)
+    invite_form = TeamInviteForm()
+
+    if request.method == 'POST':
+        if 'remove_member' in request.POST:
+            membership_id = request.POST.get('remove_member')
+            if membership_id:
+                try:
+                    removed_email = remove_tenant_member(
+                        tenant=tenant,
+                        membership_id=int(membership_id),
+                        acting_user=request.user,
+                    )
+                except (TeamError, ValueError) as exc:
+                    messages.error(request, str(exc))
+                else:
+                    messages.success(request, f'Removed {removed_email} from your organization.')
+            return redirect('team')
+
+        if settings.TEAMS_ENABLED and 'send_invite' in request.POST:
+            if is_rate_limited(request, 'team_invite'):
+                messages.error(request, RATE_LIMIT_MESSAGE)
+                return redirect('team')
+
+            invite_form = TeamInviteForm(request.POST)
+            if invite_form.is_valid():
+                try:
+                    create_tenant_invite(
+                        tenant=tenant,
+                        email=invite_form.cleaned_data['email'],
+                        invited_by=request.user,
+                    )
+                except (InviteError, EmailDeliveryError) as exc:
+                    messages.error(request, str(exc))
+                else:
+                    record_rate_limit_hit(request, 'team_invite')
+                    messages.success(
+                        request,
+                        f'Invitation sent to {invite_form.cleaned_data["email"].strip().lower()}.',
+                    )
+            else:
+                messages.error(request, 'Enter a valid email address.')
+            return redirect('team')
+
+        if settings.TEAMS_ENABLED and 'resend_invite' in request.POST:
+            invite_id = request.POST.get('resend_invite')
+            if invite_id:
+                try:
+                    invite = resend_tenant_invite(
+                        tenant=tenant,
+                        invite_id=invite_id,
+                        acting_user=request.user,
+                    )
+                except (InviteError, EmailDeliveryError) as exc:
+                    messages.error(request, str(exc))
+                else:
+                    messages.success(request, f'Invitation resent to {invite.email}.')
+            return redirect('team')
+
+        if settings.TEAMS_ENABLED and 'revoke_invite' in request.POST:
+            invite_id = request.POST.get('revoke_invite')
+            if invite_id:
+                try:
+                    revoked_email = revoke_tenant_invite(
+                        tenant=tenant,
+                        invite_id=invite_id,
+                        acting_user=request.user,
+                    )
+                except InviteError as exc:
+                    messages.error(request, str(exc))
+                else:
+                    messages.success(request, f'Revoked invitation for {revoked_email}.')
+            return redirect('team')
+
+    memberships = list_tenant_memberships(tenant)
+    context = {
+        'tenant': tenant,
+        'memberships': memberships,
+        'owner_count': sum(1 for item in memberships if item.role == 'owner'),
+        'invite_form': invite_form,
+        'pending_invites': list_pending_invites(tenant) if settings.TEAMS_ENABLED else [],
+    }
+    return render(request, 'accounts/team.html', context)
+
+
+@require_http_methods(['GET', 'POST'])
+def team_invite_accept_view(request, token):
+    if not settings.TEAMS_ENABLED:
+        return render(request, 'accounts/invite_teams_disabled.html')
+
+    invite = get_invite_by_token(token)
+    if invite is None:
+        messages.error(request, 'This invite link is invalid.')
+        return redirect('login')
+
+    if invite.revoked_at is not None:
+        return render(
+            request,
+            'accounts/invite_unavailable.html',
+            {'reason': 'This invite has been revoked. Ask the owner to send a new invite.'},
+        )
+
+    if invite.accepted_at is not None:
+        if request.user.is_authenticated and invite.tenant.memberships.filter(user=request.user).exists():
+            messages.info(request, f'You are already a member of {invite.tenant.name}.')
+            return redirect('dashboard')
+        return render(
+            request,
+            'accounts/invite_unavailable.html',
+            {'reason': 'This invite has already been used.'},
+        )
+
+    from django.utils import timezone
+
+    if timezone.now() > invite.expires_at:
+        return render(
+            request,
+            'accounts/invite_unavailable.html',
+            {
+                'reason': 'This invite has expired. Ask the owner to send a new invite.',
+                'tenant_name': invite.tenant.name,
+            },
+        )
+
+    if request.user.is_authenticated:
+        if request.user.email.lower() != invite.email.lower():
+            return render(
+                request,
+                'accounts/invite_accept.html',
+                {
+                    'invite': invite,
+                    'wrong_account': True,
+                    'signed_in_email': request.user.email,
+                },
+            )
+
+        if request.method == 'POST':
+            try:
+                accept_tenant_invite(invite=invite, user=request.user)
+            except InviteError as exc:
+                messages.error(request, str(exc))
+                return redirect('dashboard')
+            messages.success(request, f'You joined {invite.tenant.name}.')
+            return redirect('dashboard')
+
+        return render(
+            request,
+            'accounts/invite_accept.html',
+            {
+                'invite': invite,
+                'accept_only': True,
+            },
+        )
+
+    login_form = LoginForm(initial={'username': invite.email})
+    register_form = InviteRegisterForm(initial={'email': invite.email})
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'login':
+            if is_rate_limited(request, 'login'):
+                messages.error(request, RATE_LIMIT_MESSAGE)
+            else:
+                login_form = LoginForm(request, data=request.POST)
+                if login_form.is_valid():
+                    user = login_form.get_user()
+                    if user.email.lower() != invite.email.lower():
+                        login_form.add_error(
+                            None,
+                            'Sign in with the email address that received the invite.',
+                        )
+                    else:
+                        login(request, user)
+                        try:
+                            accept_tenant_invite(invite=invite, user=user)
+                        except InviteError as exc:
+                            messages.error(request, str(exc))
+                            return redirect('dashboard')
+                        messages.success(request, f'You joined {invite.tenant.name}.')
+                        return redirect('dashboard')
+                record_rate_limit_hit(request, 'login')
+        elif action == 'register':
+            if is_rate_limited(request, 'register'):
+                messages.error(request, RATE_LIMIT_MESSAGE)
+            else:
+                register_form = InviteRegisterForm(request.POST)
+                if register_form.is_valid():
+                    try:
+                        user = register_invite_user(
+                            email=register_form.cleaned_data['email'],
+                            password=register_form.cleaned_data['password'],
+                        )
+                        accept_tenant_invite(invite=invite, user=user)
+                    except InviteError as exc:
+                        register_form.add_error(None, str(exc))
+                    except Exception:
+                        register_form.add_error(None, 'Could not create your account. Try signing in instead.')
+                    else:
+                        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                        record_rate_limit_hit(request, 'register')
+                        messages.success(request, f'Welcome to {invite.tenant.name}.')
+                        return redirect('dashboard')
+                record_rate_limit_hit(request, 'register')
+
+    return render(
+        request,
+        'accounts/invite_accept.html',
+        {
+            'invite': invite,
+            'login_form': login_form,
+            'register_form': register_form,
+        },
+    )
 
 
 @login_required

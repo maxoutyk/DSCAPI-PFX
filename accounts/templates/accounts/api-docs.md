@@ -393,6 +393,23 @@ Failed attempts are logged in your dashboard (with hash and IP when the PDF was 
 
 ---
 
+## Team members (portal)
+
+IG E-Sign supports optional **team members** for portal and USB signing under the same organization.
+
+| Topic | Detail |
+|--------|--------|
+| Who can invite | Organization **owners** only (`/dashboard/team/`) |
+| Member access | Portal sign, USB sign, signature styles (read-only), API docs |
+| Member restrictions | No API keys, saved certs, GST profile, usage exports, or agent pairing |
+| API integrations | Unchanged — use your existing `dsc_live_…` key; API calls are **organization-scoped**, not per-user |
+| Quota | Shared across the organization (owner + members) |
+| GST API | Still authenticated with the owner-managed API key; members do not manage GST settings |
+
+Team invites require `TEAMS_ENABLED` on the server. Until enabled, every account remains a single owner with full access.
+
+---
+
 ## Requirements
 
 - Account status must be **Active**

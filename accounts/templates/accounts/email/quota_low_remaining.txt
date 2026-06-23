@@ -1,0 +1,18 @@
+Hello,
+
+{% if quota_exhausted %}Your {{ plan_label }} quota for {{ tenant_name }} on {{ site_name }} is exhausted.
+{% else %}Your {{ plan_label }} quota for {{ tenant_name }} on {{ site_name }} is running low.
+{% endif %}
+
+Used: {{ quota_used }} / {{ quota_limit }}
+Remaining: {{ quota_remaining }}
+Plan expires: {{ ends_at }}
+
+{% if quota_exhausted %}Signing and GST API calls will return quota errors until you renew or your plan is extended.
+{% else %}You have {{ quota_remaining }} signatures left (alert threshold: {{ low_quota_threshold }}).
+{% endif %}
+
+Dashboard: {{ dashboard_url }}
+Usage report: {{ usage_report_url }}
+
+— {{ site_name }}

@@ -1,0 +1,13 @@
+Hello,
+
+Your {{ plan_label }} quota entitlement for {{ tenant_name }} on {{ site_name }} expires on {{ ends_at }} ({{ days_remaining }} days remaining).
+
+Quota used: {{ quota_used }} / {{ quota_limit }}
+Remaining: {{ quota_remaining }}
+
+Renew before expiry to avoid interruption. Pro+ renewals before expiry can carry unused quota forward.
+
+Dashboard: {{ dashboard_url }}
+Usage report: {{ usage_report_url }}
+
+— {{ site_name }}

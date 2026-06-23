@@ -1,0 +1,1 @@
+{{ plan_label }} plan expires in {{ days_remaining }} days — {{ tenant_name }}

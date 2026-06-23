@@ -1,0 +1,124 @@
+{% extends "accounts/base.html" %}
+{% load display_tz %}
+{% block title %}Team — IG E-Sign{% endblock %}
+{% block page_title %}Team{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Team</h1>
+  <p class="subtitle">{{ tenant.name }} — organization members and roles</p>
+</div>
+
+<div class="grid-2">
+  <div class="card card-flat">
+    <h2>Members</h2>
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0 0 16px;">
+      Owners manage API keys, certificates, and billing settings. Members can sign PDFs in the portal and via USB using your organization’s saved setup.
+    </p>
+    {% if memberships %}
+    <div class="table-wrap">
+      <table class="data-table" aria-label="Organization members">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Joined (IST)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for membership in memberships %}
+          <tr>
+            <td>{{ membership.user.email }}</td>
+            <td>
+              {% if membership.role == 'owner' %}
+              <span class="badge badge-success">Owner</span>
+              {% else %}
+              <span class="badge badge-neutral">Member</span>
+              {% endif %}
+            </td>
+            <td><span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ membership.created_at|ist:"M j, Y" }}</span></td>
+            <td>
+              {% if membership.user_id != user.id %}
+              <form method="post" style="display:inline;" onsubmit="return confirm('Remove {{ membership.user.email }} from this organization?');">
+                {% csrf_token %}
+                <input type="hidden" name="remove_member" value="{{ membership.pk }}">
+                <button type="submit" class="btn btn-ghost btn-sm">Remove</button>
+              </form>
+              {% else %}
+              <span style="color:var(--text-secondary);font-size:0.8rem;">You</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-secondary);">No members found.</p>
+    {% endif %}
+  </div>
+
+  <div class="card card-flat">
+    <h2>Invite teammates</h2>
+    {% if teams_enabled %}
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0 0 16px;">
+      Send an email invite. They can sign in or create a password to join {{ tenant.name }} as a member.
+    </p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_email">Email address</label>
+        {{ invite_form.email }}
+        {% if invite_form.email.errors %}
+        <div class="message error" role="alert">{{ invite_form.email.errors|striptags }}</div>
+        {% endif %}
+      </div>
+      <button type="submit" name="send_invite" value="1" class="btn btn-sm">Send invite</button>
+    </form>
+    {% if pending_invites %}
+    <h3 style="margin:24px 0 12px;font-size:1rem;">Pending invites</h3>
+    <div class="table-wrap">
+      <table class="data-table" aria-label="Pending team invites">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Sent (IST)</th>
+            <th>Expires (IST)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for invite in pending_invites %}
+          <tr>
+            <td>{{ invite.email }}</td>
+            <td><span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ invite.created_at|ist:"M j, H:i" }}</span></td>
+            <td><span class="mono" style="font-size:0.8rem;color:var(--text-secondary);">{{ invite.expires_at|ist:"M j, H:i" }}</span></td>
+            <td style="white-space:nowrap;">
+              <form method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="resend_invite" value="{{ invite.pk }}">
+                <button type="submit" class="btn btn-ghost btn-sm">Resend</button>
+              </form>
+              <form method="post" style="display:inline;" onsubmit="return confirm('Revoke invite for {{ invite.email }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="revoke_invite" value="{{ invite.pk }}">
+                <button type="submit" class="btn btn-ghost btn-sm">Revoke</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% else %}
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0 0 12px;">
+      Invite by email will be available when team invites are enabled on your environment.
+    </p>
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin:0;">
+      Today, your organization has a single owner account. API integrations and GST lookups are unchanged.
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

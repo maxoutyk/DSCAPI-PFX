@@ -4,7 +4,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from accounts.decorators import primary_tenant_required
+from accounts.decorators import primary_tenant_required, tenant_owner_only
 from accounts.services import get_company_profile, get_primary_tenant, nic_portal_credentials_configured
 
 from .client import MyGSTCafeConfigError, get_platform_credentials
@@ -54,6 +54,7 @@ def _gst_portal_context(request, *, endpoint_id: str | None = None) -> dict:
 
 @login_required
 @primary_tenant_required
+@tenant_owner_only
 @require_http_methods(['GET'])
 def gst_dashboard_view(request):
     if GST_ENDPOINT_ORDER:
@@ -63,6 +64,7 @@ def gst_dashboard_view(request):
 
 @login_required
 @primary_tenant_required
+@tenant_owner_only
 @require_http_methods(['GET'])
 def gst_service_view(request, endpoint_id: str):
     if endpoint_id not in GST_ENDPOINT_ORDER:

@@ -127,6 +127,11 @@ else:
 
 RATELIMIT_DEFAULT_LIMIT = int(os.environ.get('RATELIMIT_DEFAULT_LIMIT', '10'))
 RATELIMIT_DEFAULT_PERIOD = int(os.environ.get('RATELIMIT_DEFAULT_PERIOD', '900'))
+TEAMS_ENABLED = os.environ.get('TEAMS_ENABLED', 'false').strip().lower() == 'true'
+TEAM_INVITE_HOURS = int(os.environ.get('TEAM_INVITE_HOURS', '72'))
+QUOTA_NOTIFICATIONS_ENABLED = os.environ.get('QUOTA_NOTIFICATIONS_ENABLED', 'true').strip().lower() == 'true'
+QUOTA_EXPIRY_REMINDER_DAYS = int(os.environ.get('QUOTA_EXPIRY_REMINDER_DAYS', '30'))
+QUOTA_LOW_REMAINING_PERCENT = int(os.environ.get('QUOTA_LOW_REMAINING_PERCENT', '10'))
 VERIFY_EMAIL_TOKEN_HOURS = int(os.environ.get('VERIFY_EMAIL_TOKEN_HOURS', '24'))
 PASSWORD_RESET_TOKEN_HOURS = int(os.environ.get('PASSWORD_RESET_TOKEN_HOURS', '2'))
 
@@ -157,6 +162,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'accounts.context_processors.google_ads',
                 'accounts.context_processors.csp_nonce',
+                'accounts.context_processors.portal_nav',
                 'gst.context_processors.gst_sidebar',
             ],
         },

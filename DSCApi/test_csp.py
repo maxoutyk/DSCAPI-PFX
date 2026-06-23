@@ -21,6 +21,20 @@ class CspHelperTests(SimpleTestCase):
         self.assertIn("style-src 'self' 'unsafe-inline'", header)
         self.assertIn("object-src 'none'", header)
 
+    def test_csp_omits_upgrade_insecure_on_http_site_url(self):
+        from django.test import override_settings
+
+        with override_settings(SITE_URL='http://127.0.0.1:8000'):
+            header = csp_header_value('nonce')
+        self.assertNotIn('upgrade-insecure-requests', header)
+
+    def test_csp_includes_upgrade_insecure_on_https_site_url(self):
+        from django.test import override_settings
+
+        with override_settings(SITE_URL='https://sign.example.com'):
+            header = csp_header_value('nonce')
+        self.assertIn('upgrade-insecure-requests', header)
+
     def test_should_apply_csp_skips_admin_and_static(self):
         self.assertFalse(should_apply_csp('/admin/'))
         self.assertFalse(should_apply_csp('/admin/login/'))

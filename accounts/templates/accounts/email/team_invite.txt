@@ -1,0 +1,12 @@
+Hello,
+
+{{ invited_by_name }} invited you to join {{ tenant_name }} on {{ site_name }} as a team member.
+
+Team members can sign PDFs in the portal and via USB using the organization’s saved certificates and quota. API keys and billing settings remain with the organization owner.
+
+Accept your invite (expires in {{ expiry_hours }} hours):
+{{ accept_url }}
+
+If you did not expect this invitation, you can ignore this email.
+
+— {{ site_name }}

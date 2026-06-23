@@ -185,6 +185,8 @@ class QuotaEntitlement(models.Model):
         related_name='granted_quota_entitlements',
     )
     notes = models.TextField(blank=True)
+    expiry_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    low_quota_notified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -465,6 +467,40 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f'Password reset for {self.user.email}'
+
+
+class TenantInvite(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='invites')
+    email = models.EmailField(db_index=True)
+    role = models.CharField(
+        max_length=20,
+        choices=MembershipRole.choices,
+        default=MembershipRole.MEMBER,
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_tenant_invites')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['tenant', 'email']),
+        ]
+
+    def __str__(self):
+        return f'Invite {self.email} → {self.tenant.name}'
+
+    @property
+    def is_pending(self) -> bool:
+        now = timezone.now()
+        return (
+            self.accepted_at is None
+            and self.revoked_at is None
+            and self.expires_at > now
+        )
 
 
 class PortalSignArtifact(models.Model):

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;">
+        <tr><td>
+          <h1 style="margin:0 0 16px;font-size:24px;">{{ plan_label }} plan renewed</h1>
+          <p style="margin:0 0 16px;line-height:1.5;">Your organization <strong>{{ tenant_name }}</strong> entitlement has been renewed.</p>
+          <ul style="margin:0 0 20px;padding-left:20px;color:#4b5563;line-height:1.6;">
+            <li><strong>{{ quota_limit }}</strong> signatures this term</li>
+            {% if carry_forward %}<li>{{ carry_forward }} carried forward from your previous term</li>{% endif %}
+            <li>Expires {{ ends_at }}</li>
+            <li>{{ quota_remaining }} remaining ({{ quota_used }} used)</li>
+          </ul>
+          <p style="margin:0 0 24px;"><a href="{{ dashboard_url }}" style="display:inline-block;background:#ff6600;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:bold;">Open dashboard</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

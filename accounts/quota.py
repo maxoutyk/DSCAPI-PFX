@@ -208,6 +208,8 @@ def grant_entitlement(
     )
     tenant.quota_plan = plan
     tenant.save(update_fields=['quota_plan', 'updated_at'])
+    entitlement_id = entitlement.pk
+    transaction.on_commit(lambda: _notify_entitlement_granted(entitlement_id))
     return entitlement
 
 
@@ -264,7 +266,37 @@ def renew_entitlement(
     )
     tenant.quota_plan = plan
     tenant.save(update_fields=['quota_plan', 'updated_at'])
+    entitlement_id = entitlement.pk
+    transaction.on_commit(lambda: _notify_entitlement_renewed(entitlement_id))
     return entitlement
+
+
+def _notify_entitlement_granted(entitlement_id: int) -> None:
+    import logging
+
+    from .quota_notifications import send_entitlement_granted_email
+
+    try:
+        send_entitlement_granted_email(entitlement_id)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            'Quota granted email failed for entitlement %s',
+            entitlement_id,
+        )
+
+
+def _notify_entitlement_renewed(entitlement_id: int) -> None:
+    import logging
+
+    from .quota_notifications import send_entitlement_renewed_email
+
+    try:
+        send_entitlement_renewed_email(entitlement_id)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            'Quota renewed email failed for entitlement %s',
+            entitlement_id,
+        )
 
 
 def preview_renew_entitlement(

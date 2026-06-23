@@ -53,8 +53,10 @@ def csp_header_value(nonce: str) -> str:
         "base-uri 'self'",
         "form-action 'self'",
         "object-src 'none'",
-        "upgrade-insecure-requests",
     ]
+    site_url = (getattr(settings, 'SITE_URL', '') or '').strip().lower()
+    if site_url.startswith('https://'):
+        directives.append('upgrade-insecure-requests')
     return '; '.join(directives)
 
 
