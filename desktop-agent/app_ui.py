@@ -544,6 +544,8 @@ class AgentDashboard:
                 self.pair_progress_label.pack(anchor='w', pady=(8, 0), before=self.paired_note)
         else:
             self.pair_progress_label.pack_forget()
+
+    def _pin_env_locked(self) -> dict[str, bool]:
         from pkcs11_signing import pin_cache_env_locked, pin_cache_managed_by_env
 
         if pin_cache_managed_by_env():
