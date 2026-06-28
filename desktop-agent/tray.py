@@ -21,6 +21,8 @@ class AgentRuntimeState:
     portal_connected: bool = False
     token_present: bool = False
     last_error: str = ''
+    latest_agent_version: str = ''
+    update_available: bool = False
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def snapshot(self) -> dict:
@@ -32,6 +34,8 @@ class AgentRuntimeState:
                 'portal_connected': self.portal_connected,
                 'token_present': self.token_present,
                 'last_error': self.last_error,
+                'latest_agent_version': self.latest_agent_version,
+                'update_available': self.update_available,
             }
 
     def update(self, **kwargs):

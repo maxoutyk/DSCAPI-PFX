@@ -19,7 +19,21 @@ from .services import (
     pair_device,
     record_heartbeat,
 )
+from .distribution import read_agent_version, resolve_agent_installer_path
 from .throttling import AgentHeartbeatThrottle, AgentJobThrottle, AgentPairThrottle
+
+
+class AgentVersionView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response(
+            {
+                'version': read_agent_version(),
+                'has_windows_installer': resolve_agent_installer_path() is not None,
+            },
+        )
 
 
 class AgentPairView(APIView):
@@ -68,7 +82,13 @@ class AgentHeartbeatView(APIView):
             cert_cn=(request.data.get('cert_cn') or '').strip(),
             cert_expires_at=cert_expires_at,
         )
-        return Response({'status': 'ok'})
+        return Response(
+            {
+                'status': 'ok',
+                'latest_agent_version': read_agent_version(),
+                'has_windows_installer': resolve_agent_installer_path() is not None,
+            },
+        )
 
 
 class AgentSignJobDetailView(APIView):

@@ -48,6 +48,55 @@ _heartbeat_started = False
 _heartbeat_lock = threading.Lock()
 
 
+def compare_agent_versions(left: str, right: str) -> int:
+    """Return -1 if left < right, 0 if equal, 1 if left > right."""
+
+    def _parts(value: str) -> list[int]:
+        chunks: list[int] = []
+        for piece in (value or '0').strip().split('.'):
+            digits = ''.join(ch for ch in piece if ch.isdigit())
+            chunks.append(int(digits or '0'))
+        return chunks or [0]
+
+    left_parts = _parts(left)
+    right_parts = _parts(right)
+    width = max(len(left_parts), len(right_parts))
+    left_parts.extend([0] * (width - len(left_parts)))
+    right_parts.extend([0] * (width - len(right_parts)))
+    if left_parts < right_parts:
+        return -1
+    if left_parts > right_parts:
+        return 1
+    return 0
+
+
+def is_agent_update_available(current: str, latest: str) -> bool:
+    latest = (latest or '').strip()
+    if not latest:
+        return False
+    return compare_agent_versions(current, latest) < 0
+
+
+def fetch_latest_agent_version(api_base: str) -> str:
+    data = api_request('GET', f'{api_base.rstrip("/")}/api/agent/version/')
+    return (data.get('version') or data.get('latest_agent_version') or '').strip()
+
+
+def refresh_agent_update_state(state, api_base: str) -> None:
+    api_base = (api_base or read_default_api_base()).strip()
+    if not api_base:
+        state.update(latest_agent_version='', update_available=False)
+        return
+    try:
+        latest = fetch_latest_agent_version(api_base)
+    except Exception:
+        return
+    state.update(
+        latest_agent_version=latest,
+        update_available=is_agent_update_available(AGENT_VERSION, latest),
+    )
+
+
 def is_revoked_token_error(exc: Exception | str) -> bool:
     text = str(exc).lower()
     return 'revoked' in text or 'invalid or revoked' in text
@@ -193,22 +242,34 @@ def start_portal_heartbeat(state) -> None:
             token = config.get('device_token', '')
             if not token:
                 state.update(paired=False, portal_connected=False, api_base=api_base, last_error='')
+                refresh_agent_update_state(state, api_base)
             else:
                 state.update(paired=True, api_base=api_base)
                 try:
-                    heartbeat(api_base, token)
+                    response = heartbeat(api_base, token)
                     try:
                         from pkcs11_signing import ensure_pin_cache_valid
 
                         ensure_pin_cache_valid()
                     except Exception:
                         pass
-                    state.update(portal_connected=True, last_error='', token_present=token_present(), paired=True)
+                    latest = (response.get('latest_agent_version') or '').strip()
+                    if not latest:
+                        latest = (response.get('version') or '').strip()
+                    state.update(
+                        portal_connected=True,
+                        last_error='',
+                        token_present=token_present(),
+                        paired=True,
+                        latest_agent_version=latest,
+                        update_available=is_agent_update_available(AGENT_VERSION, latest),
+                    )
                 except Exception as exc:
                     if is_revoked_token_error(exc):
                         clear_pairing()
                     else:
                         state.update(portal_connected=False, last_error=str(exc)[:120], paired=True)
+                        refresh_agent_update_state(state, api_base)
             threading.Event().wait(45)
 
     threading.Thread(target=heartbeat_loop, daemon=True, name='ig-agent-heartbeat').start()
@@ -258,6 +319,11 @@ def run_server(port: int, *, use_tray: bool | None = None):
 
     if use_tray and sys.platform == 'win32':
         start_portal_heartbeat(state)
+        threading.Thread(
+            target=lambda: refresh_agent_update_state(state, api_base or read_default_api_base()),
+            daemon=True,
+            name='ig-agent-version-check',
+        ).start()
 
     server = ThreadingHTTPServer(('127.0.0.1', port), AgentHandler)
 
@@ -396,8 +462,8 @@ def token_present() -> bool:
         return False
 
 
-def heartbeat(api_base: str, token: str):
-    api_request(
+def heartbeat(api_base: str, token: str) -> dict:
+    return api_request(
         'POST',
         f'{api_base}/api/agent/heartbeat/',
         {'agent_version': AGENT_VERSION, 'token_present': token_present()},

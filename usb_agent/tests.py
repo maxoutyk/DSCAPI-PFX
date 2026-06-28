@@ -61,6 +61,15 @@ class UsbAgentFlowTests(TestCase):
         self.assertEqual(device.tenant, self.tenant)
         self.assertEqual(AgentDevice.objects.filter(tenant=self.tenant).count(), 1)
 
+    def test_agent_version_endpoint_is_public(self):
+        from .distribution import read_agent_version
+
+        response = self.api.get('/api/agent/version/')
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['version'], read_agent_version())
+        self.assertIn('has_windows_installer', payload)
+
     def test_agent_heartbeat_and_usb_sign_job(self):
         if not self.has_pfx:
             self.skipTest('PFX cert not available locally')
@@ -70,6 +79,7 @@ class UsbAgentFlowTests(TestCase):
         self.api.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         heartbeat = self.api.post('/api/agent/heartbeat/', {'agent_version': '0.1.0'}, format='json')
         self.assertEqual(heartbeat.status_code, 200)
+        self.assertIn('latest_agent_version', heartbeat.json())
 
         pdf = _pdf_with_anchor()
         job = prepare_usb_sign_job(tenant=self.tenant, user=self.user, pdf_data=pdf, device=device)

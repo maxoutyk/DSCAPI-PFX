@@ -301,7 +301,7 @@ class AgentDashboard:
             anchor='w',
         )
 
-    def _alert_banner(self, parent, *, title: str, body: str, tone: str = 'warn'):
+    def _alert_banner(self, parent, *, title: str, body: str, tone: str = 'warn', body_var=None):
         tk = self._tk
         colors = {
             'warn': ('#fffbeb', WARNING, '#fde68a'),
@@ -316,10 +316,12 @@ class AgentDashboard:
         self._tk.Label(content, text=title, bg=SURFACE, fg=fg, font=('Segoe UI', 10, 'bold'), anchor='w').pack(
             anchor='w',
         )
-        self._ttk.Label(content, text=body, style='CardMuted.TLabel', wraplength=640, justify='left').pack(
-            anchor='w',
-            pady=(6, 0),
-        )
+        body_kwargs = {'style': 'CardMuted.TLabel', 'wraplength': 640, 'justify': 'left'}
+        if body_var is not None:
+            body_label = self._ttk.Label(content, textvariable=body_var, **body_kwargs)
+        else:
+            body_label = self._ttk.Label(content, text=body, **body_kwargs)
+        body_label.pack(anchor='w', pady=(6, 0))
         return outer, content
 
     def _badge_row(self, parent, label: str, var):
@@ -356,6 +358,30 @@ class AgentDashboard:
             style='Secondary.TButton',
             command=self._dismiss_welcome_banner,
         ).pack(anchor='w')
+
+        self.update_banner_body_var = self._tk.StringVar(value='')
+        self._update_banner_outer, self._update_banner = self._alert_banner(
+            page,
+            title='Update available',
+            body='',
+            tone='info',
+            body_var=self.update_banner_body_var,
+        )
+        self._update_banner_outer.pack_forget()
+        update_actions = self._ttk.Frame(self._update_banner, style='Panel.TFrame')
+        update_actions.pack(anchor='w', pady=(12, 0))
+        self._ttk.Button(
+            update_actions,
+            text='Download update',
+            style='Primary.TButton',
+            command=self._download_installer,
+        ).pack(side='left')
+        self._ttk.Button(
+            update_actions,
+            text='Dismiss',
+            style='Secondary.TButton',
+            command=self._dismiss_update_banner,
+        ).pack(side='left', padx=(10, 0))
 
         self._pairing_banner_outer, self._pairing_banner = self._alert_banner(
             page,
@@ -417,6 +443,15 @@ class AgentDashboard:
         save_config(config)
         self._welcome_section.pack_forget()
 
+    def _dismiss_update_banner(self) -> None:
+        snap = self.state.snapshot()
+        latest = (snap.get('latest_agent_version') or '').strip()
+        config = load_config()
+        if latest:
+            config['ui_update_dismissed_version'] = latest
+            save_config(config)
+        self._update_banner_outer.pack_forget()
+
     def _update_welcome_banner(self) -> None:
         if load_config().get('ui_welcome_dismissed'):
             self._welcome_section.pack_forget()
@@ -427,6 +462,22 @@ class AgentDashboard:
                 self._welcome_section.pack(fill='x', before=first)
             else:
                 self._welcome_section.pack(fill='x')
+
+    def _update_version_banner(self) -> None:
+        snap = self.state.snapshot()
+        latest = (snap.get('latest_agent_version') or '').strip()
+        if not snap.get('update_available') or not latest:
+            self._update_banner_outer.pack_forget()
+            return
+        config = load_config()
+        if config.get('ui_update_dismissed_version') == latest:
+            self._update_banner_outer.pack_forget()
+            return
+        self.update_banner_body_var.set(
+            f'Version {latest} is available on your portal. You are running v{AGENT_VERSION}.',
+        )
+        if not self._update_banner_outer.winfo_ismapped():
+            self._update_banner_outer.pack(fill='x', pady=(0, SECTION_GAP), before=self._pairing_banner_outer)
 
     def _pages_inner(self, page_id: str):
         return self._scrollables[page_id].inner
@@ -1050,6 +1101,7 @@ class AgentDashboard:
             self._pairing_banner_outer.pack_forget()
 
         self._update_welcome_banner()
+        self._update_version_banner()
 
         display = None
         try:
