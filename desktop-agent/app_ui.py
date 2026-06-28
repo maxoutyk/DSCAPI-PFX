@@ -26,11 +26,13 @@ from agent import (
 )
 from app_theme import (
     ACCENT,
+    ACCENT_SOFT,
     BG,
     BORDER,
     DANGER,
+    INFO_BG,
+    SECTION_GAP,
     SURFACE,
-    SUCCESS,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
     WARNING,
@@ -84,8 +86,8 @@ class AgentDashboard:
 
         self.root = tk.Tk()
         self.root.title('IG E-Sign Agent')
-        self.root.geometry('960x640')
-        self.root.minsize(860, 560)
+        self.root.geometry('980x660')
+        self.root.minsize(880, 580)
         self.root.protocol('WM_DELETE_WINDOW', self.hide_to_tray)
         configure_styles(self.root)
 
@@ -119,6 +121,7 @@ class AgentDashboard:
         sidebar = ttk.Frame(parent, style='Sidebar.TFrame', width=232)
         sidebar.pack(side='left', fill='y')
         sidebar.pack_propagate(False)
+        tk.Frame(parent, bg=BORDER, width=1).pack(side='left', fill='y')
 
         brand = ttk.Frame(sidebar, style='SidebarBrand.TFrame', padding=(16, 18, 16, 12))
         brand.pack(fill='x')
@@ -196,18 +199,19 @@ class AgentDashboard:
         main = ttk.Frame(parent, padding=0)
         main.pack(side='left', fill='both', expand=True)
 
-        topbar = ttk.Frame(main, padding=(24, 20, 24, 12))
+        topbar = ttk.Frame(main, style='Main.TFrame', padding=(28, 22, 28, 0))
         topbar.pack(fill='x')
         self.page_title = self._tk.StringVar(value='Status')
         ttk.Label(topbar, textvariable=self.page_title, style='Title.TLabel').pack(anchor='w')
         self.page_subtitle = self._tk.StringVar(value='Connection and signing readiness')
-        ttk.Label(topbar, textvariable=self.page_subtitle, style='Subtitle.TLabel').pack(anchor='w', pady=(4, 0))
+        ttk.Label(topbar, textvariable=self.page_subtitle, style='Subtitle.TLabel').pack(anchor='w', pady=(6, 0))
+        self._tk.Frame(topbar, bg=BORDER, height=1).pack(fill='x', pady=(16, 0))
 
-        toast_host = ttk.Frame(main, padding=(24, 0, 24, 0))
+        toast_host = ttk.Frame(main, style='Main.TFrame', padding=(28, 12, 28, 0))
         toast_host.pack(fill='x')
         self.toast = ToastController(self.root, toast_host)
 
-        body_host = ttk.Frame(main, padding=(24, 0, 24, 24))
+        body_host = ttk.Frame(main, style='Main.TFrame', padding=(28, 8, 28, 24))
         body_host.pack(fill='both', expand=True)
 
         self.content = ttk.Frame(body_host)
@@ -230,57 +234,106 @@ class AgentDashboard:
         self._scrollables[page_id] = scroll
         return scroll.inner
 
-    def _card(self, parent, title: str) -> ttk.LabelFrame:
-        return self._ttk.LabelFrame(parent, text=title, style='Card.TLabelframe', padding=16)
+    def _section(self, parent, title: str):
+        """Return (section container, inner panel) with external heading."""
+        ttk = self._ttk
+        tk = self._tk
+        container = ttk.Frame(parent, style='TFrame')
+        container.pack(fill='x', pady=(0, SECTION_GAP))
+        ttk.Label(container, text=title.upper(), style='SectionHeading.TLabel').pack(anchor='w', pady=(0, 8))
+        wrap = tk.Frame(container, bg=BORDER, highlightthickness=0)
+        wrap.pack(fill='x')
+        panel = ttk.Frame(wrap, style='Panel.TFrame', padding=18)
+        panel.pack(fill='both', expand=True, padx=1, pady=1)
+        return container, panel
+
+    def _panel(self, parent) -> ttk.Frame:
+        tk = self._tk
+        wrap = tk.Frame(parent, bg=BORDER, highlightthickness=0)
+        wrap.pack(fill='x')
+        inner = self._ttk.Frame(wrap, style='Panel.TFrame', padding=18)
+        inner.pack(fill='both', expand=True, padx=1, pady=1)
+        return inner
 
     def _readonly_box(self, parent) -> ttk.Frame:
-        frame = self._ttk.Frame(parent, style='HighlightBox.TFrame', padding=(10, 8))
-        return frame
+        return self._ttk.Frame(parent, style='HighlightBox.TFrame', padding=(12, 10))
+
+    def _kv_row(self, parent, label: str, var) -> None:
+        row = self._ttk.Frame(parent, style='Panel.TFrame')
+        row.pack(fill='x', pady=(0, 10))
+        self._ttk.Label(row, text=label, style='FieldLabel.TLabel', width=14).pack(side='left', anchor='nw')
+        self._ttk.Label(row, textvariable=var, style='FieldValue.TLabel', wraplength=480, justify='left').pack(
+            side='left',
+            fill='x',
+            expand=True,
+            anchor='w',
+        )
+
+    def _alert_banner(self, parent, *, title: str, body: str, tone: str = 'warn'):
+        tk = self._tk
+        colors = {
+            'warn': ('#fffbeb', WARNING, '#fde68a'),
+            'info': (INFO_BG, TEXT_PRIMARY, BORDER),
+        }
+        bg, fg, border = colors.get(tone, colors['warn'])
+        outer = tk.Frame(parent, bg=border, highlightthickness=0)
+        outer.pack(fill='x', pady=(0, SECTION_GAP))
+        inner = tk.Frame(outer, bg=bg, highlightthickness=0)
+        inner.pack(fill='x', padx=1, pady=1)
+        content = self._ttk.Frame(inner, style='Panel.TFrame', padding=(16, 14))
+        content.pack(fill='x')
+        self._tk.Label(content, text=title, bg=SURFACE, fg=fg, font=('Segoe UI', 10, 'bold'), anchor='w').pack(
+            anchor='w',
+        )
+        self._ttk.Label(content, text=body, style='CardMuted.TLabel', wraplength=640, justify='left').pack(
+            anchor='w',
+            pady=(6, 0),
+        )
+        return outer, content
+
+    def _badge_row(self, parent, label: str, var):
+        tk = self._tk
+        wrap = tk.Frame(parent, bg=BORDER, highlightthickness=0)
+        wrap.pack(fill='x', pady=(0, 14))
+        inner = tk.Frame(wrap, bg=ACCENT_SOFT, highlightthickness=0)
+        inner.pack(fill='x', padx=1, pady=1)
+        row = tk.Frame(inner, bg=ACCENT_SOFT, highlightthickness=0)
+        row.pack(fill='x', padx=12, pady=10)
+        tk.Label(row, text=label, bg=ACCENT_SOFT, fg=TEXT_SECONDARY, font=('Segoe UI', 9)).pack(side='left')
+        tk.Label(row, textvariable=var, bg=ACCENT_SOFT, fg=TEXT_PRIMARY, font=('Segoe UI', 10, 'bold')).pack(
+            side='left',
+            padx=(8, 0),
+        )
+        return wrap
 
     # ------------------------------------------------------------------ status
 
     def _build_status_page(self) -> None:
         page = self._page_host('status')
 
-        self._welcome_banner = self._ttk.Frame(page, style='Card.TFrame')
-        welcome_inner = self._ttk.Frame(self._welcome_banner, style='Card.TFrame')
-        welcome_inner.pack(fill='x', padx=12, pady=10)
+        self._welcome_section, welcome_panel = self._section(page, 'Getting started')
         self._ttk.Label(
-            welcome_inner,
-            text='Welcome to IG E-Sign Agent',
-            style='Card.TLabel',
-            font=('Segoe UI', 10, 'bold'),
-        ).pack(anchor='w')
-        self._ttk.Label(
-            welcome_inner,
+            welcome_panel,
             text='Pair with your portal, choose a USB token, and sign documents from your browser.',
             style='CardMuted.TLabel',
-            wraplength=620,
-        ).pack(anchor='w', pady=(4, 8))
+            wraplength=640,
+            justify='left',
+        ).pack(anchor='w', pady=(0, 12))
         self._ttk.Button(
-            welcome_inner,
+            welcome_panel,
             text='Dismiss',
             style='Secondary.TButton',
             command=self._dismiss_welcome_banner,
         ).pack(anchor='w')
 
-        self._pairing_banner = self._ttk.Frame(page, style='Card.TFrame')
-        pairing_inner = self._ttk.Frame(self._pairing_banner, style='Card.TFrame')
-        pairing_inner.pack(fill='x', padx=12, pady=10)
-        self._ttk.Label(
-            pairing_inner,
-            text='This device is not paired yet.',
-            style='BannerWarn.TLabel',
-            wraplength=620,
-        ).pack(anchor='w')
-        self._ttk.Label(
-            pairing_inner,
-            text='Open Pair portal to enter a code from the USB Agent page in your IG E-Sign portal.',
-            style='CardMuted.TLabel',
-            wraplength=620,
-        ).pack(anchor='w', pady=(6, 10))
-        banner_actions = self._ttk.Frame(pairing_inner, style='Card.TFrame')
-        banner_actions.pack(anchor='w')
+        self._pairing_banner_outer, self._pairing_banner = self._alert_banner(
+            page,
+            title='Pairing required',
+            body='Enter a one-time code from the USB Agent page in your IG E-Sign portal.',
+            tone='warn',
+        )
+        banner_actions = self._ttk.Frame(self._pairing_banner, style='Panel.TFrame')
+        banner_actions.pack(anchor='w', pady=(12, 0))
         self._ttk.Button(
             banner_actions,
             text='Go to Pair portal',
@@ -294,87 +347,86 @@ class AgentDashboard:
             command=self._open_portal_page,
         ).pack(side='left', padx=(10, 0))
 
-        self._status_card = self._card(page, 'Agent status')
-        self._status_card.pack(fill='x', pady=(0, 0))
+        self._status_section, status_panel = self._section(page, 'Overview')
 
         self.status_headline = self._tk.StringVar(value='Checking…')
         self.status_headline_label = self._ttk.Label(
-            self._status_card,
+            status_panel,
             textvariable=self.status_headline,
             style='StatusMuted.TLabel',
-            wraplength=620,
+            wraplength=640,
         )
-        self.status_headline_label.pack(anchor='w', pady=(0, 12))
+        self.status_headline_label.pack(anchor='w', pady=(0, 16))
 
-        self.tenant_var = self._tk.StringVar(value='Organization: —')
-        self.portal_var = self._tk.StringVar(value='Portal: —')
-        self.token_var = self._tk.StringVar(value='USB token: —')
-        self.pin_status_var = self._tk.StringVar(value='PIN memory: —')
-        self.port_var = self._tk.StringVar(value=f'Local service: 127.0.0.1:{self.state.port}')
+        self.tenant_var = self._tk.StringVar(value='—')
+        self.portal_var = self._tk.StringVar(value='—')
+        self.token_var = self._tk.StringVar(value='—')
+        self.pin_status_var = self._tk.StringVar(value='—')
+        self.port_var = self._tk.StringVar(value=f'127.0.0.1:{self.state.port}')
 
-        for var in (self.tenant_var, self.portal_var, self.token_var, self.pin_status_var, self.port_var):
-            self._ttk.Label(self._status_card, textvariable=var, style='Card.TLabel', wraplength=620).pack(
-                anchor='w',
-                pady=(0, 8),
-            )
+        self._kv_row(status_panel, 'Organization', self.tenant_var)
+        self._kv_row(status_panel, 'Portal', self.portal_var)
+        self._kv_row(status_panel, 'USB token', self.token_var)
+        self._kv_row(status_panel, 'PIN memory', self.pin_status_var)
+        self._kv_row(status_panel, 'Local service', self.port_var)
 
-        note = self._card(page, 'Tip')
-        note.pack(fill='x', pady=(16, 0))
-        self._ttk.Label(
-            note,
-            text='Closing this window keeps the agent running in the system tray near the clock.',
-            style='CardMuted.TLabel',
-            wraplength=620,
-        ).pack(anchor='w')
+        self._page_footer = self._ttk.Label(
+            page,
+            text='Closing this window keeps the agent running in the system tray. Right-click the tray icon to reopen or quit.',
+            style='PageFooter.TLabel',
+            wraplength=640,
+            justify='left',
+        )
+        self._page_footer.pack(anchor='w', pady=(4, 0))
 
     def _dismiss_welcome_banner(self) -> None:
         config = load_config()
         config['ui_welcome_dismissed'] = True
         save_config(config)
-        self._welcome_banner.pack_forget()
+        self._welcome_section.pack_forget()
 
     def _update_welcome_banner(self) -> None:
         if load_config().get('ui_welcome_dismissed'):
-            self._welcome_banner.pack_forget()
-        elif not self._welcome_banner.winfo_ismapped():
-            self._welcome_banner.pack(fill='x', pady=(0, 12), before=self._status_card)
+            self._welcome_section.pack_forget()
+        elif not self._welcome_section.winfo_ismapped():
+            children = self._pages_inner('status').winfo_children()
+            first = children[0] if children else None
+            if first is not None:
+                self._welcome_section.pack(fill='x', before=first)
+            else:
+                self._welcome_section.pack(fill='x')
+
+    def _pages_inner(self, page_id: str):
+        return self._scrollables[page_id].inner
 
     # ------------------------------------------------------------------ token & PIN
 
     def _build_token_page(self) -> None:
         page = self._page_host('token')
 
-        active_card = self._card(page, 'Active signing token')
-        active_card.pack(fill='x')
-        self.active_token_var = self._tk.StringVar(value='No token selected yet.')
-        self._ttk.Label(
-            active_card,
-            textvariable=self.active_token_var,
-            style='Card.TLabel',
-            wraplength=620,
-        ).pack(anchor='w')
+        _, token_panel = self._section(page, 'USB signing token')
 
-        self.token_frame = self._card(page, 'USB signing token')
-        self.token_frame.pack(fill='x', pady=(16, 0))
+        self.active_token_var = self._tk.StringVar(value='Not set')
+        self._badge_row(token_panel, 'Active for signing', self.active_token_var)
 
         self.token_count_var = self._tk.StringVar(value='Insert your USB token and click Refresh.')
         self._ttk.Label(
-            self.token_frame,
+            token_panel,
             textvariable=self.token_count_var,
             style='CardMuted.TLabel',
-            wraplength=620,
-        ).pack(anchor='w')
+            wraplength=640,
+            justify='left',
+        ).pack(anchor='w', pady=(0, 12))
 
         self.token_choice_var = self._tk.StringVar()
         self.token_combo = self._ttk.Combobox(
-            self.token_frame,
+            token_panel,
             textvariable=self.token_choice_var,
             state='readonly',
-            width=72,
         )
-        self.token_combo.pack(fill='x', pady=(12, 12))
+        self.token_combo.pack(fill='x', pady=(0, 14))
 
-        actions = self._ttk.Frame(self.token_frame, style='Card.TFrame')
+        actions = self._ttk.Frame(token_panel, style='Panel.TFrame')
         actions.pack(fill='x')
         self._ttk.Button(
             actions,
@@ -389,62 +441,62 @@ class AgentDashboard:
             command=self._save_usb_token,
         ).pack(side='left', padx=(10, 0))
 
-        pin_card = self._card(page, 'PIN memory')
-        pin_card.pack(fill='x', pady=(16, 0))
+        _, pin_panel = self._section(page, 'PIN memory')
 
         self.pin_env_notice = self._ttk.Label(
-            pin_card,
+            pin_panel,
             text='',
-            style='CardMuted.TLabel',
-            wraplength=620,
+            style='BannerInfo.TLabel',
+            wraplength=640,
+            justify='left',
         )
-        self.pin_env_notice.pack(anchor='w', pady=(0, 8))
 
         self.pin_status_detail_var = self._tk.StringVar(value='')
         self._ttk.Label(
-            pin_card,
+            pin_panel,
             textvariable=self.pin_status_detail_var,
             style='CardMuted.TLabel',
-            wraplength=620,
-        ).pack(anchor='w', pady=(0, 10))
+            wraplength=640,
+            justify='left',
+        ).pack(anchor='w', pady=(0, 12))
 
         self.pin_enabled_var = self._tk.BooleanVar(value=True)
         self.pin_enabled_check = self._ttk.Checkbutton(
-            pin_card,
+            pin_panel,
             text='Remember PIN for faster signing',
             style='Card.TCheckbutton',
             variable=self.pin_enabled_var,
             command=self._on_pin_setting_changed,
         )
-        self.pin_enabled_check.pack(anchor='w', pady=(0, 8))
+        self.pin_enabled_check.pack(anchor='w', pady=(0, 10))
 
-        hours_row = self._ttk.Frame(pin_card, style='Card.TFrame')
-        hours_row.pack(fill='x', pady=(0, 8))
-        self._ttk.Label(hours_row, text='Remember for (hours):', style='Card.TLabel').pack(side='left')
+        hours_row = self._ttk.Frame(pin_panel, style='Panel.TFrame')
+        hours_row.pack(fill='x', pady=(0, 10))
+        self._ttk.Label(hours_row, text='Remember for (hours)', style='FieldLabel.TLabel', width=18).pack(side='left')
         self.pin_hours_var = self._tk.StringVar(value='6')
-        self.pin_hours_entry = self._ttk.Entry(hours_row, textvariable=self.pin_hours_var, width=8)
-        self.pin_hours_entry.pack(side='left', padx=(8, 0))
+        self.pin_hours_entry = self._ttk.Entry(hours_row, textvariable=self.pin_hours_var, width=10)
+        self.pin_hours_entry.pack(side='left')
         self.pin_hours_entry.bind('<KeyRelease>', lambda _event: self._on_pin_setting_changed())
 
         self.pin_clear_disconnect_var = self._tk.BooleanVar(value=True)
         self.pin_clear_disconnect_check = self._ttk.Checkbutton(
-            pin_card,
+            pin_panel,
             text='Clear remembered PIN when the USB token is removed',
             style='Card.TCheckbutton',
             variable=self.pin_clear_disconnect_var,
             command=self._on_pin_setting_changed,
         )
-        self.pin_clear_disconnect_check.pack(anchor='w', pady=(0, 8))
+        self.pin_clear_disconnect_check.pack(anchor='w', pady=(0, 10))
 
         self.pin_dirty_var = self._tk.StringVar(value='')
         self._ttk.Label(
-            pin_card,
+            pin_panel,
             textvariable=self.pin_dirty_var,
             style='CardMuted.TLabel',
             foreground=WARNING,
-        ).pack(anchor='w', pady=(0, 8))
+        ).pack(anchor='w', pady=(0, 10))
 
-        pin_actions = self._ttk.Frame(pin_card, style='Card.TFrame')
+        pin_actions = self._ttk.Frame(pin_panel, style='Panel.TFrame')
         pin_actions.pack(fill='x')
         self._ttk.Button(
             pin_actions,
@@ -480,8 +532,10 @@ class AgentDashboard:
             self.pin_env_notice.configure(
                 text='Some PIN settings are controlled by environment variables on this PC and cannot be changed here.',
             )
+            self.pin_env_notice.pack(anchor='w', pady=(0, 12))
         else:
             self.pin_env_notice.configure(text='')
+            self.pin_env_notice.pack_forget()
 
         self.pin_enabled_check.configure(state='disabled' if locked['enabled'] else 'normal')
         self.pin_clear_disconnect_check.configure(
@@ -554,11 +608,9 @@ class AgentDashboard:
     def _build_pair_page(self) -> None:
         page = self._page_host('pair')
 
-        portal_card = self._card(page, 'Portal access')
-        portal_card.pack(fill='x')
-
-        portal_actions = self._ttk.Frame(portal_card, style='Card.TFrame')
-        portal_actions.pack(fill='x', pady=(0, 12))
+        _, portal_panel = self._section(page, 'Portal shortcuts')
+        portal_actions = self._ttk.Frame(portal_panel, style='Panel.TFrame')
+        portal_actions.pack(fill='x')
         self._ttk.Button(
             portal_actions,
             text='Open USB Agent page',
@@ -578,12 +630,11 @@ class AgentDashboard:
             command=self._download_installer,
         ).pack(side='left', padx=(10, 0))
 
-        self.pair_frame = self._card(page, 'Pair with portal')
-        self.pair_frame.pack(fill='x', pady=(16, 0))
+        _, self.pair_frame = self._section(page, 'Pair this device')
 
-        self._ttk.Label(self.pair_frame, text='Portal URL', style='Card.TLabel').pack(anchor='w')
+        self._ttk.Label(self.pair_frame, text='Portal URL', style='FieldLabel.TLabel').pack(anchor='w')
         readonly = self._readonly_box(self.pair_frame)
-        readonly.pack(fill='x', pady=(6, 14))
+        readonly.pack(fill='x', pady=(6, 16))
         self.portal_url_var = self._tk.StringVar(value=self._initial_api_base() or 'Not configured')
         self._ttk.Label(
             readonly,
@@ -592,7 +643,7 @@ class AgentDashboard:
             wraplength=580,
         ).pack(anchor='w', fill='x')
 
-        self._ttk.Label(self.pair_frame, text='Pairing code', style='Card.TLabel').pack(anchor='w')
+        self._ttk.Label(self.pair_frame, text='Pairing code', style='FieldLabel.TLabel').pack(anchor='w')
         self.code_var = self._tk.StringVar()
         code_entry = self._ttk.Entry(self.pair_frame, textvariable=self.code_var)
         code_entry.pack(fill='x', pady=(6, 14))
@@ -611,14 +662,15 @@ class AgentDashboard:
             self.pair_frame,
             textvariable=self.pair_progress_var,
             style='CardMuted.TLabel',
-            wraplength=620,
+            wraplength=640,
         ).pack(anchor='w', pady=(10, 0))
 
         self.paired_note = self._ttk.Label(
             self.pair_frame,
             text='Generate a pairing code in the portal under USB Agent.',
             style='CardMuted.TLabel',
-            wraplength=620,
+            wraplength=640,
+            justify='left',
         )
         self.paired_note.pack(anchor='w', pady=(12, 0))
 
@@ -627,17 +679,19 @@ class AgentDashboard:
     def _build_origins_page(self) -> None:
         page = self._page_host('origins')
 
-        self.origins_frame = self._card(page, 'Allowed browser origins')
-        self.origins_frame.pack(fill='x')
+        _, self.origins_frame = self._section(page, 'Allowed browser origins')
 
         self._ttk.Label(
             self.origins_frame,
-            text='Portal origin (always allowed)',
-            style='Section.TLabel',
-        ).pack(anchor='w')
+            text='Browsers send an Origin header when a web app calls this agent. Your paired portal is always allowed.',
+            style='CardMuted.TLabel',
+            wraplength=640,
+            justify='left',
+        ).pack(anchor='w', pady=(0, 14))
 
+        self._ttk.Label(self.origins_frame, text='Portal origin', style='Section.TLabel').pack(anchor='w')
         portal_box = self._readonly_box(self.origins_frame)
-        portal_box.pack(fill='x', pady=(6, 12))
+        portal_box.pack(fill='x', pady=(6, 16))
         self.portal_origin_var = self._tk.StringVar(value='—')
         self._ttk.Label(
             portal_box,
@@ -646,16 +700,13 @@ class AgentDashboard:
             wraplength=580,
         ).pack(anchor='w', fill='x')
 
+        self._ttk.Label(self.origins_frame, text='Additional origins', style='Section.TLabel').pack(anchor='w')
         self._ttk.Label(
             self.origins_frame,
-            text='Additional ERP or web app origins',
-            style='Section.TLabel',
-        ).pack(anchor='w', pady=(4, 0))
-        self._ttk.Label(
-            self.origins_frame,
-            text='Add origins for apps that call this agent from the browser (e.g. Business Central).',
+            text='Add origins for ERP or internal web apps (e.g. Business Central).',
             style='CardMuted.TLabel',
-            wraplength=620,
+            wraplength=640,
+            justify='left',
         ).pack(anchor='w', pady=(4, 10))
 
         self.origins_empty_var = self._tk.StringVar(value='')
@@ -663,10 +714,10 @@ class AgentDashboard:
             self.origins_frame,
             textvariable=self.origins_empty_var,
             style='CardMuted.TLabel',
-            wraplength=620,
+            wraplength=640,
         ).pack(anchor='w', pady=(0, 8))
 
-        list_wrap = self._ttk.Frame(self.origins_frame, style='Card.TFrame')
+        list_wrap = self._ttk.Frame(self.origins_frame, style='Panel.TFrame')
         list_wrap.pack(fill='x')
         self.origins_listbox = self._tk.Listbox(
             list_wrap,
@@ -680,25 +731,26 @@ class AgentDashboard:
             highlightbackground=BORDER,
             borderwidth=0,
             activestyle='none',
+            font=('Segoe UI', 10),
         )
         self.origins_listbox.pack(side='left', fill='x', expand=True)
         self._origins_scroll = self._ttk.Scrollbar(list_wrap, orient='vertical', command=self.origins_listbox.yview)
         self.origins_listbox.configure(yscrollcommand=self._origins_scroll.set)
 
-        origin_entry_row = self._ttk.Frame(self.origins_frame, style='Card.TFrame')
+        origin_entry_row = self._ttk.Frame(self.origins_frame, style='Panel.TFrame')
         origin_entry_row.pack(fill='x', pady=(12, 0))
         self.origin_entry_var = self._tk.StringVar()
         self._ttk.Entry(origin_entry_row, textvariable=self.origin_entry_var).pack(side='left', fill='x', expand=True)
         self._ttk.Button(
             origin_entry_row,
-            text='Add',
+            text='Add origin',
             style='Secondary.TButton',
             command=self._add_allowed_origin,
         ).pack(side='left', padx=(10, 0))
         self._ttk.Button(
             self.origins_frame,
             text='Remove selected',
-            style='Secondary.TButton',
+            style='Danger.TButton',
             command=self._remove_allowed_origin,
         ).pack(anchor='w', pady=(12, 0))
 
@@ -707,42 +759,46 @@ class AgentDashboard:
     def _build_actions_page(self) -> None:
         page = self._page_host('actions')
 
-        portal_card = self._card(page, 'Portal')
-        portal_card.pack(fill='x')
+        _, portal_panel = self._section(page, 'Portal')
         for label, command in (
             ('Open USB Agent page in browser', self._open_portal_page),
             ('Download Windows installer', self._download_installer),
         ):
-            self._ttk.Button(portal_card, text=label, style='Secondary.TButton', command=command).pack(
+            self._ttk.Button(portal_panel, text=label, style='Secondary.TButton', command=command).pack(
                 fill='x',
                 pady=(0, 10),
             )
 
-        device_card = self._card(page, 'Device')
-        device_card.pack(fill='x', pady=(16, 0))
+        _, device_panel = self._section(page, 'Device')
         self._ttk.Button(
-            device_card,
+            device_panel,
+            text='Token & PIN settings',
+            style='Secondary.TButton',
+            command=lambda: self.navigate_to('token'),
+        ).pack(fill='x', pady=(0, 10))
+        self._ttk.Button(
+            device_panel,
             text='Open config folder',
             style='Secondary.TButton',
             command=self._open_config_folder,
-        ).pack(fill='x', pady=(0, 10))
+        ).pack(fill='x')
 
-        danger_card = self._card(page, 'Danger zone')
-        danger_card.pack(fill='x', pady=(16, 0))
+        _, danger_panel = self._section(page, 'Danger zone')
         self._ttk.Label(
-            danger_card,
+            danger_panel,
             text='These actions affect pairing and whether the agent keeps running.',
             style='CardMuted.TLabel',
-            wraplength=620,
-        ).pack(anchor='w', pady=(0, 10))
+            wraplength=640,
+            justify='left',
+        ).pack(anchor='w', pady=(0, 12))
         self._ttk.Button(
-            danger_card,
+            danger_panel,
             text='Re-pair with portal',
             style='Danger.TButton',
             command=self._unpair,
         ).pack(fill='x', pady=(0, 10))
         self._ttk.Button(
-            danger_card,
+            danger_panel,
             text='Quit agent',
             style='Danger.TButton',
             command=self._quit,
@@ -850,7 +906,7 @@ class AgentDashboard:
         self._usb_tokens = tokens
 
         display = saved_token_display()
-        self.active_token_var.set(display or 'No token selected yet — choose one below.')
+        self.active_token_var.set(display or 'Not set — choose a token below')
 
         if error == 'pkcs11_missing':
             self.token_count_var.set(self._token_scan_error_message())
@@ -905,15 +961,15 @@ class AgentDashboard:
         from pkcs11_signing import saved_token_display
 
         if not snap.get('token_present'):
-            return 'USB token: not detected'
+            return 'Not detected'
         display = saved_token_display()
         if display:
-            return f'USB token: {display}'
+            return display
         if self._usb_tokens:
             if len(self._usb_tokens) == 1:
-                return f'USB token: {self._usb_tokens[0].display_name()}'
-            return 'USB token: detected — select one on the Token & PIN page'
-        return 'USB token: detected'
+                return f'{self._usb_tokens[0].display_name()} (not confirmed)'
+            return 'Detected — choose on Token & PIN'
+        return 'Detected'
 
     def _schedule_refresh(self) -> None:
         self._refresh_view()
@@ -930,42 +986,42 @@ class AgentDashboard:
         tenant = config.get('tenant_name') or '—'
 
         if show_pairing and not has_token:
-            headline = 'Not paired — enter a pairing code from the portal.'
+            headline = 'Not paired'
             headline_style = 'StatusWarn.TLabel'
-            self.portal_var.set('Portal: not connected')
-            self.token_var.set('USB token: —')
+            self.portal_var.set('Not connected')
+            self.token_var.set('—')
             self._set_sidebar_status('Not paired', tone='warn')
         elif show_pairing and revoked:
-            headline = 'This device was revoked. Generate a new pairing code and re-pair.'
+            headline = 'Device revoked'
             headline_style = 'StatusBad.TLabel'
-            self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
-            self.token_var.set('USB token: —')
+            self.portal_var.set(config.get('api_base') or snap['api_base'] or '—')
+            self.token_var.set('—')
             self._set_sidebar_status('Revoked — re-pair', tone='bad')
         elif snap['portal_connected'] and has_token:
-            headline = 'Connected and ready to sign.'
+            headline = 'Ready to sign'
             headline_style = 'StatusOk.TLabel'
-            self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
+            self.portal_var.set(config.get('api_base') or snap['api_base'] or '—')
             self.token_var.set(self._selected_token_line(snap))
             self._set_sidebar_status('Connected', tone='ok')
         else:
             detail = humanize_agent_error(snap['last_error'])
-            headline = f'Paired but offline — {detail}'
+            headline = f'Offline — {detail}'
             headline_style = 'StatusWarn.TLabel'
-            self.portal_var.set(f"Portal: {config.get('api_base') or snap['api_base'] or '—'}")
+            self.portal_var.set(config.get('api_base') or snap['api_base'] or '—')
             self.token_var.set(self._selected_token_line(snap))
             self._set_sidebar_status('Offline', tone='warn')
 
         self.status_headline.set(headline)
         self.status_headline_label.configure(style=headline_style)
-        self.tenant_var.set(f'Organization: {tenant}')
-        self.pin_status_var.set(f'PIN memory: {pin_cache_status_message()}')
-        self.port_var.set(f"Local service: 127.0.0.1:{snap['port']}")
+        self.tenant_var.set(tenant)
+        self.pin_status_var.set(pin_cache_status_message())
+        self.port_var.set(f'127.0.0.1:{snap["port"]}')
 
         if show_pairing and not has_token:
-            if not self._pairing_banner.winfo_ismapped():
-                self._pairing_banner.pack(fill='x', pady=(0, 12), before=self._status_card)
+            if not self._pairing_banner_outer.winfo_ismapped():
+                self._pairing_banner_outer.pack(fill='x', pady=(0, SECTION_GAP))
         else:
-            self._pairing_banner.pack_forget()
+            self._pairing_banner_outer.pack_forget()
 
         self._update_welcome_banner()
 
@@ -978,6 +1034,8 @@ class AgentDashboard:
             pass
         if display:
             self.active_token_var.set(display)
+        elif hasattr(self, 'active_token_var'):
+            self.active_token_var.set('Not set — choose a token below')
 
         if has_token and snap.get('token_present') is not False:
             self.state.update(paired=True, token_present=token_present())

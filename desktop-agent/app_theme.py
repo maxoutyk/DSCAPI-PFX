@@ -22,6 +22,7 @@ SIDEBAR_WIDTH = 232
 FONT = 'Segoe UI'
 MONO = 'Consolas'
 FOCUS_COLOR = ACCENT
+SECTION_GAP = 20
 
 
 def configure_styles(root) -> None:
@@ -38,24 +39,11 @@ def configure_styles(root) -> None:
     style.configure('.', background=BG, foreground=TEXT_PRIMARY, font=(FONT, 10))
     style.configure('TFrame', background=BG)
     style.configure('Card.TFrame', background=SURFACE, relief='flat')
+    style.configure('Panel.TFrame', background=SURFACE, relief='flat')
     style.configure('Sidebar.TFrame', background=SURFACE)
     style.configure('SidebarBrand.TFrame', background=SURFACE)
     style.configure('NavRow.TFrame', background=SURFACE)
-
-    style.configure(
-        'Card.TLabelframe',
-        background=SURFACE,
-        foreground=TEXT_PRIMARY,
-        bordercolor=BORDER,
-        relief='solid',
-        borderwidth=1,
-    )
-    style.configure(
-        'Card.TLabelframe.Label',
-        background=SURFACE,
-        foreground=TEXT_PRIMARY,
-        font=(FONT, 10, 'bold'),
-    )
+    style.configure('Main.TFrame', background=BG)
 
     style.configure('TLabel', background=BG, foreground=TEXT_PRIMARY, font=(FONT, 10))
     style.configure('Muted.TLabel', foreground=TEXT_SECONDARY, background=BG)
@@ -63,9 +51,23 @@ def configure_styles(root) -> None:
     style.configure('SidebarMuted.TLabel', background=SURFACE, foreground=TEXT_SECONDARY)
     style.configure('Card.TLabel', background=SURFACE, foreground=TEXT_PRIMARY)
     style.configure('CardMuted.TLabel', background=SURFACE, foreground=TEXT_SECONDARY)
-    style.configure('Title.TLabel', font=(FONT, 18, 'bold'), background=BG, foreground=TEXT_PRIMARY)
-    style.configure('Subtitle.TLabel', font=(FONT, 9), foreground=TEXT_SECONDARY, background=BG)
-    style.configure('Section.TLabel', background=SURFACE, foreground=TEXT_SECONDARY, font=(FONT, 9, 'bold'))
+    style.configure('Title.TLabel', font=(FONT, 20, 'bold'), background=BG, foreground=TEXT_PRIMARY)
+    style.configure('Subtitle.TLabel', font=(FONT, 10), foreground=TEXT_SECONDARY, background=BG)
+    style.configure(
+        'SectionHeading.TLabel',
+        background=BG,
+        foreground=TEXT_SECONDARY,
+        font=(FONT, 9, 'bold'),
+    )
+    style.configure(
+        'Section.TLabel',
+        background=SURFACE,
+        foreground=TEXT_SECONDARY,
+        font=(FONT, 9, 'bold'),
+    )
+    style.configure('FieldLabel.TLabel', background=SURFACE, foreground=TEXT_SECONDARY, font=(FONT, 9))
+    style.configure('FieldValue.TLabel', background=SURFACE, foreground=TEXT_PRIMARY, font=(FONT, 10))
+    style.configure('PageFooter.TLabel', background=BG, foreground=TEXT_SECONDARY, font=(FONT, 9))
 
     style.configure(
         'TEntry',
@@ -137,7 +139,7 @@ def configure_styles(root) -> None:
         borderwidth=0,
         anchor='w',
         padding=(12, 10),
-        font=(FONT, 10, 'bold'),
+        font=(FONT, 10),
         focuscolor=ACCENT_SOFT,
         focusthickness=2,
     )
@@ -173,9 +175,9 @@ def configure_styles(root) -> None:
 
     style.configure('ReadOnlyValue.TLabel', background=BG, foreground=TEXT_PRIMARY, font=(MONO, 10), padding=(10, 8))
     style.configure('HighlightBox.TFrame', background=BG, relief='solid', borderwidth=1, bordercolor=BORDER)
-    style.configure('StatusOk.TLabel', background=SURFACE, foreground=SUCCESS, font=(FONT, 13, 'bold'))
-    style.configure('StatusWarn.TLabel', background=SURFACE, foreground=WARNING, font=(FONT, 13, 'bold'))
-    style.configure('StatusBad.TLabel', background=SURFACE, foreground=DANGER, font=(FONT, 13, 'bold'))
+    style.configure('StatusOk.TLabel', background=SURFACE, foreground=SUCCESS, font=(FONT, 14, 'bold'))
+    style.configure('StatusWarn.TLabel', background=SURFACE, foreground=WARNING, font=(FONT, 14, 'bold'))
+    style.configure('StatusBad.TLabel', background=SURFACE, foreground=DANGER, font=(FONT, 14, 'bold'))
     style.configure('StatusMuted.TLabel', background=SURFACE, foreground=TEXT_SECONDARY, font=(FONT, 10))
     style.configure('BannerInfo.TLabel', background=INFO_BG, foreground=INFO_FG, font=(FONT, 10), padding=(12, 10))
     style.configure('BannerWarn.TLabel', background='#fffbeb', foreground=WARNING, font=(FONT, 10), padding=(12, 10))
