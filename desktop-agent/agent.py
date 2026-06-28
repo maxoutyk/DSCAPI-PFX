@@ -57,6 +57,7 @@ def clear_pairing() -> None:
     config = load_config()
     if 'device_token' in config:
         config.pop('device_token', None)
+        config.pop('tenant_name', None)
         save_config(config)
     state = _runtime_state_holder.get('state')
     if state is not None:
@@ -196,6 +197,12 @@ def start_portal_heartbeat(state) -> None:
                 state.update(paired=True, api_base=api_base)
                 try:
                     heartbeat(api_base, token)
+                    try:
+                        from pkcs11_signing import ensure_pin_cache_valid
+
+                        ensure_pin_cache_valid()
+                    except Exception:
+                        pass
                     state.update(portal_connected=True, last_error='', token_present=token_present(), paired=True)
                 except Exception as exc:
                     if is_revoked_token_error(exc):
@@ -287,6 +294,11 @@ def run_server(port: int, *, use_tray: bool | None = None):
             if dashboard is not None:
                 dashboard.root.after(0, dashboard.show)
 
+        def navigate_page(page_id: str):
+            dashboard = dashboard_holder.get('dashboard')
+            if dashboard is not None:
+                dashboard.root.after(0, lambda: dashboard.navigate_to(page_id))
+
         def run_tray():
             from tray import run_tray_loop
 
@@ -294,6 +306,7 @@ def run_server(port: int, *, use_tray: bool | None = None):
                 state=state or AgentRuntimeState(port=port),
                 on_quit=shutdown,
                 on_show_window=show_window,
+                on_navigate_page=navigate_page,
                 icon_registry=tray_holder,
             )
 
@@ -494,27 +507,19 @@ def _sign_job_impl(api_base: str, token: str, job_id: str, sign_token: str) -> d
         else:
             raise RuntimeError(sign_errors[0] if sign_errors else 'USB token signing is unavailable.')
 
-    try:
-        signed_b64 = base64.b64encode(signed_pdf_data).decode('ascii')
-        from machine_info import get_primary_mac_address
+    signed_b64 = base64.b64encode(signed_pdf_data).decode('ascii')
+    from machine_info import get_primary_mac_address
 
-        payload = {'signed_pdf_base64': signed_b64, 'sign_token': sign_token}
-        client_mac = get_primary_mac_address()
-        if client_mac:
-            payload['client_mac'] = client_mac
-        return api_request(
-            'POST',
-            f'{api_base}/api/agent/jobs/{job_id}/complete/',
-            payload,
-            token=token,
-        )
-    finally:
-        try:
-            from pkcs11_signing import clear_session_pin
-
-            clear_session_pin()
-        except Exception:
-            pass
+    payload = {'signed_pdf_base64': signed_b64, 'sign_token': sign_token}
+    client_mac = get_primary_mac_address()
+    if client_mac:
+        payload['client_mac'] = client_mac
+    return api_request(
+        'POST',
+        f'{api_base}/api/agent/jobs/{job_id}/complete/',
+        payload,
+        token=token,
+    )
 
 
 class AgentHandler(BaseHTTPRequestHandler):

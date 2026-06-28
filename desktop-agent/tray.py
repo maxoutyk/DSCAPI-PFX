@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 
 from agent import AGENT_VERSION, CONFIG_PATH, load_config, token_present
 from agent_branding import load_agent_icon_image
+from app_ui_helpers import humanize_agent_error
+
+TRAY_REFRESH_SECONDS = 4
 
 
 @dataclass
@@ -53,7 +56,7 @@ def _status_lines(state: AgentRuntimeState) -> tuple[str, str, str]:
         status = f"Status: Connected ({snap['api_base']})"
         level = 'ok'
     else:
-        detail = snap['last_error'] or 'portal unreachable'
+        detail = humanize_agent_error(snap['last_error'] or 'portal unreachable')
         status = f'Status: Offline ({detail})'
         level = 'warn'
     token_line = _token_status_line(snap)
@@ -74,7 +77,34 @@ def _token_status_line(snap: dict) -> str:
         return 'USB token: detected' if snap.get('token_present') else 'USB token: not detected'
 
 
-def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, icon_registry=None) -> None:
+def _confirm_quit_windows() -> bool:
+    import sys
+
+    if sys.platform != 'win32':
+        return True
+    try:
+        import ctypes
+
+        # MB_YESNO | MB_ICONQUESTION
+        result = ctypes.windll.user32.MessageBoxW(
+            0,
+            'Stop the IG E-Sign Agent? USB signing from the portal will not work until you start it again.',
+            'Quit IG E-Sign Agent',
+            0x34,
+        )
+        return result == 6  # IDYES
+    except Exception:
+        return True
+
+
+def run_tray_loop(
+    *,
+    state: AgentRuntimeState,
+    on_quit,
+    on_show_window=None,
+    on_navigate_page=None,
+    icon_registry=None,
+) -> None:
     import pystray
 
     registry: dict[str, pystray.Icon | None] = icon_registry if icon_registry is not None else {}
@@ -93,6 +123,13 @@ def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, ico
         ]
         if on_show_window is not None:
             menu_items.append(pystray.MenuItem('Open agent window', _show_window))
+        if on_navigate_page is not None:
+            menu_items.extend(
+                [
+                    pystray.MenuItem('Token & PIN settings', lambda *_args: _navigate('token')),
+                    pystray.MenuItem('Allowed origins', lambda *_args: _navigate('origins')),
+                ]
+            )
         menu_items.extend(
             [
                 pystray.MenuItem('Open USB Agent page', _open_portal_page),
@@ -102,6 +139,12 @@ def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, ico
             ]
         )
         icon.menu = pystray.Menu(*menu_items)
+
+    def _navigate(page_id: str):
+        if on_navigate_page is not None:
+            if on_show_window is not None:
+                on_show_window()
+            on_navigate_page(page_id)
 
     def _show_window(_icon, _item):
         if on_show_window is not None:
@@ -127,6 +170,8 @@ def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, ico
             subprocess.run(['xdg-open', folder], check=False)
 
     def _quit(icon, _item):
+        if not _confirm_quit_windows():
+            return
         stop_event.set()
         on_quit()
         icon.stop()
@@ -137,7 +182,7 @@ def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, ico
             if snap['paired']:
                 state.update(token_present=token_present())
             refresh_menu(icon)
-            stop_event.wait(5)
+            stop_event.wait(TRAY_REFRESH_SECONDS)
 
     status_line, token_line, level = _status_lines(state)
     initial_menu = [
@@ -149,6 +194,13 @@ def run_tray_loop(*, state: AgentRuntimeState, on_quit, on_show_window=None, ico
     ]
     if on_show_window is not None:
         initial_menu.append(pystray.MenuItem('Open agent window', _show_window))
+    if on_navigate_page is not None:
+        initial_menu.extend(
+            [
+                pystray.MenuItem('Token & PIN settings', lambda *_args: _navigate('token')),
+                pystray.MenuItem('Allowed origins', lambda *_args: _navigate('origins')),
+            ]
+        )
     initial_menu.extend(
         [
             pystray.MenuItem('Open USB Agent page', _open_portal_page),

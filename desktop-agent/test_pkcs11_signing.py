@@ -12,10 +12,18 @@ from pkcs11_signing import (  # noqa: E402
     TokenDescriptor,
     _pkcs11_bytes,
     _pkcs11_text,
+    _record_session_pin,
+    clear_session_pin,
+    ensure_pin_cache_valid,
     format_token_display,
+    get_pin_cache_settings,
     match_saved_token,
+    pin_cache_env_locked,
+    pin_cache_managed_by_env,
+    prompt_token_pin,
     resolve_pkcs11_dll,
     resolve_signing_slot_from_tokens,
+    save_pin_cache_settings,
 )
 
 
@@ -113,6 +121,88 @@ class PinPromptTests(unittest.TestCase):
                     with self.assertRaises(PinCancelledError):
                         module.prompt_token_pin()
         self.assertTrue(done.is_set())
+
+
+class PinCacheTests(unittest.TestCase):
+    def setUp(self):
+        clear_session_pin()
+        self._config_path = AGENT_DIR / '.test-pin-cache-config.json'
+
+    def tearDown(self):
+        clear_session_pin()
+        if self._config_path.exists():
+            self._config_path.unlink()
+
+    def test_get_pin_cache_settings_defaults(self):
+        with patch('pkcs11_signing.CONFIG_PATH', self._config_path):
+            with patch.dict(os.environ, {}, clear=True):
+                settings = get_pin_cache_settings()
+        self.assertTrue(settings['enabled'])
+        self.assertEqual(settings['hours'], 6.0)
+        self.assertTrue(settings['clear_on_disconnect'])
+
+    def test_env_overrides_pin_cache_settings(self):
+        with patch('pkcs11_signing.CONFIG_PATH', self._config_path):
+            with patch.dict(
+                os.environ,
+                {
+                    'IG_AGENT_PIN_CACHE_ENABLED': '0',
+                    'IG_AGENT_PIN_CACHE_HOURS': '12',
+                    'IG_AGENT_PIN_CLEAR_ON_DISCONNECT': 'false',
+                },
+                clear=False,
+            ):
+                settings = get_pin_cache_settings()
+        self.assertFalse(settings['enabled'])
+        self.assertEqual(settings['hours'], 12.0)
+        self.assertFalse(settings['clear_on_disconnect'])
+
+    def test_pin_cache_env_locked_flags(self):
+        with patch.dict(os.environ, {'IG_AGENT_PIN_CACHE_HOURS': '8'}, clear=False):
+            locked = pin_cache_env_locked()
+            self.assertFalse(locked['enabled'])
+            self.assertTrue(locked['hours'])
+            self.assertTrue(pin_cache_managed_by_env())
+
+    def test_prompt_token_pin_reuses_cached_pin(self):
+        import pkcs11_signing as module
+
+        module.clear_session_pin()
+        module._record_session_pin('1234')
+        with patch.object(module, 'ensure_pin_cache_valid'):
+            self.assertEqual(module.prompt_token_pin(), '1234')
+
+    def test_ensure_pin_cache_valid_clears_when_disabled(self):
+        import pkcs11_signing as module
+
+        with patch('pkcs11_signing.CONFIG_PATH', self._config_path):
+            save_pin_cache_settings(enabled=False, hours=6, clear_on_disconnect=True)
+            module._record_session_pin('1234')
+            ensure_pin_cache_valid()
+            self.assertIsNone(module._session_pin)
+
+    def test_ensure_pin_cache_valid_clears_on_token_disconnect(self):
+        import pkcs11_signing as module
+
+        with patch('pkcs11_signing.CONFIG_PATH', self._config_path):
+            save_pin_cache_settings(enabled=True, hours=6, clear_on_disconnect=True)
+            module._record_session_pin('1234', slot_id=0)
+            module._pin_cache_fingerprint = (0, 'AAA111')
+            with patch('pkcs11_signing.token_slot_present', return_value=False):
+                ensure_pin_cache_valid()
+            self.assertIsNone(module._session_pin)
+
+    def test_ensure_pin_cache_valid_clears_after_ttl(self):
+        import pkcs11_signing as module
+
+        with patch('pkcs11_signing.CONFIG_PATH', self._config_path):
+            save_pin_cache_settings(enabled=True, hours=1, clear_on_disconnect=False)
+            module._record_session_pin('1234')
+            module._pin_cache_fingerprint = (0, 'AAA111')
+            module._pin_cached_at = 0.0
+            with patch('pkcs11_signing.time.monotonic', return_value=4000.0):
+                ensure_pin_cache_valid()
+            self.assertIsNone(module._session_pin)
 
 
 if __name__ == '__main__':

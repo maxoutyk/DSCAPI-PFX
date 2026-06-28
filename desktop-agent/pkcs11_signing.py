@@ -27,6 +27,8 @@ WINDOWS_PKCS11_DLL_CANDIDATES = (
 
 _session_pin: str | None = None
 _session_slot_id: int | None = None
+_pin_cached_at: float | None = None
+_pin_cache_fingerprint: tuple[int, str] | None = None
 _pin_ui_in: queue.Queue | None = None
 _pin_ui_out: queue.Queue | None = None
 
@@ -119,6 +121,164 @@ def load_agent_config() -> dict:
 def save_agent_config(data: dict) -> None:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(json.dumps(data, indent=2))
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, '').strip().lower()
+    if not raw:
+        return default
+    return raw in ('1', 'true', 'yes', 'on')
+
+
+def get_pin_cache_settings() -> dict:
+    """Return PIN memory settings (config.json with optional env overrides)."""
+    config = load_agent_config()
+    enabled = _env_bool(
+        'IG_AGENT_PIN_CACHE_ENABLED',
+        bool(config.get('pin_cache_enabled', True)),
+    )
+    hours_raw = os.environ.get('IG_AGENT_PIN_CACHE_HOURS', '').strip()
+    if hours_raw:
+        hours = float(hours_raw)
+    else:
+        hours = float(config.get('pin_cache_hours', 6))
+    clear_on_disconnect = _env_bool(
+        'IG_AGENT_PIN_CLEAR_ON_DISCONNECT',
+        bool(config.get('pin_clear_on_disconnect', True)),
+    )
+    return {
+        'enabled': enabled,
+        'hours': max(0.0, hours),
+        'clear_on_disconnect': clear_on_disconnect,
+    }
+
+
+def pin_cache_env_locked() -> dict[str, bool]:
+    """Which PIN settings are forced by environment variables (UI should disable editing)."""
+    return {
+        'enabled': bool(os.environ.get('IG_AGENT_PIN_CACHE_ENABLED', '').strip()),
+        'hours': bool(os.environ.get('IG_AGENT_PIN_CACHE_HOURS', '').strip()),
+        'clear_on_disconnect': bool(os.environ.get('IG_AGENT_PIN_CLEAR_ON_DISCONNECT', '').strip()),
+    }
+
+
+def pin_cache_managed_by_env() -> bool:
+    return any(pin_cache_env_locked().values())
+
+
+def save_pin_cache_settings(
+    *,
+    enabled: bool | None = None,
+    hours: float | None = None,
+    clear_on_disconnect: bool | None = None,
+) -> dict:
+    config = load_agent_config()
+    current = get_pin_cache_settings()
+    if enabled is not None:
+        config['pin_cache_enabled'] = bool(enabled)
+        current['enabled'] = bool(enabled)
+    if hours is not None:
+        config['pin_cache_hours'] = max(0.0, float(hours))
+        current['hours'] = max(0.0, float(hours))
+    if clear_on_disconnect is not None:
+        config['pin_clear_on_disconnect'] = bool(clear_on_disconnect)
+        current['clear_on_disconnect'] = bool(clear_on_disconnect)
+    save_agent_config(config)
+    if not current['enabled']:
+        clear_session_pin()
+    else:
+        ensure_pin_cache_valid()
+    return current
+
+
+def _active_token_fingerprint() -> tuple[int, str] | None:
+    tokens = list_usb_tokens(include_signer=False, use_cache=False)
+    if not tokens:
+        return None
+    matched = match_saved_token(tokens)
+    if matched is not None:
+        return matched.slot_id, matched.serial
+    if len(tokens) == 1:
+        token = tokens[0]
+        return token.slot_id, token.serial
+    return None
+
+
+def clear_session_pin() -> None:
+    global _session_pin, _session_slot_id, _pin_cached_at, _pin_cache_fingerprint
+    _session_pin = None
+    _session_slot_id = None
+    _pin_cached_at = None
+    _pin_cache_fingerprint = None
+
+
+def _record_session_pin(pin: str, *, slot_id: int | None = None) -> None:
+    global _session_pin, _session_slot_id, _pin_cached_at, _pin_cache_fingerprint
+    _session_pin = pin
+    _pin_cached_at = time.monotonic()
+    if slot_id is not None:
+        _session_slot_id = slot_id
+    _pin_cache_fingerprint = _active_token_fingerprint()
+
+
+def ensure_pin_cache_valid() -> None:
+    """Drop cached PIN when disabled, expired, or token disconnected/changed."""
+    settings = get_pin_cache_settings()
+    if not settings['enabled']:
+        if _session_pin is not None:
+            clear_session_pin()
+        return
+    if _session_pin is None:
+        return
+
+    if settings['hours'] > 0 and _pin_cached_at is not None:
+        if time.monotonic() - _pin_cached_at >= settings['hours'] * 3600:
+            clear_session_pin()
+            return
+
+    if not settings['clear_on_disconnect']:
+        return
+
+    if not token_slot_present():
+        clear_session_pin()
+        return
+
+    fingerprint = _active_token_fingerprint()
+    if _pin_cache_fingerprint is not None and fingerprint != _pin_cache_fingerprint:
+        clear_session_pin()
+
+
+def pin_cache_status() -> dict:
+    """UI-friendly PIN cache state (may invalidate an expired cache)."""
+    settings = get_pin_cache_settings()
+    ensure_pin_cache_valid()
+    remaining_seconds = None
+    if _session_pin and settings['enabled'] and settings['hours'] > 0 and _pin_cached_at is not None:
+        remaining_seconds = max(
+            0,
+            int(settings['hours'] * 3600 - (time.monotonic() - _pin_cached_at)),
+        )
+    return {
+        'settings': settings,
+        'cached': _session_pin is not None,
+        'remaining_seconds': remaining_seconds,
+    }
+
+
+def pin_cache_status_message() -> str:
+    status = pin_cache_status()
+    settings = status['settings']
+    if not settings['enabled']:
+        return 'PIN memory is off — you will be prompted for every signature.'
+    if status['cached']:
+        if settings['hours'] > 0 and status['remaining_seconds'] is not None:
+            hours = status['remaining_seconds'] // 3600
+            minutes = (status['remaining_seconds'] % 3600) // 60
+            if hours:
+                return f'PIN remembered — re-prompt in about {hours}h {minutes}m (or when token is removed).'
+            return f'PIN remembered — re-prompt in about {minutes}m (or when token is removed).'
+        return 'PIN remembered until the token is removed or you clear it.'
+    return 'No PIN saved — enter it on the next signature.'
 
 
 def format_token_display(token: TokenDescriptor) -> str:
@@ -443,7 +603,7 @@ def ensure_pin_ui_thread() -> None:
 
 
 def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
-    global _session_pin
+    ensure_pin_cache_valid()
     if _session_pin:
         return _session_pin
 
@@ -456,7 +616,7 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
             except Exception:
                 pin = ''
             if pin:
-                _session_pin = pin
+                _record_session_pin(pin)
                 return pin
             raise PinCancelledError('Signing cancelled — token PIN was not entered.')
 
@@ -468,7 +628,7 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
             except queue.Empty:
                 pin = ''
             if pin:
-                _session_pin = pin
+                _record_session_pin(pin)
                 return pin
             raise PinCancelledError('Signing cancelled — token PIN was not entered.')
 
@@ -482,7 +642,7 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
             pin = simpledialog.askstring(title, message, show='*')
             root.destroy()
             if pin:
-                _session_pin = pin
+                _record_session_pin(pin)
                 return pin
         except Exception:
             pass
@@ -492,15 +652,9 @@ def prompt_token_pin(*, title: str = 'IG E-Sign Agent') -> str:
 
     pin = getpass.getpass(f'{title}: {message}\nPIN: ')
     if pin:
-        _session_pin = pin
+        _record_session_pin(pin)
         return pin
     raise PinCancelledError('Signing cancelled — token PIN was not entered.')
-
-
-def clear_session_pin():
-    global _session_pin, _session_slot_id
-    _session_pin = None
-    _session_slot_id = None
 
 
 def _prompt_token_choice_on_main_thread(root, tokens: list[TokenDescriptor]) -> int | None:
@@ -689,13 +843,19 @@ class TokenSigner:
     def _login_slot(self, slot_id: int, pin: str):
         import PyKCS11 as PK11
 
-        self.session = self.pkcs11.openSession(
-            slot_id,
-            PK11.CKF_SERIAL_SESSION | PK11.CKF_RW_SESSION,
-        )
-        self.session.login(pin)
+        try:
+            self.session = self.pkcs11.openSession(
+                slot_id,
+                PK11.CKF_SERIAL_SESSION | PK11.CKF_RW_SESSION,
+            )
+            self.session.login(pin)
+        except PK11.PyKCS11Error:
+            clear_session_pin()
+            raise
+        _record_session_pin(pin, slot_id=slot_id)
 
     def _ensure_logged_in(self):
+        ensure_pin_cache_valid()
         if self.session is not None:
             return
         slot_id = self._resolve_signing_slot()

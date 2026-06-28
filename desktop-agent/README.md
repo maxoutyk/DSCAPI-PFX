@@ -88,6 +88,26 @@ python desktop-agent/agent.py origins remove https://businesscentral.dynamics.co
 
 Origins must be full scheme + host only (`https://host`), no path. Changes apply immediately — no restart required.
 
+## Token PIN memory
+
+By default the agent remembers your USB token PIN after the first prompt so you are not asked on every signature. Configure this on **Token & PIN** in the agent window, or in `~/.ig-esign-agent/config.json`:
+
+| Setting | Default | Description |
+|--------|---------|-------------|
+| `pin_cache_enabled` | `true` | Remember PIN between signatures |
+| `pin_cache_hours` | `6` | Re-prompt after this many hours (`0` = until token removed) |
+| `pin_clear_on_disconnect` | `true` | Clear saved PIN when the USB token is removed or changed |
+
+Environment overrides (useful for IT deployment):
+
+```bash
+export IG_AGENT_PIN_CACHE_ENABLED=true
+export IG_AGENT_PIN_CACHE_HOURS=6
+export IG_AGENT_PIN_CLEAR_ON_DISCONNECT=true
+```
+
+Use **Clear saved PIN** in the agent UI to force a fresh prompt on the next signature. A wrong PIN also clears the cache automatically.
+
 ## Portal flow
 
 1. **USB Sign** → upload PDF

@@ -15,10 +15,13 @@ BORDER = '#d8dbe8'
 SUCCESS = '#059669'
 WARNING = '#d97706'
 DANGER = '#da291c'
+INFO_BG = '#eff6ff'
+INFO_FG = '#1d4ed8'
 
 SIDEBAR_WIDTH = 232
 FONT = 'Segoe UI'
 MONO = 'Consolas'
+FOCUS_COLOR = ACCENT
 
 
 def configure_styles(root) -> None:
@@ -37,6 +40,7 @@ def configure_styles(root) -> None:
     style.configure('Card.TFrame', background=SURFACE, relief='flat')
     style.configure('Sidebar.TFrame', background=SURFACE)
     style.configure('SidebarBrand.TFrame', background=SURFACE)
+    style.configure('NavRow.TFrame', background=SURFACE)
 
     style.configure(
         'Card.TLabelframe',
@@ -61,6 +65,7 @@ def configure_styles(root) -> None:
     style.configure('CardMuted.TLabel', background=SURFACE, foreground=TEXT_SECONDARY)
     style.configure('Title.TLabel', font=(FONT, 18, 'bold'), background=BG, foreground=TEXT_PRIMARY)
     style.configure('Subtitle.TLabel', font=(FONT, 9), foreground=TEXT_SECONDARY, background=BG)
+    style.configure('Section.TLabel', background=SURFACE, foreground=TEXT_SECONDARY, font=(FONT, 9, 'bold'))
 
     style.configure(
         'TEntry',
@@ -78,14 +83,16 @@ def configure_styles(root) -> None:
         bordercolor=BORDER,
     )
 
+    _button_focus = {'focusthickness': 2, 'focuscolor': FOCUS_COLOR}
+
     style.configure(
         'Primary.TButton',
         background=ACCENT,
         foreground='#ffffff',
         borderwidth=0,
-        focusthickness=0,
         padding=(14, 10),
         font=(FONT, 10, 'bold'),
+        **_button_focus,
     )
     style.map(
         'Primary.TButton',
@@ -99,13 +106,28 @@ def configure_styles(root) -> None:
         foreground=TEXT_PRIMARY,
         bordercolor=BORDER,
         borderwidth=1,
-        focusthickness=0,
         padding=(12, 8),
         font=(FONT, 10),
+        **_button_focus,
     )
     style.map(
         'Secondary.TButton',
         background=[('active', BG), ('pressed', BG)],
+    )
+
+    style.configure(
+        'Danger.TButton',
+        background=SURFACE,
+        foreground=DANGER,
+        bordercolor=DANGER,
+        borderwidth=1,
+        padding=(12, 8),
+        font=(FONT, 10, 'bold'),
+        **_button_focus,
+    )
+    style.map(
+        'Danger.TButton',
+        background=[('active', '#fef2f2'), ('pressed', '#fef2f2')],
     )
 
     style.configure(
@@ -114,9 +136,10 @@ def configure_styles(root) -> None:
         foreground=TEXT_SECONDARY,
         borderwidth=0,
         anchor='w',
-        padding=(14, 10),
+        padding=(12, 10),
         font=(FONT, 10, 'bold'),
-        focuscolor=SURFACE,
+        focuscolor=ACCENT_SOFT,
+        focusthickness=2,
     )
     style.map(
         'Nav.TButton',
@@ -129,14 +152,33 @@ def configure_styles(root) -> None:
         foreground=ACCENT,
         borderwidth=0,
         anchor='w',
-        padding=(14, 10),
+        padding=(12, 10),
         font=(FONT, 10, 'bold'),
         focuscolor=ACCENT_SOFT,
+        focusthickness=2,
+    )
+
+    style.configure(
+        'Card.TCheckbutton',
+        background=SURFACE,
+        foreground=TEXT_PRIMARY,
+        focuscolor=ACCENT_SOFT,
+        focusthickness=2,
+    )
+    style.map(
+        'Card.TCheckbutton',
+        background=[('active', SURFACE), ('disabled', SURFACE)],
+        foreground=[('disabled', TEXT_SECONDARY)],
     )
 
     style.configure('ReadOnlyValue.TLabel', background=BG, foreground=TEXT_PRIMARY, font=(MONO, 10), padding=(10, 8))
-    style.configure('StatusOk.TLabel', background=SURFACE, foreground=SUCCESS, font=(FONT, 10, 'bold'))
-    style.configure('StatusWarn.TLabel', background=SURFACE, foreground=WARNING, font=(FONT, 10, 'bold'))
-    style.configure('StatusBad.TLabel', background=SURFACE, foreground=DANGER, font=(FONT, 10, 'bold'))
+    style.configure('HighlightBox.TFrame', background=BG, relief='solid', borderwidth=1, bordercolor=BORDER)
+    style.configure('StatusOk.TLabel', background=SURFACE, foreground=SUCCESS, font=(FONT, 13, 'bold'))
+    style.configure('StatusWarn.TLabel', background=SURFACE, foreground=WARNING, font=(FONT, 13, 'bold'))
+    style.configure('StatusBad.TLabel', background=SURFACE, foreground=DANGER, font=(FONT, 13, 'bold'))
+    style.configure('StatusMuted.TLabel', background=SURFACE, foreground=TEXT_SECONDARY, font=(FONT, 10))
+    style.configure('BannerInfo.TLabel', background=INFO_BG, foreground=INFO_FG, font=(FONT, 10), padding=(12, 10))
+    style.configure('BannerWarn.TLabel', background='#fffbeb', foreground=WARNING, font=(FONT, 10), padding=(12, 10))
 
     style.configure('Vertical.TScrollbar', background=SURFACE, troughcolor=BG, bordercolor=BORDER)
+    style.configure('Horizontal.TSeparator', background=BORDER)
