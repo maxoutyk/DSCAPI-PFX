@@ -207,8 +207,7 @@ class AgentDashboard:
         ttk.Label(topbar, textvariable=self.page_subtitle, style='Subtitle.TLabel').pack(anchor='w', pady=(6, 0))
         self._tk.Frame(topbar, bg=BORDER, height=1).pack(fill='x', pady=(16, 0))
 
-        toast_host = ttk.Frame(main, style='Main.TFrame', padding=(28, 12, 28, 0))
-        toast_host.pack(fill='x')
+        toast_host = ttk.Frame(main, style='Main.TFrame', padding=(28, 0, 28, 0))
         self.toast = ToastController(self.root, toast_host)
 
         body_host = ttk.Frame(main, style='Main.TFrame', padding=(28, 8, 28, 24))
@@ -230,7 +229,6 @@ class AgentDashboard:
         outer = self._ttk.Frame(self.content, padding=0)
         self.pages[page_id] = outer
         scroll = ScrollableFrame(outer, padding=(0, 0))
-        scroll._scrollbar.pack(side='right', fill='y')
         self._scrollables[page_id] = scroll
         return scroll.inner
 
@@ -244,7 +242,7 @@ class AgentDashboard:
         wrap = tk.Frame(container, bg=BORDER, highlightthickness=0)
         wrap.pack(fill='x')
         panel = ttk.Frame(wrap, style='Panel.TFrame', padding=18)
-        panel.pack(fill='both', expand=True, padx=1, pady=1)
+        panel.pack(fill='x', padx=1, pady=1)
         return container, panel
 
     def _panel(self, parent) -> ttk.Frame:
@@ -252,8 +250,42 @@ class AgentDashboard:
         wrap = tk.Frame(parent, bg=BORDER, highlightthickness=0)
         wrap.pack(fill='x')
         inner = self._ttk.Frame(wrap, style='Panel.TFrame', padding=18)
-        inner.pack(fill='both', expand=True, padx=1, pady=1)
+        inner.pack(fill='x', padx=1, pady=1)
         return inner
+
+    def _form_entry(self, parent, textvariable, **kwargs):
+        entry = self._ttk.Entry(parent, textvariable=textvariable, style='Form.TEntry', **kwargs)
+        entry.pack(fill='x', pady=(6, 14))
+        return entry
+
+    def _form_combobox(self, parent, textvariable, **kwargs):
+        combo = self._ttk.Combobox(parent, textvariable=textvariable, style='Form.TCombobox', **kwargs)
+        combo.pack(fill='x', pady=(0, 14))
+        return combo
+
+    def _form_listbox(self, parent, *, height: int = 4):
+        tk = self._tk
+        wrap = tk.Frame(parent, bg=BORDER, highlightthickness=0)
+        wrap.pack(fill='x', pady=(0, 12))
+        row = tk.Frame(wrap, bg=SURFACE, highlightthickness=0)
+        row.pack(fill='x', padx=1, pady=1)
+        listbox = tk.Listbox(
+            row,
+            height=height,
+            exportselection=False,
+            bg=SURFACE,
+            fg=TEXT_PRIMARY,
+            selectbackground=ACCENT,
+            selectforeground='#ffffff',
+            highlightthickness=0,
+            borderwidth=0,
+            activestyle='none',
+            font=('Segoe UI', 10),
+        )
+        listbox.pack(side='left', fill='x', expand=True, padx=2, pady=2)
+        scroll = self._ttk.Scrollbar(row, orient='vertical', command=listbox.yview)
+        listbox.configure(yscrollcommand=scroll.set)
+        return listbox, scroll, wrap
 
     def _readonly_box(self, parent) -> ttk.Frame:
         return self._ttk.Frame(parent, style='HighlightBox.TFrame', padding=(12, 10))
@@ -277,7 +309,6 @@ class AgentDashboard:
         }
         bg, fg, border = colors.get(tone, colors['warn'])
         outer = tk.Frame(parent, bg=border, highlightthickness=0)
-        outer.pack(fill='x', pady=(0, SECTION_GAP))
         inner = tk.Frame(outer, bg=bg, highlightthickness=0)
         inner.pack(fill='x', padx=1, pady=1)
         content = self._ttk.Frame(inner, style='Panel.TFrame', padding=(16, 14))
@@ -332,6 +363,7 @@ class AgentDashboard:
             body='Enter a one-time code from the USB Agent page in your IG E-Sign portal.',
             tone='warn',
         )
+        self._pairing_banner_outer.pack_forget()
         banner_actions = self._ttk.Frame(self._pairing_banner, style='Panel.TFrame')
         banner_actions.pack(anchor='w', pady=(12, 0))
         self._ttk.Button(
@@ -419,12 +451,11 @@ class AgentDashboard:
         ).pack(anchor='w', pady=(0, 12))
 
         self.token_choice_var = self._tk.StringVar()
-        self.token_combo = self._ttk.Combobox(
+        self.token_combo = self._form_combobox(
             token_panel,
-            textvariable=self.token_choice_var,
+            self.token_choice_var,
             state='readonly',
         )
-        self.token_combo.pack(fill='x', pady=(0, 14))
 
         actions = self._ttk.Frame(token_panel, style='Panel.TFrame')
         actions.pack(fill='x')
@@ -474,7 +505,7 @@ class AgentDashboard:
         hours_row.pack(fill='x', pady=(0, 10))
         self._ttk.Label(hours_row, text='Remember for (hours)', style='FieldLabel.TLabel', width=18).pack(side='left')
         self.pin_hours_var = self._tk.StringVar(value='6')
-        self.pin_hours_entry = self._ttk.Entry(hours_row, textvariable=self.pin_hours_var, width=10)
+        self.pin_hours_entry = self._ttk.Entry(hours_row, textvariable=self.pin_hours_var, width=10, style='Form.TEntry')
         self.pin_hours_entry.pack(side='left')
         self.pin_hours_entry.bind('<KeyRelease>', lambda _event: self._on_pin_setting_changed())
 
@@ -505,7 +536,14 @@ class AgentDashboard:
             command=self._clear_remembered_pin,
         ).pack(side='left')
 
-    def _pin_env_locked(self) -> dict[str, bool]:
+    def _set_pair_progress(self, message: str) -> None:
+        text = (message or '').strip()
+        self.pair_progress_var.set(text)
+        if text:
+            if not self.pair_progress_label.winfo_ismapped():
+                self.pair_progress_label.pack(anchor='w', pady=(8, 0), before=self.paired_note)
+        else:
+            self.pair_progress_label.pack_forget()
         from pkcs11_signing import pin_cache_env_locked, pin_cache_managed_by_env
 
         if pin_cache_managed_by_env():
@@ -645,8 +683,7 @@ class AgentDashboard:
 
         self._ttk.Label(self.pair_frame, text='Pairing code', style='FieldLabel.TLabel').pack(anchor='w')
         self.code_var = self._tk.StringVar()
-        code_entry = self._ttk.Entry(self.pair_frame, textvariable=self.code_var)
-        code_entry.pack(fill='x', pady=(6, 14))
+        code_entry = self._form_entry(self.pair_frame, self.code_var)
         code_entry.bind('<Return>', lambda _event: self._pair())
 
         self.pair_button = self._ttk.Button(
@@ -655,15 +692,15 @@ class AgentDashboard:
             style='Primary.TButton',
             command=self._pair,
         )
-        self.pair_button.pack(anchor='w')
+        self.pair_button.pack(anchor='w', pady=(0, 4))
 
         self.pair_progress_var = self._tk.StringVar(value='')
-        self._ttk.Label(
+        self.pair_progress_label = self._ttk.Label(
             self.pair_frame,
             textvariable=self.pair_progress_var,
             style='CardMuted.TLabel',
             wraplength=640,
-        ).pack(anchor='w', pady=(10, 0))
+        )
 
         self.paired_note = self._ttk.Label(
             self.pair_frame,
@@ -710,43 +747,30 @@ class AgentDashboard:
         ).pack(anchor='w', pady=(4, 10))
 
         self.origins_empty_var = self._tk.StringVar(value='')
-        self._ttk.Label(
+        self.origins_empty_label = self._ttk.Label(
             self.origins_frame,
             textvariable=self.origins_empty_var,
             style='CardMuted.TLabel',
             wraplength=640,
-        ).pack(anchor='w', pady=(0, 8))
-
-        list_wrap = self._ttk.Frame(self.origins_frame, style='Panel.TFrame')
-        list_wrap.pack(fill='x')
-        self.origins_listbox = self._tk.Listbox(
-            list_wrap,
-            height=4,
-            exportselection=False,
-            bg=SURFACE,
-            fg=TEXT_PRIMARY,
-            selectbackground=ACCENT,
-            selectforeground='#ffffff',
-            highlightthickness=1,
-            highlightbackground=BORDER,
-            borderwidth=0,
-            activestyle='none',
-            font=('Segoe UI', 10),
         )
-        self.origins_listbox.pack(side='left', fill='x', expand=True)
-        self._origins_scroll = self._ttk.Scrollbar(list_wrap, orient='vertical', command=self.origins_listbox.yview)
-        self.origins_listbox.configure(yscrollcommand=self._origins_scroll.set)
+
+        self.origins_listbox, self._origins_scroll, self._origins_list_wrap = self._form_listbox(
+            self.origins_frame,
+            height=4,
+        )
 
         origin_entry_row = self._ttk.Frame(self.origins_frame, style='Panel.TFrame')
-        origin_entry_row.pack(fill='x', pady=(12, 0))
+        origin_entry_row.pack(fill='x')
         self.origin_entry_var = self._tk.StringVar()
-        self._ttk.Entry(origin_entry_row, textvariable=self.origin_entry_var).pack(side='left', fill='x', expand=True)
+        origin_entry = self._ttk.Entry(origin_entry_row, textvariable=self.origin_entry_var, style='Form.TEntry')
+        origin_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
+        origin_entry.bind('<Return>', lambda _event: self._add_allowed_origin())
         self._ttk.Button(
             origin_entry_row,
             text='Add origin',
             style='Secondary.TButton',
             command=self._add_allowed_origin,
-        ).pack(side='left', padx=(10, 0))
+        ).pack(side='left')
         self._ttk.Button(
             self.origins_frame,
             text='Remove selected',
@@ -1019,7 +1043,7 @@ class AgentDashboard:
 
         if show_pairing and not has_token:
             if not self._pairing_banner_outer.winfo_ismapped():
-                self._pairing_banner_outer.pack(fill='x', pady=(0, SECTION_GAP))
+                self._pairing_banner_outer.pack(fill='x', pady=(0, SECTION_GAP), before=self._status_section)
         else:
             self._pairing_banner_outer.pack_forget()
 
@@ -1060,8 +1084,11 @@ class AgentDashboard:
 
         if extras:
             self.origins_empty_var.set('')
+            self.origins_empty_label.pack_forget()
         else:
             self.origins_empty_var.set('No additional origins yet. Add one for ERP or custom web apps.')
+            if not self.origins_empty_label.winfo_ismapped():
+                self.origins_empty_label.pack(anchor='w', pady=(0, 8), before=self._origins_list_wrap)
 
         visible_rows = max(3, min(8, len(extras) if extras else 3))
         self.origins_listbox.configure(height=visible_rows)
@@ -1069,6 +1096,10 @@ class AgentDashboard:
             self._origins_scroll.pack(side='right', fill='y')
         else:
             self._origins_scroll.pack_forget()
+
+        scroll = self._scrollables.get('origins')
+        if scroll is not None:
+            scroll._update_scrollbar_visibility()
 
     def _set_sidebar_status(self, text: str, *, tone: str = 'muted') -> None:
         styles = {
@@ -1133,7 +1164,7 @@ class AgentDashboard:
 
         self._pair_running = True
         self.pair_button.configure(state='disabled')
-        self.pair_progress_var.set('Pairing with portal…')
+        self._set_pair_progress('Pairing with portal…')
 
         def worker():
             ok, message, tenant = self.on_pair(api_base, code)
@@ -1144,7 +1175,7 @@ class AgentDashboard:
     def _finish_pair(self, ok: bool, message: str, tenant: str, api_base: str) -> None:
         self._pair_running = False
         self.pair_button.configure(state='normal')
-        self.pair_progress_var.set('')
+        self._set_pair_progress('')
 
         if not ok:
             self.toast.show(humanize_agent_error(message), tone='error')

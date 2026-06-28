@@ -173,8 +173,48 @@ def configure_styles(root) -> None:
         foreground=[('disabled', TEXT_SECONDARY)],
     )
 
-    style.configure('ReadOnlyValue.TLabel', background=BG, foreground=TEXT_PRIMARY, font=(MONO, 10), padding=(10, 8))
-    style.configure('HighlightBox.TFrame', background=BG, relief='solid', borderwidth=1, bordercolor=BORDER)
+    style.configure('ReadOnlyValue.TLabel', background=SURFACE, foreground=TEXT_PRIMARY, font=(MONO, 10))
+    style.configure('HighlightBox.TFrame', background=SURFACE, relief='solid', borderwidth=1, bordercolor=BORDER)
+
+    style.configure(
+        'Form.TEntry',
+        fieldbackground=SURFACE,
+        foreground=TEXT_PRIMARY,
+        insertcolor=TEXT_PRIMARY,
+        bordercolor=BORDER,
+        lightcolor=BORDER,
+        darkcolor=BORDER,
+        borderwidth=1,
+        relief='solid',
+        padding=(10, 8),
+    )
+    style.map(
+        'Form.TEntry',
+        bordercolor=[('focus', ACCENT), ('!focus', BORDER)],
+        lightcolor=[('focus', ACCENT), ('!focus', BORDER)],
+        darkcolor=[('focus', ACCENT), ('!focus', BORDER)],
+    )
+
+    style.configure(
+        'Form.TCombobox',
+        fieldbackground=SURFACE,
+        foreground=TEXT_PRIMARY,
+        background=SURFACE,
+        arrowcolor=TEXT_SECONDARY,
+        bordercolor=BORDER,
+        lightcolor=BORDER,
+        darkcolor=BORDER,
+        borderwidth=1,
+        relief='solid',
+        padding=(8, 8),
+        arrowsize=14,
+    )
+    style.map(
+        'Form.TCombobox',
+        bordercolor=[('focus', ACCENT), ('!focus', BORDER)],
+        fieldbackground=[('readonly', SURFACE), ('disabled', BG)],
+        foreground=[('disabled', TEXT_SECONDARY)],
+    )
     style.configure('StatusOk.TLabel', background=SURFACE, foreground=SUCCESS, font=(FONT, 14, 'bold'))
     style.configure('StatusWarn.TLabel', background=SURFACE, foreground=WARNING, font=(FONT, 14, 'bold'))
     style.configure('StatusBad.TLabel', background=SURFACE, foreground=DANGER, font=(FONT, 14, 'bold'))

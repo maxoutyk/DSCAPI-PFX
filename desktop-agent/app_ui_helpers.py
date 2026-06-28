@@ -47,18 +47,34 @@ class ScrollableFrame:
         self.inner = ttk.Frame(self._canvas, padding=padding)
         self._window_id = self._canvas.create_window((0, 0), window=self.inner, anchor='nw')
 
-        self.inner.bind(
-            '<Configure>',
-            lambda _event: self._canvas.configure(scrollregion=self._canvas.bbox('all')),
-        )
-        self._canvas.bind(
-            '<Configure>',
-            lambda event: self._canvas.itemconfigure(self._window_id, width=event.width),
-        )
-        self._canvas.configure(yscrollcommand=self._scrollbar.set)
+        self.inner.bind('<Configure>', self._on_inner_configure)
+        self._canvas.bind('<Configure>', self._on_canvas_configure)
+        self._canvas.configure(yscrollcommand=self._on_scrollbar)
 
         self._canvas.pack(side='left', fill='both', expand=True)
         self._bind_mousewheel(self._canvas)
+
+    def _on_inner_configure(self, _event=None):
+        self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+        self._update_scrollbar_visibility()
+
+    def _on_canvas_configure(self, event):
+        self._canvas.itemconfigure(self._window_id, width=event.width)
+        self._update_scrollbar_visibility()
+
+    def _on_scrollbar(self, first, last):
+        self._scrollbar.set(first, last)
+        self._update_scrollbar_visibility()
+
+    def _update_scrollbar_visibility(self) -> None:
+        self.inner.update_idletasks()
+        content_height = self.inner.winfo_reqheight()
+        viewport_height = max(self._canvas.winfo_height(), 1)
+        if content_height > viewport_height + 2:
+            if not self._scrollbar.winfo_ismapped():
+                self._scrollbar.pack(side='right', fill='y')
+        elif self._scrollbar.winfo_ismapped():
+            self._scrollbar.pack_forget()
 
     def _bind_mousewheel(self, widget) -> None:
         def _on_mousewheel(event):
@@ -97,6 +113,7 @@ class ToastController:
         import tkinter as tk
 
         self._root = root
+        self._host = host
         self._tk = tk
         self._job = None
         self.var = tk.StringVar(value='')
@@ -120,12 +137,14 @@ class ToastController:
         self.var.set(message)
         self.label.configure(bg=bg, fg=fg)
         self.frame.configure(highlightbackground=border, highlightthickness=1)
+        self._host.pack(fill='x')
         self.frame.pack(fill='x', pady=(0, 8))
         if self._job:
             self._root.after_cancel(self._job)
 
         def hide():
             self.frame.pack_forget()
+            self._host.pack_forget()
             self.var.set('')
             self._job = None
 
