@@ -1,6 +1,6 @@
 {% load static %}
 <div
-  class="api-docs-embed{% if embed %} is-embedded{% endif %}"
+  class="{% if full_page %}api-docs-page{% else %}api-docs-embed{% if embed %} is-embedded{% endif %}{% endif %}"
   id="{{ explorer_id|default:'api-docs-explorer' }}"
   data-api-docs-root
   data-embed="{% if embed %}true{% else %}false{% endif %}"
@@ -9,7 +9,7 @@
   data-default-item="{{ default_item|default:'' }}"
   {% if try_url %}data-try-url="{{ try_url }}"{% endif %}
 >
-  <button type="button" class="api-docs-menu-btn api-docs-embed-menu-btn" id="api-docs-menu-btn" aria-label="Open endpoint navigation" aria-expanded="false" aria-controls="api-docs-sidebar">
+  <button type="button" class="api-docs-menu-btn{% if not full_page %} api-docs-embed-menu-btn{% endif %}" id="api-docs-menu-btn" aria-label="Open endpoint navigation" aria-expanded="false" aria-controls="api-docs-sidebar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
       <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
     </svg>
@@ -58,4 +58,8 @@
   </div>
 </div>
 
-{{ catalog|json_script:catalog_id|default:"api-docs-catalog" }}
+{% if catalog_id %}
+{{ catalog|json_script:catalog_id }}
+{% else %}
+{{ catalog|json_script:"api-docs-catalog" }}
+{% endif %}

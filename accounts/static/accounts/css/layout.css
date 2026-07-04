@@ -328,7 +328,7 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mesh-bg {
@@ -386,6 +386,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.auth-nav-links .btn[aria-current="page"] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-glow);
+  color: var(--accent);
 }
 
 .auth-body {
@@ -402,13 +410,14 @@
   overflow: visible;
 }
 
-.auth-shell--landing .auth-nav {
+/* Shared public header treatment for all auth-shell pages (login, register, marketing, etc.) */
+.auth-shell .auth-nav {
   position: sticky;
   top: 0;
   z-index: 50;
 }
 
-.auth-shell--landing .auth-nav::before {
+.auth-shell .auth-nav::before {
   content: '';
   position: absolute;
   left: 50%;
@@ -423,7 +432,7 @@
   z-index: -1;
 }
 
-[data-theme='light'] .auth-shell--landing .auth-nav::before {
+[data-theme='light'] .auth-shell .auth-nav::before {
   background: rgba(245, 246, 250, 0.9);
 }
 
@@ -452,11 +461,21 @@
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: color var(--transition);
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 
 .landing-header-nav a:hover {
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.landing-header-nav a[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 700;
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .landing-page {

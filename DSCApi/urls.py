@@ -17,10 +17,21 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
+
+from accounts.seo_views import robots_txt_view
+from accounts.sitemaps import BlogPostSitemap, PublicMarketingSitemap
+
+sitemaps = {
+    'marketing': PublicMarketingSitemap,
+    'blog': BlogPostSitemap,
+}
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('robots.txt', robots_txt_view, name='robots_txt'),
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django_sitemap'),
     path('', include('accounts.urls')),
     path('', include('usb_agent.portal_urls')),
     path('', include('gst.portal_urls')),

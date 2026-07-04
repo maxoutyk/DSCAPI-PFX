@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'rest_framework',
     'accounts',
     'signPdf',
@@ -163,6 +164,7 @@ TEMPLATES = [
                 'accounts.context_processors.google_ads',
                 'accounts.context_processors.csp_nonce',
                 'accounts.context_processors.portal_nav',
+                'accounts.context_processors.seo',
                 'gst.context_processors.gst_sidebar',
             ],
         },
@@ -327,6 +329,8 @@ GST_EINVOICE_BASE_URL_SANDBOX = os.environ.get(
 GST_ALLOW_NIC_API_OVERRIDES = os.environ.get('GST_ALLOW_NIC_API_OVERRIDES', 'false').lower() == 'true'
 # Google Ads conversion tag (gtag.js) — set on production, e.g. AW-123456789
 GOOGLE_ADS_ID = os.environ.get('GOOGLE_ADS_ID', '').strip()
+# Google Search Console HTML tag verification token (content= value only)
+GOOGLE_SITE_VERIFICATION = os.environ.get('GOOGLE_SITE_VERIFICATION', '').strip()
 
 if not DEBUG and not getattr(sys, 'frozen', False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

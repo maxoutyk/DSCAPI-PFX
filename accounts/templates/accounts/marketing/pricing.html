@@ -1,0 +1,42 @@
+{% extends "accounts/marketing/base.html" %}
+
+{% block marketing_eyebrow %}Transparent pricing{% endblock %}
+{% block marketing_title %}Simple plans for signing, GST, E-way &amp; e-invoice{% endblock %}
+{% block marketing_lead %}
+Start free with 100 signatures per month. Upgrade when you need higher volume, team features, E-way bill and e-invoice print, or enterprise DSC deployments.
+{% endblock %}
+
+{% block marketing_content %}
+<section class="marketing-pricing-grid" aria-label="Pricing plans">
+  {% for tier in pricing_tiers %}
+  <article class="marketing-pricing-card{% if tier.featured %} marketing-pricing-card--featured{% endif %}">
+    {% if tier.featured %}<p class="marketing-pricing-badge">Popular</p>{% endif %}
+    <h2>{{ tier.name }}</h2>
+    <p class="marketing-pricing-price">{{ tier.price_label }} <span>{{ tier.period }}</span></p>
+    <p class="marketing-pricing-desc">{{ tier.description }}</p>
+    <ul class="marketing-pricing-metrics">
+      <li><strong>Signing:</strong> {{ tier.signing_quota }}</li>
+      <li><strong>GST:</strong> {{ tier.gst_quota }}</li>
+    </ul>
+    <ul class="marketing-pricing-highlights">
+      {% for item in tier.highlights %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+    <a href="{% url tier.cta_url_name %}" class="btn{% if tier.featured %} btn-lg{% else %} btn-secondary{% endif %}">{{ tier.cta_label }}</a>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="marketing-section marketing-faq" aria-labelledby="pricing-faq-title">
+  <h2 id="pricing-faq-title">Pricing FAQ</h2>
+  <div class="marketing-faq-list">
+    {% for question, answer in pricing_faq %}
+    <details class="marketing-faq-item">
+      <summary>{{ question }}</summary>
+      <p>{{ answer }}</p>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -22,8 +22,9 @@ def build_api_docs_catalog(base_url: str) -> dict[str, Any]:
                         'kind': 'guide',
                         'description': (
                             'IG E-Sign provides REST APIs for PDF signing (PFX and Class 3 DSC '
-                            'USB tokens) and GST taxpayer lookup services. All tenant APIs use a '
-                            'single Bearer API key issued from your dashboard.'
+                            'USB tokens) and GST services — GSTIN lookups, E-way bill print, and '
+                            'e-invoice (IRN) print. All tenant APIs use a single Bearer API key '
+                            'issued from your dashboard.'
                         ),
                         'sections': [
                             {

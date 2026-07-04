@@ -5,7 +5,8 @@ class PublicApiDocsTests(TestCase):
     def test_public_api_docs_page_loads(self):
         response = self.client.get('/api-docs/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'IG E-Sign API')
+        self.assertContains(response, 'API Documentation')
+        self.assertContains(response, 'IG E-Sign')
         self.assertContains(response, 'api-docs-catalog')
         self.assertContains(response, 'Sign a PDF')
         self.assertContains(response, 'Get GSTIN details')
@@ -16,7 +17,6 @@ class PublicApiDocsTests(TestCase):
         self.assertContains(response, 'api-docs-lang-icons.js')
         self.assertContains(response, 'api-docs-lang-tabs')
         self.assertContains(response, 'api-docs-menu-btn')
-        self.assertContains(response, 'Export Postman')
         self.assertContains(response, 'id="api-docs-export-postman"')
 
     def test_public_api_docs_no_login_required(self):

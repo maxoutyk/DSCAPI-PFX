@@ -1,0 +1,38 @@
+{% extends "accounts/marketing/base.html" %}
+
+{% block marketing_eyebrow %}
+<a href="{% url 'blog_index' %}">Blog</a>
+·
+<time datetime="{{ post.published|date:'Y-m-d' }}">{{ post.published|date:"M j, Y" }}</time>
+{% endblock %}
+{% block marketing_title %}{{ post.title }}{% endblock %}
+{% block marketing_lead %}{{ post.description }}{% endblock %}
+
+{% block marketing_content %}
+<article class="marketing-blog-article marketing-legal prose">
+  {% for section in post.sections %}
+  <section class="marketing-blog-section">
+    <h2>{{ section.heading }}</h2>
+    {% for paragraph in section.paragraphs %}
+    <p>{{ paragraph }}</p>
+    {% endfor %}
+    {% if section.bullets %}
+    <ul>
+      {% for bullet in section.bullets %}
+      <li>{{ bullet }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  <aside class="marketing-blog-cta">
+    <h2>Try IG E-Sign</h2>
+    <p>Start with 100 free signatures per month, API keys, USB DSC agent support, and GST lookups.</p>
+    <div class="marketing-blog-cta-actions">
+      <a class="btn" href="{% url 'register' %}">Get started</a>
+      <a class="btn btn-ghost" href="{% url 'public_api_docs' %}">API docs</a>
+    </div>
+  </aside>
+</article>
+{% endblock %}

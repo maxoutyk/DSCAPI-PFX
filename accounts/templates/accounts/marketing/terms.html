@@ -1,0 +1,47 @@
+{% extends "accounts/marketing/base.html" %}
+
+{% block marketing_eyebrow %}Legal{% endblock %}
+{% block marketing_title %}Terms of Service{% endblock %}
+{% block marketing_lead %}Last updated: {% now "F j, Y" %}. By using IG E-Sign you agree to these terms with Incite Gravity.
+{% endblock %}
+
+{% block marketing_content %}
+<article class="marketing-legal prose">
+  <h2>Service</h2>
+  <p>
+    IG E-Sign provides PDF signing (PFX API, portal, and USB DSC agent workflows), GST lookup APIs, and related
+    developer tools. Features and quotas depend on your plan.
+  </p>
+
+  <h2>Accounts &amp; acceptable use</h2>
+  <ul>
+    <li>You must provide accurate registration information and safeguard API keys and certificates.</li>
+    <li>You are responsible for signatures applied with your credentials or tokens.</li>
+    <li>You may not abuse rate limits, attempt unauthorized access, or use the service for unlawful purposes.</li>
+  </ul>
+
+  <h2>Certificates &amp; signatures</h2>
+  <p>
+    You warrant that you have the right to use uploaded PFX files and USB tokens. IG E-Sign processes documents on your
+    instructions; we do not provide legal advice on signature validity for your jurisdiction or document type.
+  </p>
+
+  <h2>Quotas &amp; availability</h2>
+  <p>
+    Free and paid plans include monthly signing and GST lookup quotas. We may suspend accounts that exceed limits or
+    violate these terms. Scheduled maintenance and third-party dependencies may affect availability.
+  </p>
+
+  <h2>Limitation of liability</h2>
+  <p>
+    The service is provided “as is” to the maximum extent permitted by law. Incite Gravity is not liable for indirect or
+    consequential damages arising from use of the platform.
+  </p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms. Continued use after changes constitutes acceptance. Material changes will be communicated via the portal or email.</p>
+
+  <h2>Contact</h2>
+  <p><a href="{% url 'marketing_contact' %}">Contact Incite Gravity</a> for enterprise agreements or support.</p>
+</article>
+{% endblock %}

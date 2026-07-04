@@ -1,0 +1,38 @@
+{% load static %}
+<footer class="landing-footer">
+  <div class="landing-footer-grid">
+    <div class="landing-footer-brand">
+      <a href="{% url 'home' %}" class="auth-nav-brand">
+        <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="" class="brand-logo brand-logo--dark">
+        <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="" class="brand-logo brand-logo--light">
+        <span>IG E-Sign</span>
+      </a>
+      <p>Digital PDF signing, GSTIN lookups, E-way bill and e-invoice print for developers and teams — PFX, Class 3 USB DSC, and portal. A product of Incite Gravity.</p>
+    </div>
+    <div>
+      <h3>Product</h3>
+      <ul>
+        <li><a href="{% url 'home' %}">Home</a></li>
+        <li><a href="{% url 'marketing_features' %}">Features</a></li>
+        <li><a href="{% url 'marketing_pricing' %}">Pricing</a></li>
+        <li><a href="{% url 'blog_index' %}">Blog</a></li>
+        <li><a href="{% url 'public_api_docs' %}">API docs</a></li>
+        <li><a href="{% url 'public_sign' %}">Free sign</a></li>
+        <li><a href="{% url 'register' %}">Get started</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Company</h3>
+      <ul>
+        <li><a href="https://incitegravity.com/" target="_blank" rel="noopener noreferrer">Incite Gravity</a></li>
+        <li><a href="{% url 'marketing_contact' %}">Contact</a></li>
+        <li><a href="{% url 'marketing_privacy' %}">Privacy</a></li>
+        <li><a href="{% url 'marketing_terms' %}">Terms</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="landing-footer-bottom">
+    <span>&copy; {% now "Y" %} Incite Gravity. All rights reserved.</span>
+    <span>ISO 27001:2022 Certified</span>
+  </div>
+</footer>

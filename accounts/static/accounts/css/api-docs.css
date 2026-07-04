@@ -1,103 +1,44 @@
-/* Public API documentation — responsive three-column layout */
+/* Public API documentation — responsive three-column layout.
+   Site header comes from base.html (.auth-nav); this file only styles the docs body. */
+
+.auth-shell--api-docs .mesh-bg,
+.auth-shell--api-docs .signature-deco {
+  display: none;
+}
+
+.auth-shell--api-docs {
+  background: var(--bg);
+}
 
 .api-docs-page {
   --docs-sidebar-w: 280px;
   --docs-code-w: 400px;
-  --docs-header-h: 56px;
-  min-height: 100vh;
+  --docs-header-h: 68px;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: calc(100vh - var(--docs-header-h));
   background: var(--bg);
   color: var(--text-primary);
 }
 
-/* ── Header ── */
-.api-docs-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  height: var(--docs-header-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
-}
-
-.api-docs-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.api-docs-menu-btn {
+.api-docs-page > .api-docs-menu-btn {
   display: none;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
+  gap: 8px;
+  margin: 12px 16px 0;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  color: var(--text-primary);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.api-docs-menu-btn:hover {
-  border-color: var(--border-strong);
-}
-
-.api-docs-header-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  color: var(--text-primary);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  min-width: 0;
-}
-
-.api-docs-header-brand span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.api-docs-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.api-docs-header .topbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
   color: var(--text-secondary);
+  font-size: 0.8rem;
   cursor: pointer;
-  font-family: inherit;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
-.api-docs-header .topbar-btn:hover {
-  background: var(--surface-raised);
-  color: var(--text-primary);
+.api-docs-page > .api-docs-menu-btn:hover {
   border-color: var(--border-strong);
-}
-
-.api-docs-header .topbar-btn svg {
-  display: block;
+  color: var(--text-primary);
 }
 
 .api-docs-backdrop {
@@ -273,6 +214,17 @@
   background: #1e293b;
   border-color: #475569;
   color: #f8fafc;
+}
+
+.api-docs-overview-actions {
+  margin-top: var(--space-5, 24px);
+  padding-top: var(--space-4, 16px);
+  border-top: 1px solid var(--border);
+}
+
+.api-docs-overview-actions .btn {
+  display: inline-flex;
+  align-items: center;
 }
 
 .api-docs-endpoint {
@@ -623,19 +575,19 @@
 
 /* ── Responsive ── */
 @media (max-width: 1200px) {
-  .api-docs-menu-btn {
+  .api-docs-page > .api-docs-menu-btn {
     display: inline-flex;
   }
 
-  .api-docs-layout {
+  .api-docs-page .api-docs-layout {
     grid-template-columns: 1fr;
   }
 
-  .api-docs-center {
+  .api-docs-page .api-docs-center {
     grid-template-columns: 1fr;
   }
 
-  .api-docs-sidebar {
+  .api-docs-page .api-docs-sidebar {
     position: fixed;
     top: var(--docs-header-h);
     left: 0;
@@ -648,37 +600,24 @@
     box-shadow: 8px 0 32px rgba(0, 0, 0, 0.18);
   }
 
-  body.api-docs-nav-open .api-docs-sidebar {
+  body.api-docs-nav-open .api-docs-page .api-docs-sidebar {
     transform: translateX(0);
   }
 
-  .api-docs-code-panel:not(.is-inline) {
+  .api-docs-page .api-docs-code-panel:not(.is-inline) {
     display: none;
   }
 
-  .api-docs-code-mount {
+  .api-docs-page .api-docs-code-mount {
     display: block;
   }
 
-  .api-docs-main {
+  .api-docs-page .api-docs-main {
     padding: 20px 16px 40px;
-  }
-
-  .api-docs-export-all-label {
-    font-size: 0;
-    padding-inline: 10px;
-  }
-
-  .api-docs-export-all-label::before {
-    content: 'Postman';
-    font-size: 0.8rem;
   }
 }
 
 @media (max-width: 640px) {
-  .api-docs-header-actions .btn-ghost:first-of-type {
-    display: none;
-  }
 
   .api-docs-title {
     font-size: 1.4rem;

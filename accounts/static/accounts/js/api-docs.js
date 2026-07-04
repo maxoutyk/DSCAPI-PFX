@@ -34,7 +34,7 @@
     copyRequest: q('#api-docs-copy-request'),
     copyResponse: q('#api-docs-copy-response'),
     exportPostman: q('#api-docs-export-postman'),
-    exportAllPostman: document.getElementById('api-docs-export-all-postman'),
+    exportAllPostman: null,
     responseTabs: root.querySelectorAll('[data-response-tab]'),
     codePanel: q('#api-docs-code-panel'),
     menuBtn: q('#api-docs-menu-btn'),
@@ -270,7 +270,22 @@
     }
     const codeMount = '<div class="api-docs-code-mount" id="api-docs-code-mount"></div>';
     if (item.kind === 'guide') {
-      els.main.innerHTML = breadcrumb + title + lead + renderGuideSections(item.sections);
+      var exportBtn = '';
+      if (item.id === 'overview') {
+        exportBtn =
+          '<div class="api-docs-overview-actions">' +
+          '<button type="button" class="btn btn-secondary btn-sm" id="api-docs-export-all-inline">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+          'Export full Postman collection</button></div>';
+      }
+      els.main.innerHTML = breadcrumb + title + lead + renderGuideSections(item.sections) + exportBtn;
+      var inlineExport = document.getElementById('api-docs-export-all-inline');
+      if (inlineExport) {
+        inlineExport.addEventListener('click', function () {
+          var collection = Snippets.buildPostmanCollection(items, catalog, null);
+          Snippets.downloadJson('ig-esign-api.postman_collection.json', collection);
+        });
+      }
       setCodePanelVisible(false);
       return;
     }
@@ -399,12 +414,7 @@
     const slug = item.id.replace(/[^a-z0-9-]+/gi, '-');
     Snippets.downloadJson(`ig-esign-${slug}.postman_collection.json`, collection);
   });
-  if (els.exportAllPostman) {
-    els.exportAllPostman.addEventListener('click', () => {
-      const collection = Snippets.buildPostmanCollection(items, catalog, null);
-      Snippets.downloadJson('ig-esign-api.postman_collection.json', collection);
-    });
-  }
+  // Export All Postman is now rendered inline in the overview section.
   MOBILE_MQ.addEventListener('change', () => {
     positionCodePanel();
     if (!MOBILE_MQ.matches) closeNav();

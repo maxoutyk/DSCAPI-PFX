@@ -1,9 +1,16 @@
 from django.urls import path
 
-from . import public_sign_views, views
+from . import public_sign_views, marketing_views, views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('features/', marketing_views.features_view, name='marketing_features'),
+    path('pricing/', marketing_views.pricing_view, name='marketing_pricing'),
+    path('blog/', marketing_views.blog_index_view, name='blog_index'),
+    path('blog/<slug:slug>/', marketing_views.blog_post_view, name='blog_post'),
+    path('legal/privacy/', marketing_views.privacy_view, name='marketing_privacy'),
+    path('legal/terms/', marketing_views.terms_view, name='marketing_terms'),
+    path('contact/', marketing_views.marketing_contact_view, name='marketing_contact'),
     path('api-docs/', views.public_api_docs_view, name='public_api_docs'),
     path('sign/free/', public_sign_views.public_sign_view, name='public_sign'),
     path('sign/free/preview/', public_sign_views.public_sign_preview_view, name='public_sign_preview'),

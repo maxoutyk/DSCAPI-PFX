@@ -1,0 +1,5 @@
+{% if seo_structured_data %}
+{% for payload in seo_structured_data %}
+<script type="application/ld+json">{{ payload|safe }}</script>
+{% endfor %}
+{% endif %}

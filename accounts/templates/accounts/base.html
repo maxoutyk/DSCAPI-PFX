@@ -5,7 +5,9 @@
   {% include "accounts/partials/google_ads_tag.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}IG E-Sign{% endblock %}</title>
+  <title>{% block title %}{{ seo_page_title }}{% endblock %}</title>
+  {% include "accounts/partials/seo_head.html" %}
+  {% include "accounts/partials/seo_jsonld.html" %}
   <link rel="stylesheet" href="{% static 'accounts/css/design-tokens.css' %}">
   <link rel="stylesheet" href="{% static 'accounts/css/layout.css' %}">
   <link rel="stylesheet" href="{% static 'accounts/css/components.css' %}">
@@ -13,7 +15,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  {% if user.is_authenticated %}
+  {% if user.is_authenticated and not marketing_public_layout %}
   <div class="app-shell">
     <aside class="sidebar" id="sidebar" aria-label="Main navigation">
       <div class="sidebar-brand">
@@ -148,9 +150,7 @@
       </a>
       <div class="auth-nav-links">
         {% block auth_nav %}
-        <button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
-        <a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
-        <a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
+        {% include "accounts/partials/public_auth_nav.html" %}
         {% endblock %}
       </div>
     </header>

@@ -1,21 +1,6 @@
 {% extends "accounts/base.html" %}
 {% load static %}
-{% block title %}IG E-Sign — Digital PDF Signing Platform{% endblock %}
 {% block public_shell_class %}auth-shell--landing{% endblock %}
-
-{% block auth_nav %}
-<nav class="landing-header-nav" aria-label="Page sections">
-  <a href="#features">Features</a>
-  <a href="#gst-lookup">GST Lookup</a>
-  <a href="{% url 'public_api_docs' %}">API docs</a>
-  <a href="{% url 'public_sign' %}">Free sign</a>
-  <a href="#usb-signing">USB DSC</a>
-  <a href="#how-it-works">How it works</a>
-</nav>
-<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
-<a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
-<a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
-{% endblock %}
 
 {% block public_content %}
 <div class="landing-page">
@@ -25,8 +10,9 @@
       <h1 id="landing-hero-title">Sign PDFs with <span class="accent-text">authority</span>,<br>verify GST, via API or browser.</h1>
       <p class="landing-lead">
         IG E-Sign is a developer-first platform for PFX and Class 3 DSC USB token signing,
-        plus GST taxpayer lookups from your dashboard or REST API. Integrate signing, keep private keys on the token
-        with our Windows desktop agent, or use the portal — with audit trails and custom placement.
+        plus GSTIN lookups, E-way bill print, and e-invoice (IRN) print from your dashboard or REST API.
+        Integrate signing, keep private keys on the token with our Windows desktop agent, or use the portal —
+        with audit trails and custom placement.
       </p>
       <div class="landing-cta">
         <a href="{% url 'public_sign' %}" class="btn btn-lg">Sign free — no login</a>
@@ -35,7 +21,7 @@
       </div>
       <ul class="landing-hero-bullets">
         <li>100 signs/month on the free tier</li>
-        <li>PFX API, Class 3 USB DSC, portal signing &amp; GST lookups</li>
+        <li>PFX API, Class 3 USB DSC, GSTIN, E-way bill &amp; e-invoice print</li>
         <li>Private key never leaves the USB token</li>
         <li>SHA-256 audit on every signature</li>
       </ul>
@@ -48,6 +34,7 @@
         width="640"
         height="480"
         loading="eager"
+        fetchpriority="high"
         decoding="async"
       >
       <div class="landing-hero-badge glass-card">
@@ -60,15 +47,15 @@
   <section class="landing-stats" aria-label="Platform highlights">
     <div class="landing-stat">
       <strong>Signing + GST</strong>
-      <span>PDF signatures and taxpayer lookups in one account</span>
+      <span>PDF signatures, GSTIN, E-way &amp; e-invoice in one account</span>
     </div>
     <div class="landing-stat">
       <strong>Class 3 USB DSC</strong>
       <span>PKCS#11 signing via IG E-Sign Agent</span>
     </div>
     <div class="landing-stat">
-      <strong>GST Lookup</strong>
-      <span>GSTIN details, filing prefs &amp; return status</span>
+      <strong>GST services</strong>
+      <span>GSTIN, E-way bill print &amp; e-invoice (IRN)</span>
     </div>
     <div class="landing-stat">
       <strong>Audit trail</strong>
@@ -108,7 +95,7 @@
     <div class="landing-section-header">
       <p class="landing-eyebrow">Capabilities</p>
       <h2>Everything you need to sign at scale</h2>
-      <p>PFX API, Class 3 USB tokens, GST lookups, and a DocuSign-style portal — one platform, one audit log, your certificates.</p>
+      <p>PFX API, Class 3 USB tokens, GSTIN, E-way bill, e-invoice print, and a portal — one platform, one audit log, your certificates.</p>
     </div>
     <div class="landing-features-grid">
       <article class="landing-feature-card landing-feature-card--highlight">
@@ -116,9 +103,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/><path d="M9 7h2"/></svg>
         </div>
         <p class="landing-feature-tag">New</p>
-        <h3>GST taxpayer lookup</h3>
+        <h3>GSTIN, E-way bill &amp; e-invoice</h3>
         <p>
-          Verify GSTIN registration details, filing preferences, and GSTR-1 / GSTR-3B / GSTR-9 return status
+          Verify GSTIN details and return status, and download E-way bill and e-invoice (IRN) PDFs
           from the dashboard or your own integration. Separate monthly quota from signing.
         </p>
       </article>
@@ -186,11 +173,12 @@
 
   <section id="gst-lookup" class="landing-section landing-section--alt">
     <div class="landing-section-header">
-      <p class="landing-eyebrow">GST Lookup</p>
-      <h2>Verify taxpayers and return status from one place</h2>
+      <p class="landing-eyebrow">GST services</p>
+      <h2>GSTIN, E-way bill, and e-invoice from one place</h2>
       <p>
-        Look up GSTIN details, filing preferences, and return filing status without leaving IG E-Sign.
-        Use the dashboard for quick checks, or connect your ERP or compliance tools when you are ready to integrate.
+        Look up GSTIN details, filing preferences, and return status — and download E-way bill and
+        e-invoice (IRN) PDFs — without leaving IG E-Sign. Use the dashboard for quick checks, or connect
+        your ERP or compliance tools when you are ready to integrate.
       </p>
     </div>
     <div class="landing-gst-layout">
@@ -198,35 +186,35 @@
         <div class="landing-gst-figure-media">
           <img
             src="{% static 'accounts/img/landing/gst-lookup-console.svg' %}"
-            alt="IG E-Sign GST Services console showing GSTIN lookup, filing preferences, and return status tabs"
+            alt="IG E-Sign GST Services console for GSTIN lookup, E-way bill print, and e-invoice IRN print"
             width="640"
             height="480"
             loading="lazy"
             decoding="async"
           >
         </div>
-        <figcaption>Look up from the portal — same account as PDF signing</figcaption>
+        <figcaption>GSTIN, E-way bill, and e-invoice — same account as PDF signing</figcaption>
       </figure>
       <div class="landing-gst-flow glass-card">
         <ol class="landing-usb-steps">
           <li>
             <strong>GSTIN details</strong>
-            <span>Registration status, legal name, and business information for a GSTIN on the GST network.</span>
+            <span>Registration status, legal name, filing preferences, and return status for a GSTIN.</span>
           </li>
           <li>
-            <strong>Filing preferences</strong>
-            <span>See how returns are configured for a financial year — useful before filing season.</span>
+            <strong>E-way bill print</strong>
+            <span>Download detailed, regular, or consolidate E-way bill PDFs by 12-digit e-way bill number.</span>
           </li>
           <li>
-            <strong>Return status</strong>
-            <span>Check whether GSTR-1, GSTR-3B, or GSTR-9 has been filed for a given financial year.</span>
+            <strong>E-invoice print (IRN)</strong>
+            <span>Download the e-invoice PDF using the 64-character Invoice Reference Number (IRN).</span>
           </li>
         </ol>
         <div class="landing-usb-flow-divider" aria-hidden="true"></div>
         <ul class="landing-usb-points landing-gst-points">
-          <li>Try lookups in the portal under <strong>GST</strong> — no technical setup required</li>
+          <li>Try services in the portal under <strong>GST</strong> — no technical setup required</li>
           <li>Uses the same API key and company profile as PDF signing</li>
-          <li>Complete your <strong>company profile</strong> once to enable GST services</li>
+          <li>Add <strong>NIC portal credentials</strong> on your profile for E-way and e-invoice PDFs</li>
           <li>Separate monthly GST quota from signing usage</li>
         </ul>
         <div class="landing-gst-actions">
@@ -344,15 +332,15 @@
         <h2>Built for business-critical documents</h2>
         <p>
           IG E-Sign supports PFX files and Class 3 DSC USB tokens for legally valid digital signatures,
-          plus GST taxpayer verification for compliance workflows.
+          plus GSTIN verification, E-way bill print, and e-invoice (IRN) print for compliance workflows.
           With USB signing, credentials stay on the token — only the signed PDF is uploaded.
           Platform defaults locate the <span class="mono">Authorised Signatory</span> anchor in your PDFs.
-          Every signing event and GST lookup is traceable in your dashboard.
+          Every signing event and GST service call is traceable in your dashboard.
         </p>
       </div>
       <ul class="landing-compliance-list">
         <li>Private key never exported from USB DSC tokens</li>
-        <li>Company profile required for GST lookups</li>
+        <li>Company profile and NIC credentials for GST, E-way, and e-invoice</li>
         <li>Multi-tenant isolation with per-org API keys</li>
         <li>Rate limiting and monthly signing quotas</li>
         <li>Document type auto-detection from PDF content</li>
@@ -363,7 +351,7 @@
 
   <section class="landing-cta-band" aria-labelledby="landing-cta-title">
     <h2 id="landing-cta-title">Ready to sign your first PDF?</h2>
-    <p>Create a free account, connect your PFX or Class 3 USB token, complete your company profile for GST lookups, and start signing via API, desktop agent, or browser today.</p>
+    <p>Create a free account, connect your PFX or Class 3 USB token, complete your company profile for GSTIN, E-way bill, and e-invoice services, and start signing via API, desktop agent, or browser today.</p>
     <div class="landing-cta">
       <a href="{% url 'register' %}" class="btn btn-lg">Create free account</a>
       <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
@@ -373,39 +361,5 @@
 {% endblock %}
 
 {% block public_footer %}
-<footer class="landing-footer">
-  <div class="landing-footer-grid">
-    <div class="landing-footer-brand">
-      <a href="{% url 'home' %}" class="auth-nav-brand">
-        <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="" class="brand-logo brand-logo--dark">
-        <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="" class="brand-logo brand-logo--light">
-        <span>IG E-Sign</span>
-      </a>
-      <p>Digital PDF signing and GST lookups for developers and teams — PFX, Class 3 USB DSC, and portal. A product of Incite Gravity.</p>
-    </div>
-    <div>
-      <h3>Product</h3>
-      <ul>
-        <li><a href="#features">Features</a></li>
-        <li><a href="#gst-lookup">GST Lookup</a></li>
-        <li><a href="#usb-signing">USB DSC</a></li>
-        <li><a href="#how-it-works">How it works</a></li>
-        <li><a href="{% url 'public_api_docs' %}">API docs</a></li>
-        <li><a href="{% url 'register' %}">Get started</a></li>
-        <li><a href="{% url 'login' %}">Sign in</a></li>
-      </ul>
-    </div>
-    <div>
-      <h3>Company</h3>
-      <ul>
-        <li><a href="https://incitegravity.com/" target="_blank" rel="noopener noreferrer">Incite Gravity</a></li>
-        <li><a href="https://incitegravity.com/contact" target="_blank" rel="noopener noreferrer">Contact</a></li>
-      </ul>
-    </div>
-  </div>
-  <div class="landing-footer-bottom">
-    <span>&copy; {% now "Y" %} Incite Gravity. All rights reserved.</span>
-    <span>ISO 27001:2022 Certified</span>
-  </div>
-</footer>
+{% include "accounts/partials/marketing_footer.html" %}
 {% endblock %}

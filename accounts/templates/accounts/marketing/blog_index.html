@@ -1,0 +1,24 @@
+{% extends "accounts/marketing/base.html" %}
+
+{% block marketing_eyebrow %}Incite Gravity · Guides{% endblock %}
+{% block marketing_title %}IG E-Sign blog{% endblock %}
+{% block marketing_lead %}
+Practical guides on Class 3 DSC USB signing, PFX API integration, GSTIN verification, E-way bill print, and e-invoice (IRN) print for Indian teams.
+{% endblock %}
+
+{% block marketing_content %}
+<section class="marketing-section" aria-label="Blog posts">
+  <div class="marketing-blog-list">
+    {% for post in posts %}
+    <article class="marketing-blog-card">
+      <p class="marketing-blog-meta">
+        <time datetime="{{ post.published|date:'Y-m-d' }}">{{ post.published|date:"M j, Y" }}</time>
+      </p>
+      <h2><a href="{% url 'blog_post' slug=post.slug %}">{{ post.title }}</a></h2>
+      <p>{{ post.description }}</p>
+      <a class="btn btn-ghost btn-sm" href="{% url 'blog_post' slug=post.slug %}">Read guide</a>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

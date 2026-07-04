@@ -1,0 +1,3 @@
+<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
+<a href="{% url 'login' %}" class="btn btn-ghost btn-sm"{% if request.resolver_match.url_name == 'login' %} aria-current="page"{% endif %}>Sign in</a>
+<a href="{% url 'register' %}" class="btn btn-sm"{% if request.resolver_match.url_name == 'register' %} aria-current="page"{% endif %}>Get started</a>

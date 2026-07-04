@@ -70,7 +70,10 @@ def public_api_docs_view(request):
     return render(
         request,
         'accounts/public_api_docs.html',
-        {'catalog': catalog},
+        {
+            'catalog': catalog,
+            'marketing_public_layout': True,
+        },
     )
 
 

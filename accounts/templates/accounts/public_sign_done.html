@@ -7,12 +7,6 @@
 <link rel="stylesheet" href="{% static 'accounts/css/public-sign.css' %}">
 {% endblock %}
 
-{% block auth_nav %}
-<a href="{% url 'home' %}" class="btn btn-ghost btn-sm">Home</a>
-<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
-<a href="{% url 'public_sign' %}" class="btn btn-sm">Sign another</a>
-{% endblock %}
-
 {% block public_content %}
 <div class="auth-body">
   <div class="glass-card public-sign-done-card" style="max-width:560px;width:100%;">

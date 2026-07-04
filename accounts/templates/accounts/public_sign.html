@@ -1,6 +1,5 @@
 {% extends "accounts/base.html" %}
 {% load static %}
-{% block title %}Free PDF Sign — IG E-Sign{% endblock %}
 {% block public_shell_class %}auth-shell--landing{% endblock %}
 
 {% block extra_head %}
@@ -8,13 +7,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'accounts/css/public-sign.css' %}">
-{% endblock %}
-
-{% block auth_nav %}
-<a href="{% url 'home' %}" class="btn btn-ghost btn-sm">Home</a>
-<button type="button" class="topbar-btn" id="theme-toggle" aria-label="Switch theme"></button>
-<a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Sign in</a>
-<a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
 {% endblock %}
 
 {% block public_content %}

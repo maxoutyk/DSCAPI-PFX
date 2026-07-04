@@ -1,0 +1,33 @@
+{% extends "accounts/marketing/base.html" %}
+
+{% block marketing_title %}Everything you need to sign PDFs at scale{% endblock %}
+{% block marketing_lead %}
+PFX API, Class 3 USB DSC, GSTIN verification, E-way bill and e-invoice print, portal signing, and audit trails — one platform for Indian businesses and developers.
+{% endblock %}
+
+{% block marketing_content %}
+<section class="marketing-section" aria-label="Feature groups">
+  {% for group in feature_groups %}
+  <div class="marketing-feature-group">
+    <h2>{{ group.title }}</h2>
+    <div class="marketing-feature-list">
+      {% for title, body in group.items %}
+      <article class="landing-feature-card">
+        <h3>{{ title }}</h3>
+        <p>{{ body }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="landing-cta-band" aria-labelledby="features-cta-title">
+  <h2 id="features-cta-title">Ready to integrate?</h2>
+  <p>Start on the Free plan or talk to us about Pro and Enterprise entitlements.</p>
+  <div class="landing-cta">
+    <a href="{% url 'register' %}" class="btn btn-lg">Create free account</a>
+    <a href="{% url 'marketing_pricing' %}" class="btn btn-secondary btn-lg">View pricing</a>
+  </div>
+</section>
+{% endblock %}
