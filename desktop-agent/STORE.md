@@ -22,8 +22,9 @@ Optional: Inno Setup (only if you also want the `.exe` in the same run).
 3. Copy:
    - **Package/Identity/Name** (e.g. `InciteGravity.IGESignAgent`)
    - **Publisher** (e.g. `CN=12345678-1234-1234-1234-123456789012`)
+   - **Package/Properties/PublisherDisplayName** (e.g. `INCITEGRAVITY PRIVATE LIMITED`) → `publisherDisplayName`
 
-These must match `store.config.json` exactly.
+These must match `store.config.json` exactly (case and spacing).
 
 ---
 
@@ -66,6 +67,7 @@ powershell -ExecutionPolicy Bypass -File build\windows\build-agent.ps1 -BuildMsi
 | `AGENT_API_BASE` | Portal URL in `portal.url` (default: `https://sign.incitegravity.com`) |
 | `MSIX_PACKAGE_NAME` | Override `packageName` without editing JSON |
 | `MSIX_PUBLISHER` | Override `publisher` without editing JSON |
+| `MSIX_PUBLISHER_DISPLAY_NAME` | Must match Partner Center **PublisherDisplayName** exactly (e.g. `INCITEGRAVITY PRIVATE LIMITED`) |
 | `MSIX_SIGN_PFX` | Optional — sign locally for install testing |
 | `MSIX_SIGN_PASSWORD` | PFX password |
 

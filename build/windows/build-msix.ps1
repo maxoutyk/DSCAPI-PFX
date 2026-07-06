@@ -12,6 +12,7 @@
 #   AGENT_API_BASE          Portal URL baked into portal.url (default: https://sign.incitegravity.com)
 #   MSIX_PACKAGE_NAME       Override package identity name
 #   MSIX_PUBLISHER          Override publisher DN
+#   MSIX_PUBLISHER_DISPLAY_NAME  Must match Partner Center Package/Properties/PublisherDisplayName exactly
 #   MSIX_SIGN_PFX           Path to .pfx for local test signing (optional)
 #   MSIX_SIGN_PASSWORD      PFX password (optional)
 
@@ -49,7 +50,7 @@ function Read-StoreConfig {
         $config = [pscustomobject]@{
             packageName = $env:MSIX_PACKAGE_NAME
             publisher = $env:MSIX_PUBLISHER
-            publisherDisplayName = if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $env:MSIX_PUBLISHER_DISPLAY_NAME } else { 'Incite Gravity' }
+            publisherDisplayName = if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $env:MSIX_PUBLISHER_DISPLAY_NAME } else { 'INCITEGRAVITY PRIVATE LIMITED' }
             displayName = if ($env:MSIX_DISPLAY_NAME) { $env:MSIX_DISPLAY_NAME } else { 'IG E-Sign Agent' }
             description = if ($env:MSIX_DESCRIPTION) {
                 $env:MSIX_DESCRIPTION
@@ -73,6 +74,7 @@ Or set environment variables MSIX_PACKAGE_NAME and MSIX_PUBLISHER.
     }
     if ($env:MSIX_PACKAGE_NAME) { $config.packageName = $env:MSIX_PACKAGE_NAME }
     if ($env:MSIX_PUBLISHER) { $config.publisher = $env:MSIX_PUBLISHER }
+    if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $config.publisherDisplayName = $env:MSIX_PUBLISHER_DISPLAY_NAME }
     foreach ($key in @('packageName', 'publisher', 'publisherDisplayName', 'displayName', 'description')) {
         if (-not $config.$key) {
             throw "store.config.json is missing required field: $key"
