@@ -91,3 +91,18 @@ def agent_zip_filename(version: str | None = None) -> str:
 
 def windows_installer_filename() -> str:
     return 'IG-E-Sign-Agent-Setup.exe'
+
+
+def normalize_agent_version_for_url(version: str) -> str:
+    """URL-safe agent version segment (no slashes)."""
+    return (version or '0.0.0').strip().replace('/', '-')
+
+
+def store_installer_public_path(version: str | None = None) -> str:
+    """Versioned public path for Microsoft Store / direct HTTPS installer links."""
+    safe_version = normalize_agent_version_for_url(version or read_agent_version())
+    return f'/downloads/agent/{safe_version}/{windows_installer_filename()}'
+
+
+def build_store_installer_url(base_url: str, version: str | None = None) -> str:
+    return f'{base_url.rstrip("/")}{store_installer_public_path(version)}'

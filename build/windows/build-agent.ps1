@@ -1,5 +1,10 @@
 # Build IG E-Sign USB Agent for Windows (PyInstaller + Inno Setup)
 # Run on Windows: powershell -ExecutionPolicy Bypass -File build\windows\build-agent.ps1
+# Optional: -BuildMsix also produces desktop-agent\releases\IG-E-Sign-Agent.msix
+
+param(
+    [switch]$BuildMsix
+)
 
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
@@ -56,3 +61,9 @@ Copy-Item -Force (Join-Path $Root "desktop-agent\assets\agent_icon.ico") (Join-P
 Write-Host "Done."
 Write-Host "Installer: $InstallerDst"
 Write-Host "Set USB_AGENT_INSTALLER_PATH=$InstallerDst on the server for portal download."
+
+if ($BuildMsix) {
+    Write-Host ""
+    Write-Host "Building Microsoft Store MSIX package..."
+    & (Join-Path $PSScriptRoot "build-msix.ps1") -SkipSign
+}

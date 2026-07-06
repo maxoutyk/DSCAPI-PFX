@@ -19,7 +19,11 @@ from .services import (
     pair_device,
     record_heartbeat,
 )
-from .distribution import read_agent_version, resolve_agent_installer_path
+from .distribution import (
+    build_store_installer_url,
+    read_agent_version,
+    resolve_agent_installer_path,
+)
 from .throttling import AgentHeartbeatThrottle, AgentJobThrottle, AgentPairThrottle
 
 
@@ -28,12 +32,16 @@ class AgentVersionView(APIView):
     authentication_classes = []
 
     def get(self, request):
-        return Response(
-            {
-                'version': read_agent_version(),
-                'has_windows_installer': resolve_agent_installer_path() is not None,
-            },
-        )
+        has_installer = resolve_agent_installer_path() is not None
+        payload = {
+            'version': read_agent_version(),
+            'has_windows_installer': has_installer,
+        }
+        if has_installer:
+            payload['store_download_url'] = build_store_installer_url(
+                request.build_absolute_uri('/').rstrip('/'),
+            )
+        return Response(payload)
 
 
 class AgentPairView(APIView):

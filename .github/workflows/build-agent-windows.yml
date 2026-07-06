@@ -14,16 +14,42 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate Microsoft Store identity secrets
+        shell: pwsh
+        env:
+          MSIX_PACKAGE_NAME: ${{ secrets.MSIX_PACKAGE_NAME }}
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+        run: |
+          if (-not $env:MSIX_PACKAGE_NAME -or -not $env:MSIX_PUBLISHER) {
+            throw @"
+          Missing GitHub repository secrets for the Store MSIX package.
+
+          Add under Settings → Secrets and variables → Actions:
+            MSIX_PACKAGE_NAME — Partner Center → Product identity → Package/Identity/Name
+            MSIX_PUBLISHER     — Partner Center → Product identity → Publisher (CN=...)
+
+          See desktop-agent/STORE.md
+          "@
+          }
+          Write-Host "MSIX identity: $env:MSIX_PACKAGE_NAME"
+
       - name: Install Inno Setup
         run: choco install innosetup -y
 
-      - name: Build agent installer
+      - name: Build agent installer and Store MSIX
         shell: pwsh
         env:
           AGENT_API_BASE: https://sign.incitegravity.com
-        run: ./build/windows/build-agent.ps1
+          MSIX_PACKAGE_NAME: ${{ secrets.MSIX_PACKAGE_NAME }}
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+        run: ./build/windows/build-agent.ps1 -BuildMsix
 
       - uses: actions/upload-artifact@v4
         with:
           name: IG-E-Sign-Agent-Setup
           path: desktop-agent/releases/IG-E-Sign-Agent-Setup.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IG-E-Sign-Agent-MSIX
+          path: desktop-agent/releases/IG-E-Sign-Agent.msix

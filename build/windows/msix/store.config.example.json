@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to store.config.json and fill values from Partner Center → your app → Product identity.",
+  "packageName": "InciteGravity.IGESignAgent",
+  "publisher": "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "publisherDisplayName": "Incite Gravity",
+  "displayName": "IG E-Sign Agent",
+  "description": "Class 3 USB DSC signing companion for IG E-Sign by Incite Gravity"
+}

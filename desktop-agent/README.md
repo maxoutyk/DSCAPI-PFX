@@ -29,7 +29,19 @@ USB_AGENT_INSTALLER_PATH=/opt/dscapi/desktop-agent/releases/IG-E-Sign-Agent-Setu
 
 Or copy the file into `desktop-agent/releases/` on the app host — the portal serves it automatically when present.
 
-GitHub Actions: **Build IG E-Sign Agent (Windows)** workflow (manual dispatch).
+GitHub Actions: **Build IG E-Sign Agent (Windows)** workflow (manual dispatch) — builds both the `.exe` installer and the Store `.msix`. Add `MSIX_PACKAGE_NAME` and `MSIX_PUBLISHER` repository secrets first; see **[STORE.md](STORE.md)**.
+
+## Microsoft Store (MSIX)
+
+See **[STORE.md](STORE.md)** for the full Partner Center upload guide.
+
+```powershell
+copy build\windows\msix\store.config.example.json build\windows\msix\store.config.json
+# Fill packageName + publisher from Partner Center → Product identity
+powershell -ExecutionPolicy Bypass -File build\windows\build-msix.ps1
+```
+
+Output: `desktop-agent/releases/IG-E-Sign-Agent.msix`
 
 Branding assets live in `desktop-agent/assets/` (`agent_icon.png`, `agent_icon.ico`, `ig-logo-light.png`). Regenerate icons from the portal logo with:
 

@@ -46,3 +46,5 @@ build/DSCAPI-PFX/
 build/windows/dist/
 build/windows/build/
 build/windows/installer-output/
+build/windows/msix-staging/
+build/windows/msix/store.config.json

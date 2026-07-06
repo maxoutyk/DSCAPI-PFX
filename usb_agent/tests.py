@@ -69,6 +69,27 @@ class UsbAgentFlowTests(TestCase):
         payload = response.json()
         self.assertEqual(payload['version'], read_agent_version())
         self.assertIn('has_windows_installer', payload)
+        if payload['has_windows_installer']:
+            self.assertIn('store_download_url', payload)
+            self.assertIn('/downloads/agent/', payload['store_download_url'])
+            self.assertTrue(payload['store_download_url'].endswith('IG-E-Sign-Agent-Setup.exe'))
+
+    def test_store_installer_download_is_public_and_versioned(self):
+        from .distribution import read_agent_version, resolve_agent_installer_path
+
+        if resolve_agent_installer_path() is None:
+            self.skipTest('Windows installer not present locally')
+
+        version = read_agent_version()
+        anon = Client()
+        ok = anon.get(f'/downloads/agent/{version}/IG-E-Sign-Agent-Setup.exe')
+        self.assertEqual(ok.status_code, 200)
+        self.assertIn('IG-E-Sign-Agent-Setup.exe', ok['Content-Disposition'])
+        body = b''.join(ok.streaming_content)
+        self.assertGreater(len(body), 500)
+
+        missing = anon.get('/downloads/agent/0.0.1/IG-E-Sign-Agent-Setup.exe')
+        self.assertEqual(missing.status_code, 404)
 
     def test_agent_heartbeat_and_usb_sign_job(self):
         if not self.has_pfx:
