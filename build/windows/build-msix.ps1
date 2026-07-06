@@ -85,19 +85,29 @@ Or set environment variables MSIX_PACKAGE_NAME and MSIX_PUBLISHER.
 }
 
 function Find-WindowsSdkTool([string]$ToolName) {
-    $kitsRoot = @(
+    $kitsRoots = @(
         "${env:ProgramFiles(x86)}\Windows Kits\10\bin",
         "${env:ProgramFiles}\Windows Kits\10\bin"
-    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $kitsRoot) {
-        throw 'Windows 10/11 SDK not found. Install "Windows SDK" from Visual Studio Installer or https://developer.microsoft.com/windows/downloads/windows-sdk/'
+    ) | Where-Object { Test-Path $_ }
+
+    foreach ($kitsRoot in $kitsRoots) {
+        $versionDirs = Get-ChildItem $kitsRoot -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+' } |
+            Sort-Object { [version]$_.Name } -Descending
+        foreach ($versionDir in $versionDirs) {
+            $toolPath = Join-Path $versionDir.FullName "x64\$ToolName"
+            if (Test-Path $toolPath) {
+                return $toolPath
+            }
+        }
     }
-    $versionDir = Get-ChildItem $kitsRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
-    $toolPath = Join-Path $versionDir.FullName "x64\$ToolName"
-    if (-not (Test-Path $toolPath)) {
-        throw "$ToolName not found under $($versionDir.FullName)\x64"
+
+    $onPath = Get-Command $ToolName -ErrorAction SilentlyContinue
+    if ($onPath) {
+        return $onPath.Source
     }
-    return $toolPath
+
+    throw "Windows SDK tool not found: $ToolName. Install the Windows SDK or add makeappx to PATH."
 }
 
 function Write-PortalUrl([string]$Path, [string]$ApiBase) {
