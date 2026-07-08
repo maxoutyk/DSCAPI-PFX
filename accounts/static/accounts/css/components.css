@@ -21,6 +21,8 @@
   padding: var(--space-5);
   box-shadow: var(--shadow-card);
   transition: transform var(--transition), box-shadow var(--transition);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .card:hover {
@@ -188,8 +190,11 @@ select.form-control.form-control-btn:focus {
 }
 
 .btn-lg {
-  padding: 14px 24px;
-  font-size: 1rem;
+  padding: 14px 26px;
+  font-size: 0.98rem;
+  border-radius: var(--radius-md);
+  letter-spacing: -0.015em;
+  font-weight: 700;
 }
 
 /* Forms */
@@ -502,13 +507,20 @@ textarea.form-control:focus {
 
 /* Tables */
 .table-wrap {
+  display: block;
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
 
 table.data-table {
   width: 100%;
+  min-width: 36rem;
   border-collapse: collapse;
   font-size: 0.875rem;
 }
@@ -700,6 +712,11 @@ pre code {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+.grid-2 > * {
+  min-width: 0;
 }
 
 .stack {
@@ -736,6 +753,10 @@ pre code {
 @media (max-width: 1024px) {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -1,6 +1,6 @@
 /* IG E-Sign — Incite Gravity brand tokens */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
   /* Incite Gravity palette — https://incitegravity.com/ */
@@ -27,13 +27,13 @@
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
 
-  --font-display: 'Inter', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
   --radius-full: 999px;
 
   --space-1: 4px;
@@ -50,9 +50,9 @@
   --topbar-height: 56px;
   --content-max: 1280px;
 
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border);
-  --shadow-glow: 0 0 40px var(--accent-glow);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8px 32px rgba(0, 0, 0, 0.28);
+  --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.32), 0 0 0 1px var(--border-strong);
+  --shadow-glow: 0 0 48px color-mix(in srgb, var(--accent-glow) 90%, transparent);
 
   --transition: 180ms ease-out;
 }
@@ -79,6 +79,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -88,6 +89,8 @@ body {
   line-height: 1.6;
   color: var(--text-primary);
   background: var(--bg);
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 h1, h2, h3, h4 {

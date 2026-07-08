@@ -33,10 +33,7 @@ jobs:
           }
           Write-Host "MSIX identity: $env:MSIX_PACKAGE_NAME"
 
-      - name: Install Inno Setup
-        run: choco install innosetup -y
-
-      - name: Build agent installer and Store MSIX
+      - name: Build agent and Store MSIX
         shell: pwsh
         env:
           AGENT_API_BASE: https://sign.incitegravity.com
@@ -44,11 +41,6 @@ jobs:
           MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
           MSIX_PUBLISHER_DISPLAY_NAME: INCITEGRAVITY PRIVATE LIMITED
         run: ./build/windows/build-agent.ps1 -BuildMsix
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: IG-E-Sign-Agent-Setup
-          path: desktop-agent/releases/IG-E-Sign-Agent-Setup.exe
 
       - uses: actions/upload-artifact@v4
         with:

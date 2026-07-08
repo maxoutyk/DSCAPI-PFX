@@ -62,34 +62,15 @@ class UsbAgentFlowTests(TestCase):
         self.assertEqual(AgentDevice.objects.filter(tenant=self.tenant).count(), 1)
 
     def test_agent_version_endpoint_is_public(self):
-        from .distribution import read_agent_version
+        from .distribution import microsoft_store_agent_url, read_agent_version
 
         response = self.api.get('/api/agent/version/')
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload['version'], read_agent_version())
-        self.assertIn('has_windows_installer', payload)
-        if payload['has_windows_installer']:
-            self.assertIn('store_download_url', payload)
-            self.assertIn('/downloads/agent/', payload['store_download_url'])
-            self.assertTrue(payload['store_download_url'].endswith('IG-E-Sign-Agent-Setup.exe'))
-
-    def test_store_installer_download_is_public_and_versioned(self):
-        from .distribution import read_agent_version, resolve_agent_installer_path
-
-        if resolve_agent_installer_path() is None:
-            self.skipTest('Windows installer not present locally')
-
-        version = read_agent_version()
-        anon = Client()
-        ok = anon.get(f'/downloads/agent/{version}/IG-E-Sign-Agent-Setup.exe')
-        self.assertEqual(ok.status_code, 200)
-        self.assertIn('IG-E-Sign-Agent-Setup.exe', ok['Content-Disposition'])
-        body = b''.join(ok.streaming_content)
-        self.assertGreater(len(body), 500)
-
-        missing = anon.get('/downloads/agent/0.0.1/IG-E-Sign-Agent-Setup.exe')
-        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(payload['microsoft_store_url'], microsoft_store_agent_url())
+        self.assertNotIn('store_download_url', payload)
+        self.assertNotIn('has_windows_installer', payload)
 
     def test_agent_heartbeat_and_usb_sign_job(self):
         if not self.has_pfx:
@@ -226,32 +207,13 @@ class UsbAgentFlowTests(TestCase):
         response = anon.get('/dashboard/agent/')
         self.assertEqual(response.status_code, 302)
 
-    def test_agent_download_requires_login(self):
-        anon = Client()
-        response = anon.get('/dashboard/agent/download/')
-        self.assertEqual(response.status_code, 302)
+    def test_agent_page_shows_microsoft_store_link(self):
+        from .distribution import microsoft_store_agent_url
 
-    def test_agent_download_returns_zip_for_active_tenant(self):
-        from .distribution import resolve_agent_installer_path
-
-        response = self.client.get('/dashboard/agent/download/')
+        response = self.client.get('/dashboard/agent/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('attachment', response['Content-Disposition'])
-        self.assertGreater(len(response.content), 500)
-        if resolve_agent_installer_path() is not None:
-            self.assertEqual(response['Content-Type'], 'application/octet-stream')
-            self.assertIn('IG-E-Sign-Agent-Setup.exe', response['Content-Disposition'])
-            return
-
-        self.assertEqual(response['Content-Type'], 'application/zip')
-        import zipfile
-        from io import BytesIO
-
-        with zipfile.ZipFile(BytesIO(response.content)) as archive:
-            names = archive.namelist()
-        self.assertIn('ig-esign-agent/agent.py', names)
-        self.assertIn('ig-esign-agent/portal.url', names)
-        self.assertIn('ig-esign-agent/start-agent.bat', names)
+        self.assertContains(response, microsoft_store_agent_url())
+        self.assertContains(response, 'Get from Microsoft Store')
 
 
 class TenantUsbSignApiTests(TestCase):

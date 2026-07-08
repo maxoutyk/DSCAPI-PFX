@@ -1,2 +1,20 @@
-{% include "accounts/partials/public_site_nav.html" %}
-{% include "accounts/partials/public_auth_actions.html" %}
+{% load static %}
+<header class="public-site-header">
+  <div class="public-site-header-inner">
+    <a href="{% url 'home' %}" class="auth-nav-brand">
+      <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="Incite Gravity" class="brand-logo brand-logo--dark">
+      <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="Incite Gravity" class="brand-logo brand-logo--light">
+      <span>IG E-Sign</span>
+    </a>
+    <button type="button" class="public-nav-toggle topbar-btn" id="public-nav-toggle" aria-expanded="false" aria-controls="public-nav-panel" aria-label="Open menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="public-nav-panel" id="public-nav-panel">
+      {% include "accounts/partials/public_site_nav.html" %}
+      <div class="public-nav-actions">
+        {% include "accounts/partials/public_auth_actions.html" %}
+      </div>
+    </div>
+  </div>
+</header>
+<div class="public-nav-backdrop" id="public-nav-backdrop" hidden></div>

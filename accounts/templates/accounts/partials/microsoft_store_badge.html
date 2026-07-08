@@ -1,0 +1,22 @@
+{% comment %}
+Windows / Microsoft Store download badge.
+Optional: size=sm|md, block=1 for full-width card layout.
+{% endcomment %}
+<a
+  href="{{ agent_microsoft_store_url }}"
+  class="ms-store-badge{% if size %} ms-store-badge--{{ size }}{% endif %}{% if variant %} ms-store-badge--{{ variant }}{% endif %}{% if block %} ms-store-badge--block{% endif %}"
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label="Get IG E-Sign Agent from the Microsoft Store for Windows"
+>
+  <svg class="ms-store-badge__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path fill="#00adef" d="M3 3h8.5v8.5H3V3Z"/>
+    <path fill="#7fba00" d="M12.5 3H21v8.5h-8.5V3Z"/>
+    <path fill="#ffb900" d="M3 12.5h8.5V21H3v-8.5Z"/>
+    <path fill="#f25022" d="M12.5 12.5H21V21h-8.5v-8.5Z"/>
+  </svg>
+  <span class="ms-store-badge__copy">
+    <span class="ms-store-badge__eyebrow">Download for Windows</span>
+    <span class="ms-store-badge__title">Get from Microsoft Store</span>
+  </span>
+</a>

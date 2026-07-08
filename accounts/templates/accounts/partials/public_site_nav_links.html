@@ -1,6 +1,6 @@
 <a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Home</a>
 <a href="{% url 'marketing_features' %}"{% if request.resolver_match.url_name == 'marketing_features' %} aria-current="page"{% endif %}>Features</a>
 <a href="{% url 'marketing_pricing' %}"{% if request.resolver_match.url_name == 'marketing_pricing' %} aria-current="page"{% endif %}>Pricing</a>
-<a href="{% url 'blog_index' %}"{% if request.resolver_match.url_name == 'blog_index' or request.resolver_match.url_name == 'blog_post' %} aria-current="page"{% endif %}>Blog</a>
 <a href="{% url 'public_api_docs' %}"{% if request.resolver_match.url_name == 'public_api_docs' %} aria-current="page"{% endif %}>API docs</a>
-<a href="{% url 'public_sign' %}"{% if request.resolver_match.url_name == 'public_sign' %} aria-current="page"{% endif %}>Free sign</a>
+<a href="{% url 'blog_index' %}"{% if request.resolver_match.url_name == 'blog_index' or request.resolver_match.url_name == 'blog_post' %} aria-current="page"{% endif %}>Blog</a>
+<a href="{% url 'public_sign' %}" class="nav-link--accent"{% if request.resolver_match.url_name == 'public_sign' %} aria-current="page"{% endif %}>Free sign</a>

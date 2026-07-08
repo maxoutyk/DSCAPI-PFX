@@ -3,13 +3,7 @@ from django.urls import path
 from . import portal_views
 
 urlpatterns = [
-    path(
-        'downloads/agent/<str:version>/IG-E-Sign-Agent-Setup.exe',
-        portal_views.agent_store_download_view,
-        name='usb_agent_store_download',
-    ),
     path('dashboard/agent/', portal_views.agent_view, name='usb_agent'),
-    path('dashboard/agent/download/', portal_views.agent_download_view, name='usb_agent_download'),
     path('dashboard/agent/pair/', portal_views.agent_pair_code_view, name='usb_agent_pair'),
     path('dashboard/agent/revoke/<int:device_id>/', portal_views.agent_revoke_view, name='usb_agent_revoke'),
     path('dashboard/sign/usb/', portal_views.sign_usb_view, name='usb_sign'),

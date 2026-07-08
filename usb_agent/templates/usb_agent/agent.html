@@ -2,47 +2,47 @@
 {% load static display_tz %}
 {% block title %}USB Agent — IG E-Sign{% endblock %}
 {% block page_title %}USB Agent{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'accounts/css/microsoft-store-badge.css' %}">
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <h1>USB DSC agent</h1>
   <p class="subtitle">Pair the IG E-Sign desktop agent to sign with a USB token. Uses your existing tenant account — no separate login.</p>
 </div>
 
-<div class="card card-flat" style="margin-bottom:var(--space-4);">
+<div class="card card-flat agent-download-card">
   <div class="card-header">
     <h2>Download agent</h2>
     <span class="badge badge-neutral">v{{ agent_version }}</span>
   </div>
-  <p style="color:var(--text-secondary);font-size:0.9rem;margin:0 0 16px;max-width:640px;">
-    Install the IG E-Sign desktop agent on the computer where your USB DSC token is connected.
-    The download is preconfigured for this portal (<span class="mono">{{ site_url }}</span>).
-  </p>
-  {% if tenant.status == 'active' %}
-  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-    <a href="{% url 'usb_agent_download' %}" class="btn">
-      {% if has_windows_installer %}Download for Windows (.exe){% else %}Download agent package (ZIP){% endif %}
-    </a>
-    {% if has_windows_installer %}
-    <span style="font-size:0.8rem;color:var(--text-secondary);">Installer includes portal.url preconfigured for <span class="mono">{{ site_url }}</span>.</span>
-    <p style="margin:8px 0 0;font-size:0.78rem;color:var(--text-secondary);max-width:640px;">
-      Windows Defender may flag unsigned installers as unknown. If blocked, use <strong>Protection history</strong> → Allow, or add an exclusion for the install folder. Download only from this portal page.
-    </p>
-    {% if store_download_url %}
-    <p style="margin:8px 0 0;font-size:0.78rem;color:var(--text-secondary);max-width:640px;">
-      Microsoft Store package URL: <span class="mono">{{ store_download_url }}</span>
-    </p>
-    {% endif %}
-    {% else %}
-    <span style="font-size:0.8rem;color:var(--text-secondary);">Windows installer builds on CI — ZIP works everywhere with Python 3.</span>
-    {% endif %}
+  <div class="agent-download-cta">
+    <div class="agent-download-cta__copy">
+      <p class="agent-download-cta__label">
+        <svg class="agent-download-cta__win" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path fill="#00adef" d="M3 3h8.5v8.5H3V3Z"/>
+          <path fill="#7fba00" d="M12.5 3H21v8.5h-8.5V3Z"/>
+          <path fill="#ffb900" d="M3 12.5h8.5V21H3v-8.5Z"/>
+          <path fill="#f25022" d="M12.5 12.5H21V21h-8.5v-8.5Z"/>
+        </svg>
+        Windows desktop agent
+      </p>
+      <p class="agent-download-cta__text">
+        Install on the PC where your USB DSC token is connected. Pair once from this portal,
+        then sign with PKCS#11 — private keys stay on the token.
+      </p>
+      <p class="agent-download-cta__hint">
+        After install, open <span class="mono">IG E-Sign Agent</span>, enter your pairing code,
+        and keep the app in the system tray while signing.
+      </p>
+      {% if tenant.status != 'active' %}
+      <p class="agent-download-cta__notice">Your account must be approved before pairing an agent.</p>
+      {% endif %}
+    </div>
+    <div class="agent-download-cta__action">
+      {% include "accounts/partials/microsoft_store_badge.html" with variant="hero" %}
+    </div>
   </div>
-  <p style="margin:12px 0 0;font-size:0.8rem;color:var(--text-secondary);">
-    Windows installer: launch <span class="mono">IG E-Sign Agent</span>, pair from the app window, then sign from the portal. Closing the window keeps the agent in the tray.
-    ZIP: <span class="mono">start-agent.bat</span> / <span class="mono">start-agent.sh</span>.
-  </p>
-  {% else %}
-  <p style="color:var(--text-secondary);">Your account must be approved before downloading the agent.</p>
-  {% endif %}
 </div>
 
 <div class="grid-2">

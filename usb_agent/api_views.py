@@ -20,9 +20,8 @@ from .services import (
     record_heartbeat,
 )
 from .distribution import (
-    build_store_installer_url,
+    microsoft_store_agent_url,
     read_agent_version,
-    resolve_agent_installer_path,
 )
 from .throttling import AgentHeartbeatThrottle, AgentJobThrottle, AgentPairThrottle
 
@@ -32,16 +31,12 @@ class AgentVersionView(APIView):
     authentication_classes = []
 
     def get(self, request):
-        has_installer = resolve_agent_installer_path() is not None
-        payload = {
-            'version': read_agent_version(),
-            'has_windows_installer': has_installer,
-        }
-        if has_installer:
-            payload['store_download_url'] = build_store_installer_url(
-                request.build_absolute_uri('/').rstrip('/'),
-            )
-        return Response(payload)
+        return Response(
+            {
+                'version': read_agent_version(),
+                'microsoft_store_url': microsoft_store_agent_url(),
+            },
+        )
 
 
 class AgentPairView(APIView):
@@ -94,7 +89,7 @@ class AgentHeartbeatView(APIView):
             {
                 'status': 'ok',
                 'latest_agent_version': read_agent_version(),
-                'has_windows_installer': resolve_agent_installer_path() is not None,
+                'microsoft_store_url': microsoft_store_agent_url(),
             },
         )
 

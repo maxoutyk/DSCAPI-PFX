@@ -111,6 +111,15 @@ class SeoEndpointTests(TestCase):
         self.assertIn('index, follow', body)
 
     @override_settings(SITE_URL='https://sign.example.com')
+    def test_homepage_shows_microsoft_store_agent_link(self):
+        from usb_agent.distribution import microsoft_store_agent_url
+
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, microsoft_store_agent_url())
+        self.assertContains(response, 'Get from Microsoft Store')
+
+    @override_settings(SITE_URL='https://sign.example.com')
     def test_api_docs_has_canonical(self):
         response = self.client.get(reverse('public_api_docs'))
         self.assertEqual(response.status_code, 200)

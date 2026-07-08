@@ -1,13 +1,19 @@
 {$DOMAIN} {
-    encode gzip
+    @validHost host {$DOMAIN}
+    handle @validHost {
+        encode gzip
 
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "same-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains"
+            X-Content-Type-Options "nosniff"
+            X-Frame-Options "DENY"
+            Referrer-Policy "same-origin"
+            Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        }
+
+        reverse_proxy web:8000
     }
 
-    reverse_proxy web:8000
+    # Direct IP / wrong Host scans — do not forward to Django (avoids DisallowedHost noise).
+    respond 404
 }

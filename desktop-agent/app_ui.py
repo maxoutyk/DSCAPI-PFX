@@ -1283,10 +1283,17 @@ class AgentDashboard:
 
     def _download_installer(self) -> None:
         base = self._portal_base_url()
-        if not base:
-            self.toast.show('Portal URL is not configured.', tone='warn')
-            return
-        webbrowser.open(f'{base}/dashboard/agent/download/')
+        store_url = 'https://apps.microsoft.com/store/detail/9MSNF2CD9JTC?cid=DevShareMCLPCS'
+        if base:
+            try:
+                import requests
+
+                response = requests.get(f'{base.rstrip("/")}/api/agent/version/', timeout=10)
+                if response.ok:
+                    store_url = response.json().get('microsoft_store_url') or store_url
+            except Exception:
+                pass
+        webbrowser.open(store_url)
 
     def _open_config_folder(self) -> None:
         import os

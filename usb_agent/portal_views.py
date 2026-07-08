@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, HttpResponse, HttpResponseNotFound, JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -13,13 +13,8 @@ from accounts.models import TenantStatus
 from accounts.services import get_primary_tenant
 
 from .distribution import (
-    agent_zip_filename,
-    build_agent_zip,
-    build_store_installer_url,
-    normalize_agent_version_for_url,
+    microsoft_store_agent_url,
     read_agent_version,
-    resolve_agent_installer_path,
-    windows_installer_filename,
 )
 from .models import AgentDevice, UsbSignJob, UsbSignJobStatus
 from .services import SignJobError, create_pairing_code, prepare_usb_sign_job, revoke_device
@@ -40,58 +35,9 @@ def agent_view(request):
             'agent_local_port': settings.USB_AGENT_LOCAL_PORT,
             'site_url': request.build_absolute_uri('/').rstrip('/'),
             'agent_version': read_agent_version(),
-            'has_windows_installer': resolve_agent_installer_path() is not None,
-            'store_download_url': (
-                build_store_installer_url(request.build_absolute_uri('/').rstrip('/'))
-                if resolve_agent_installer_path() is not None
-                else ''
-            ),
+            'microsoft_store_url': microsoft_store_agent_url(),
         },
     )
-
-
-@require_http_methods(['GET'])
-def agent_store_download_view(request, version: str):
-    """Public versioned installer URL for Microsoft Store and direct HTTPS downloads."""
-    if normalize_agent_version_for_url(version) != normalize_agent_version_for_url(read_agent_version()):
-        return HttpResponseNotFound('Installer version not found.')
-    installer_path = resolve_agent_installer_path()
-    if installer_path is None:
-        return HttpResponseNotFound('Windows installer is not available.')
-    response = FileResponse(
-        installer_path.open('rb'),
-        as_attachment=True,
-        filename=windows_installer_filename(),
-        content_type='application/vnd.microsoft.portable-executable',
-    )
-    response['Cache-Control'] = 'public, max-age=3600'
-    return response
-
-
-@login_required
-@primary_tenant_required
-@require_http_methods(['GET'])
-def agent_download_view(request):
-    tenant = get_primary_tenant(request.user)
-    if not tenant or tenant.status != TenantStatus.ACTIVE:
-        messages.error(request, 'Your account must be active to download the agent.')
-        return redirect('usb_agent')
-
-    installer_path = resolve_agent_installer_path()
-    if installer_path is not None:
-        payload = installer_path.read_bytes()
-        response = HttpResponse(payload, content_type='application/octet-stream')
-        response['Content-Disposition'] = f'attachment; filename="{windows_installer_filename()}"'
-        response['Content-Length'] = len(payload)
-        return response
-
-    api_base = request.build_absolute_uri('/').rstrip('/')
-    payload = build_agent_zip(api_base=api_base)
-    version = read_agent_version()
-    response = HttpResponse(payload, content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{agent_zip_filename(version)}"'
-    response['Content-Length'] = len(payload)
-    return response
 
 
 @login_required

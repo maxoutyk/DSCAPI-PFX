@@ -135,6 +135,7 @@
       </main>
     </div>
   </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
 
   {% else %}
   <div class="auth-shell {% block public_shell_class %}{% endblock %}">
@@ -142,18 +143,9 @@
     <svg class="signature-deco" viewBox="0 0 200 60" aria-hidden="true">
       <path class="signature-stroke" d="M10,45 Q40,10 70,40 T130,35 T190,20"/>
     </svg>
-    <header class="auth-nav">
-      <a href="{% url 'home' %}" class="auth-nav-brand">
-        <img src="{% static 'accounts/img/ig-logo-dark.png' %}" alt="Incite Gravity" class="brand-logo brand-logo--dark">
-        <img src="{% static 'accounts/img/ig-logo-light.png' %}" alt="Incite Gravity" class="brand-logo brand-logo--light">
-        <span style="font-weight:800;letter-spacing:-0.03em;">IG E-Sign</span>
-      </a>
-      <div class="auth-nav-links">
-        {% block auth_nav %}
-        {% include "accounts/partials/public_auth_nav.html" %}
-        {% endblock %}
-      </div>
-    </header>
+    {% block auth_nav %}
+    {% include "accounts/partials/public_auth_nav.html" %}
+    {% endblock %}
     {% if messages %}
     <div class="messages" role="status" aria-live="polite" style="position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 24px;">
       {% for message in messages %}

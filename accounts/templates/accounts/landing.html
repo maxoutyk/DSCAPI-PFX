@@ -2,72 +2,70 @@
 {% load static %}
 {% block public_shell_class %}auth-shell--landing{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'accounts/css/landing-premium.css' %}">
+<link rel="stylesheet" href="{% static 'accounts/css/microsoft-store-badge.css' %}">
+{% endblock %}
+
 {% block public_content %}
 <div class="landing-page">
-  <section class="landing-hero-section" aria-labelledby="landing-hero-title">
+  <section class="landing-hero-section landing-reveal" aria-labelledby="landing-hero-title">
     <div class="landing-hero-copy">
       <p class="landing-eyebrow">Incite Gravity · Class 3 digital signatures</p>
-      <h1 id="landing-hero-title">Sign PDFs with <span class="accent-text">authority</span>,<br>verify GST, via API or browser.</h1>
+      <h1 id="landing-hero-title">Sign PDFs with <span class="accent-text">Class 3 DSC</span> — API, portal, or USB token.</h1>
       <p class="landing-lead">
-        IG E-Sign is a developer-first platform for PFX and Class 3 DSC USB token signing,
-        plus GSTIN lookups, E-way bill print, and e-invoice (IRN) print from your dashboard or REST API.
-        Integrate signing, keep private keys on the token with our Windows desktop agent, or use the portal —
-        with audit trails and custom placement.
+        IG E-Sign is the developer-first platform for PFX and USB DSC signing, GSTIN verification,
+        and E-way bill and e-invoice print — with audit trails, tenant isolation, and a Windows agent
+        that keeps private keys on the token.
       </p>
       <div class="landing-cta">
-        <a href="{% url 'public_sign' %}" class="btn btn-lg">Sign free — no login</a>
-        <a href="{% url 'register' %}" class="btn btn-secondary btn-lg">Start for free</a>
-        <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works</a>
+        <a href="{% url 'register' %}" class="btn btn-lg">Start for free</a>
+        <a href="{% url 'public_sign' %}" class="btn btn-secondary btn-lg">Sign a PDF — no account</a>
       </div>
-      <ul class="landing-hero-bullets">
-        <li>100 signs/month on the free tier</li>
-        <li>PFX API, Class 3 USB DSC, GSTIN, E-way bill &amp; e-invoice print</li>
-        <li>Private key never leaves the USB token</li>
-        <li>SHA-256 audit on every signature</li>
-      </ul>
+      <p class="landing-hero-free-note"><strong>100</strong> signatures / month free</p>
     </div>
     <div class="landing-hero-visual landing-hero-visual--usb">
-      <img
-        src="{% static 'accounts/img/landing/usb-dsc-hero.svg' %}"
-        alt="Class 3 USB DSC token connected to a Windows PC while IG E-Sign API prepares the signing job"
-        class="landing-hero-image"
-        width="640"
-        height="480"
-        loading="eager"
-        fetchpriority="high"
-        decoding="async"
-      >
-      <div class="landing-hero-badge glass-card">
-        <span class="badge badge-success">Signed</span>
-        <span class="mono">via USB token · PKCS#11</span>
+      <div class="landing-hero-visual-frame">
+        <img
+          src="{% static 'accounts/img/landing/usb-dsc-hero.svg' %}"
+          alt="Class 3 USB DSC token connected to a Windows PC while IG E-Sign API prepares the signing job"
+          class="landing-hero-image"
+          width="640"
+          height="480"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+        >
+        <div class="landing-hero-badge glass-card">
+          <span class="badge badge-success">Signed</span>
+          <span class="mono">via USB token · PKCS#11</span>
+        </div>
       </div>
     </div>
+    <aside class="landing-hero-agent-cta glass-card" aria-label="Download IG E-Sign Agent for Windows">
+      <div class="landing-hero-agent-cta__copy">
+        <p class="landing-hero-agent-cta__label">
+          <svg class="landing-hero-agent-cta__win" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path fill="#00adef" d="M3 3h8.5v8.5H3V3Z"/>
+            <path fill="#7fba00" d="M12.5 3H21v8.5h-8.5V3Z"/>
+            <path fill="#ffb900" d="M3 12.5h8.5V21H3v-8.5Z"/>
+            <path fill="#f25022" d="M12.5 12.5H21V21h-8.5v-8.5Z"/>
+          </svg>
+          IG E-Sign Agent for Windows
+        </p>
+        <h2 class="landing-hero-agent-cta__title">Sign locally with your USB DSC token</h2>
+        <p class="landing-hero-agent-cta__text">
+          Install from the Microsoft Store, pair once in the portal, then sign via PKCS#11.
+          Private keys stay on the token — PIN entry never leaves your PC.
+        </p>
+      </div>
+      <div class="landing-hero-agent-cta__action">
+        {% include "accounts/partials/microsoft_store_badge.html" with variant="hero" %}
+      </div>
+    </aside>
   </section>
 
-  <section class="landing-stats" aria-label="Platform highlights">
-    <div class="landing-stat">
-      <strong>Signing + GST</strong>
-      <span>PDF signatures, GSTIN, E-way &amp; e-invoice in one account</span>
-    </div>
-    <div class="landing-stat">
-      <strong>Class 3 USB DSC</strong>
-      <span>PKCS#11 signing via IG E-Sign Agent</span>
-    </div>
-    <div class="landing-stat">
-      <strong>GST services</strong>
-      <span>GSTIN, E-way bill print &amp; e-invoice (IRN)</span>
-    </div>
-    <div class="landing-stat">
-      <strong>Audit trail</strong>
-      <span>Hashes, document type &amp; client IP logged</span>
-    </div>
-    <div class="landing-stat">
-      <strong>ISO 27001:2022</strong>
-      <span>Built by a certified security partner</span>
-    </div>
-  </section>
-
-  <section class="landing-usb-gallery" aria-label="Class 3 USB DSC visuals">
+  <section class="landing-usb-gallery landing-reveal" aria-label="How USB signing works">
     <article class="landing-usb-gallery-card glass-card">
       <div class="landing-usb-gallery-media">
         <img src="{% static 'accounts/img/landing/usb-token-closeup.svg' %}" alt="Class 3 DSC USB token with private key stored on device" width="360" height="360" loading="lazy" decoding="async">
@@ -82,104 +80,80 @@
       <h3>API + local signing</h3>
       <p>Cloud prepares the job. Windows agent signs with PKCS#11. Your backend polls and downloads.</p>
     </article>
-    <article class="landing-usb-gallery-card glass-card">
+    <article class="landing-usb-gallery-card glass-card landing-usb-gallery-card--agent">
       <div class="landing-usb-gallery-media">
         <img src="{% static 'accounts/img/landing/agent-tray.svg' %}" alt="IG E-Sign Agent in the Windows system tray with PIN entry" width="480" height="320" loading="lazy" decoding="async">
       </div>
-      <h3>Desktop agent</h3>
+      <h3 class="landing-usb-gallery-title">
+        <svg class="landing-usb-gallery-title__win" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path fill="#00adef" d="M3 3h8.5v8.5H3V3Z"/>
+          <path fill="#7fba00" d="M12.5 3H21v8.5h-8.5V3Z"/>
+          <path fill="#ffb900" d="M3 12.5h8.5V21H3v-8.5Z"/>
+          <path fill="#f25022" d="M12.5 12.5H21V21h-8.5v-8.5Z"/>
+        </svg>
+        Desktop agent
+      </h3>
       <p>Pair once from the portal. Agent runs in the tray and prompts for the token PIN when needed.</p>
     </article>
   </section>
 
-  <section id="features" class="landing-section">
+  <section id="features" class="landing-section landing-reveal">
     <div class="landing-section-header">
-      <p class="landing-eyebrow">Capabilities</p>
+      <p class="landing-eyebrow">Platform</p>
       <h2>Everything you need to sign at scale</h2>
-      <p>PFX API, Class 3 USB tokens, GSTIN, E-way bill, e-invoice print, and a portal — one platform, one audit log, your certificates.</p>
+      <p>PFX API, Class 3 USB tokens, GST services, and a production portal — one account, one audit log.</p>
     </div>
-    <div class="landing-features-grid">
-      <article class="landing-feature-card landing-feature-card--highlight">
+    <div class="landing-bento">
+      <article class="landing-feature-card landing-feature-card--wide landing-feature-card--highlight">
         <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/><path d="M9 7h2"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg>
         </div>
-        <p class="landing-feature-tag">New</p>
-        <h3>GSTIN, E-way bill &amp; e-invoice</h3>
-        <p>
-          Verify GSTIN details and return status, and download E-way bill and e-invoice (IRN) PDFs
-          from the dashboard or your own integration. Separate monthly quota from signing.
-        </p>
+        <h3>Class 3 USB DSC signing</h3>
+        <p>Private key stays on the token. Your ERP or portal prepares the job in the cloud; the IG E-Sign Agent signs via PKCS#11 on Windows. PIN entry never leaves the signing PC.</p>
       </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/><path d="M12 12v2"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
-        <h3>Class 3 USB DSC signing</h3>
-        <p>
-          Keep the private key on the USB token. Your ERP or portal prepares the job in the cloud;
-          the IG E-Sign Agent on Windows signs via PKCS#11 and uploads the result. PIN entry stays on the signing PC.
-        </p>
+        <h3>GSTIN, E-way &amp; e-invoice</h3>
+        <p>Verify GSTIN, print E-way bills, and download e-invoice PDFs by IRN — separate monthly quota from signing.</p>
       </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
         </div>
-        <h3>API signing</h3>
-        <p>Send a PDF with your API key. Use inline PFX or a saved certificate alias. Automatic anchor detection and signature placement.</p>
+        <h3>PFX API</h3>
+        <p>REST signing with inline PFX or saved certificate aliases. Automatic anchor detection and placement.</p>
       </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M9 2v2M15 2v2"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
         </div>
-        <h3>IG E-Sign desktop agent</h3>
-        <p>Pair once with a code from the portal. Runs in the Windows system tray, listens on localhost, and signs jobs prepared by your API or portal workflow.</p>
-      </article>
-      <article class="landing-feature-card">
-        <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
-        </div>
-        <h3>In-browser signing</h3>
-        <p>Upload a PDF in the portal, preview placement with PDF.js, sign with a saved certificate, and download — no integration required.</p>
-      </article>
-      <article class="landing-feature-card">
-        <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <h3>Saved certificates</h3>
-        <p>Store PFX files encrypted per tenant. Reference certificates by alias in API calls or the portal — passwords are never persisted.</p>
+        <h3>Desktop agent</h3>
+        <p>Pair once, run in the system tray, sign from localhost for browser and ERP workflows.</p>
       </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>
         </div>
-        <h3>Signing audit trail</h3>
-        <p>Every signature records SHA-256 hashes before and after, detected document type, client IP, and whether it came from the API or browser.</p>
+        <h3>Audit trail</h3>
+        <p>SHA-256 hashes, document type, client IP, and endpoint logged on every signature and GST call.</p>
       </article>
       <article class="landing-feature-card">
         <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
         </div>
-        <h3>Signature styling</h3>
-        <p>Opt in to custom anchor text, box size, and placement offsets per tenant. Existing API clients keep platform defaults until you enable it.</p>
-      </article>
-      <article class="landing-feature-card">
-        <div class="landing-feature-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        </div>
-        <h3>Tenant dashboard</h3>
-        <p>Organization accounts with API keys, signing and GST quotas, company profile, activity history, and certificate management — ready for production workloads.</p>
+        <h3>Portal signing</h3>
+        <p>Upload, preview placement with PDF.js, sign in-browser, and download — no integration required.</p>
       </article>
     </div>
   </section>
 
-  <section id="gst-lookup" class="landing-section landing-section--alt">
+  <section id="gst-lookup" class="landing-section landing-section--alt landing-reveal">
     <div class="landing-section-header">
       <p class="landing-eyebrow">GST services</p>
       <h2>GSTIN, E-way bill, and e-invoice from one place</h2>
-      <p>
-        Look up GSTIN details, filing preferences, and return status — and download E-way bill and
-        e-invoice (IRN) PDFs — without leaving IG E-Sign. Use the dashboard for quick checks, or connect
-        your ERP or compliance tools when you are ready to integrate.
-      </p>
+      <p>Look up GSTIN details and download compliance PDFs without leaving IG E-Sign — dashboard or API.</p>
     </div>
     <div class="landing-gst-layout">
       <figure class="landing-gst-figure glass-card">
@@ -187,8 +161,6 @@
           <img
             src="{% static 'accounts/img/landing/gst-lookup-console.svg' %}"
             alt="IG E-Sign GST Services console for GSTIN lookup, E-way bill print, and e-invoice IRN print"
-            width="640"
-            height="480"
             loading="lazy"
             decoding="async"
           >
@@ -199,85 +171,30 @@
         <ol class="landing-usb-steps">
           <li>
             <strong>GSTIN details</strong>
-            <span>Registration status, legal name, filing preferences, and return status for a GSTIN.</span>
+            <span>Registration status, legal name, filing preferences, and return status.</span>
           </li>
           <li>
             <strong>E-way bill print</strong>
-            <span>Download detailed, regular, or consolidate E-way bill PDFs by 12-digit e-way bill number.</span>
+            <span>Detailed, regular, or consolidate PDFs by 12-digit e-way bill number.</span>
           </li>
           <li>
             <strong>E-invoice print (IRN)</strong>
-            <span>Download the e-invoice PDF using the 64-character Invoice Reference Number (IRN).</span>
+            <span>Download e-invoice PDF using the 64-character Invoice Reference Number.</span>
           </li>
         </ol>
-        <div class="landing-usb-flow-divider" aria-hidden="true"></div>
-        <ul class="landing-usb-points landing-gst-points">
-          <li>Try services in the portal under <strong>GST</strong> — no technical setup required</li>
-          <li>Uses the same API key and company profile as PDF signing</li>
-          <li>Add <strong>NIC portal credentials</strong> on your profile for E-way and e-invoice PDFs</li>
-          <li>Separate monthly GST quota from signing usage</li>
-        </ul>
         <div class="landing-gst-actions">
           <a href="{% url 'register' %}" class="btn btn-sm">Get started</a>
-          <a href="{% url 'public_api_docs' %}" class="btn btn-secondary btn-sm">Developer documentation</a>
+          <a href="{% url 'public_api_docs' %}" class="btn btn-secondary btn-sm">API documentation</a>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="usb-signing" class="landing-section">
-    <div class="landing-section-header">
-      <p class="landing-eyebrow">Class 3 USB DSC</p>
-      <h2>Sign with the token — not a file upload</h2>
-      <p>
-        For eMudhra, Capricorn, and other Class 3 DSC tokens, the private key never leaves the USB device.
-        IG E-Sign prepares the PDF in the cloud; signing happens locally via PKCS#11 on the machine where the token is plugged in.
-      </p>
-    </div>
-    <div class="landing-usb-layout">
-      <div class="landing-usb-flow glass-card">
-        <ol class="landing-usb-steps">
-          <li>
-            <strong>Prepare</strong>
-            <span>Your backend or portal creates a sign job and assigns it to the paired signing PC.</span>
-          </li>
-          <li>
-            <strong>Sign locally</strong>
-            <span>The IG E-Sign Agent on Windows prompts for the token PIN and signs via PKCS#11.</span>
-          </li>
-          <li>
-            <strong>Retrieve</strong>
-            <span>Poll job status, then download the signed PDF - same audit trail as PFX signing.</span>
-          </li>
-        </ol>
-        <div class="landing-usb-flow-divider" aria-hidden="true"></div>
-        <ul class="landing-usb-points">
-          <li>One-time secure pairing from the portal</li>
-          <li>Works for ERP automation and portal upload flows</li>
-          <li>Signed PDF verified server-side before delivery</li>
-        </ul>
-      </div>
-      <figure class="landing-usb-figure glass-card">
-        <div class="landing-usb-figure-media">
-          <img
-            src="{% static 'accounts/img/landing/usb-dsc-hero.svg' %}"
-            alt="Diagram showing IG E-Sign API, Windows signing workstation, Class 3 USB token, and signed PDF output"
-            width="640"
-            height="480"
-            loading="lazy"
-            decoding="async"
-          >
-        </div>
-        <figcaption>Private key on token, signed PDF in the cloud, full audit trail</figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section id="how-it-works" class="landing-section">
+  <section id="how-it-works" class="landing-section landing-reveal">
     <div class="landing-section-header">
       <p class="landing-eyebrow">Three ways to sign</p>
       <h2>Integrate in minutes, sign on token, or use the portal</h2>
-      <p>Choose the path that fits your team. All flows share the same quotas, certificates, and audit log.</p>
+      <p>Choose the path that fits your team. All flows share quotas, certificates, and audit logging.</p>
     </div>
     <div class="landing-paths landing-paths--three">
       <article class="landing-path-card glass-card">
@@ -287,10 +204,10 @@
         <span class="landing-path-label">For developers</span>
         <h3>PFX API workflow</h3>
         <ol>
-          <li>Register your organization and get approved</li>
+          <li>Register and get approved</li>
           <li>Upload a PFX and create an API key</li>
-          <li>Send your PDF and certificate from your application</li>
-          <li>Receive the signed PDF plus signing ID and hash prefixes</li>
+          <li>Send PDF + certificate from your app</li>
+          <li>Receive signed PDF with signing ID and hashes</li>
         </ol>
         <a href="{% url 'register' %}" class="btn btn-sm">Create account</a>
       </article>
@@ -301,10 +218,10 @@
         <span class="landing-path-label">For Class 3 USB tokens</span>
         <h3>USB DSC workflow</h3>
         <ol>
-          <li>Install and pair the IG E-Sign Agent on the Windows signing PC</li>
-          <li>Prepare the sign job from your application with the PDF and signing PC</li>
-          <li>Trigger the local agent - user enters token PIN on that machine</li>
-          <li>Poll until complete, then download the signed PDF</li>
+          <li>Install and pair the IG E-Sign Agent on Windows</li>
+          <li>Prepare the sign job from your application</li>
+          <li>Trigger the local agent — user enters token PIN</li>
+          <li>Poll until complete, then download</li>
         </ol>
         <a href="{% url 'register' %}" class="btn btn-sm">Get started with USB</a>
       </article>
@@ -316,42 +233,40 @@
         <h3>Browser workflow</h3>
         <ol>
           <li>Sign in to your IG E-Sign dashboard</li>
-          <li>Upload a saved PFX or use <strong>Sign with USB</strong> in the portal</li>
-          <li>Drop your document, preview signature placement</li>
-          <li>Sign and download - event logged in activity</li>
+          <li>Upload a PFX or use Sign with USB</li>
+          <li>Preview signature placement</li>
+          <li>Sign and download — logged in activity</li>
         </ol>
         <a href="{% url 'register' %}" class="btn btn-sm">Get portal access</a>
       </article>
     </div>
   </section>
 
-  <section class="landing-section landing-section--alt landing-compliance">
+  <section class="landing-section landing-compliance landing-reveal">
     <div class="landing-compliance-inner glass-card">
       <div>
         <p class="landing-eyebrow">Trust &amp; compliance</p>
         <h2>Built for business-critical documents</h2>
         <p>
-          IG E-Sign supports PFX files and Class 3 DSC USB tokens for legally valid digital signatures,
-          plus GSTIN verification, E-way bill print, and e-invoice (IRN) print for compliance workflows.
-          With USB signing, credentials stay on the token — only the signed PDF is uploaded.
-          Platform defaults locate the <span class="mono">Authorised Signatory</span> anchor in your PDFs.
-          Every signing event and GST service call is traceable in your dashboard.
+          Legally valid digital signatures with PFX or Class 3 USB DSC, plus GSTIN verification and
+          E-way / e-invoice print for Indian compliance workflows. Multi-tenant isolation, rate limits,
+          and full traceability in your dashboard.
         </p>
+        <p class="landing-compliance-seal">ISO 27001:2022 · Incite Gravity</p>
       </div>
       <ul class="landing-compliance-list">
         <li>Private key never exported from USB DSC tokens</li>
-        <li>Company profile and NIC credentials for GST, E-way, and e-invoice</li>
-        <li>Multi-tenant isolation with per-org API keys</li>
-        <li>Rate limiting and monthly signing quotas</li>
+        <li>Company profile and NIC credentials for GST services</li>
+        <li>Per-organization API keys and encrypted certificates</li>
         <li>Document type auto-detection from PDF content</li>
-        <li>Incite Gravity — ISO 27001:2022 certified</li>
+        <li>SHA-256 audit on every signature and GST call</li>
       </ul>
     </div>
   </section>
 
-  <section class="landing-cta-band" aria-labelledby="landing-cta-title">
+  <section class="landing-cta-band landing-reveal" aria-labelledby="landing-cta-title">
     <h2 id="landing-cta-title">Ready to sign your first PDF?</h2>
-    <p>Create a free account, connect your PFX or Class 3 USB token, complete your company profile for GSTIN, E-way bill, and e-invoice services, and start signing via API, desktop agent, or browser today.</p>
+    <p>Create a free account and start signing via API, desktop agent, or browser — with GST services when you need them.</p>
     <div class="landing-cta">
       <a href="{% url 'register' %}" class="btn btn-lg">Create free account</a>
       <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
@@ -362,4 +277,49 @@
 
 {% block public_footer %}
 {% include "accounts/partials/marketing_footer.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var nodes = document.querySelectorAll('.landing-reveal');
+  if (!nodes.length) return;
+
+  document.documentElement.classList.add('js-reveal');
+
+  function reveal(el) {
+    el.classList.add('is-visible');
+  }
+
+  function inView(el) {
+    var rect = el.getBoundingClientRect();
+    var margin = 48;
+    return rect.top < window.innerHeight - margin && rect.bottom > margin;
+  }
+
+  nodes.forEach(function (el) {
+    if (inView(el)) reveal(el);
+  });
+
+  if (!('IntersectionObserver' in window)) {
+    nodes.forEach(reveal);
+    return;
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        reveal(entry.target);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -24px 0px' });
+
+  nodes.forEach(function (el) {
+    if (!el.classList.contains('is-visible')) observer.observe(el);
+  });
+})();
+</script>
 {% endblock %}
