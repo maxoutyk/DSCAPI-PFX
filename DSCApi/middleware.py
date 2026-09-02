@@ -1,4 +1,7 @@
+from DSCApi.client_error_logging import ClientErrorLoggingMiddleware
 from DSCApi.csp import csp_header_value, generate_csp_nonce, should_apply_csp
+
+__all__ = ['ClientErrorLoggingMiddleware', 'ContentSecurityPolicyMiddleware']
 
 
 class ContentSecurityPolicyMiddleware:

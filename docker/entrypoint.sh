@@ -16,7 +16,12 @@ if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASSWORD" ]; then
 fi
 
 echo "Starting Gunicorn..."
+# Access logs to stdout → Azure Log Analytics (ContainerAppConsoleLogs).
+# x-forwarded-for = real client IP behind ACA ingress; %(D)s = request time (µs).
 exec gunicorn DSCApi.wsgi:application \
   --bind 0.0.0.0:8000 \
   --workers "${GUNICORN_WORKERS:-2}" \
-  --timeout "${GUNICORN_TIMEOUT:-120}"
+  --timeout "${GUNICORN_TIMEOUT:-120}" \
+  --access-logfile - \
+  --error-logfile - \
+  --access-logformat '%({x-forwarded-for}i)s %(h)s %(t)s "%(r)s" %(s)s %(b)s "%(a)s" %(D)s'

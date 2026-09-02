@@ -136,6 +136,13 @@ QUOTA_LOW_REMAINING_PERCENT = int(os.environ.get('QUOTA_LOW_REMAINING_PERCENT', 
 VERIFY_EMAIL_TOKEN_HOURS = int(os.environ.get('VERIFY_EMAIL_TOKEN_HOURS', '24'))
 PASSWORD_RESET_TOKEN_HOURS = int(os.environ.get('PASSWORD_RESET_TOKEN_HOURS', '2'))
 
+# Log exact (redacted) reasons for these HTTP status codes only. Not 200/302.
+LOG_CLIENT_ERROR_STATUS_CODES = tuple(
+    int(part.strip())
+    for part in os.environ.get('LOG_CLIENT_ERROR_STATUS_CODES', '400,403,404').split(',')
+    if part.strip()
+)
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'DSCApi.middleware.ContentSecurityPolicyMiddleware',
@@ -146,6 +153,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'DSCApi.middleware.ClientErrorLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'DSCApi.urls'
